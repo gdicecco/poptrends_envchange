@@ -105,6 +105,21 @@ ggplot(summary.plot, aes(x = BCRs, y = total, fill = BCRs)) + geom_col() + facet
 # 1992-2001 land cover changes of interest per BCR
 
 # Other time points (2001-2006, 2006-2011)
+setwd("\\\\Bioark.bio.unc.edu\\hurlbertlab\\GIS\\LandCoverData\\nlcd_landcover_change\\")
+files <- list.files()
+nlcd.files <- files[str_detect(files, "2006")]
+dir <- getwd()
+
+get.file.img <- function(x) {
+  files2 <- list.files(paste0(dir, "/", nlcd.files[x], ""))
+  file.path <- files2[str_detect(files2, "img")]
+  return(list(folder = area.files[x], file.name = file.path))
+}
+
+file.2001 <- get.file.img(1)
+nlcd2001 <- raster(paste0(dir, "/", file.2001$folder, "/", file.2001$file.name, sep = ""))
+nlcd2001.km <- aggregate(nlcd2001, fact = 30, fun = modal)
+nlcd2001.df <- as.data.frame(rasterToPoints(nlcd2001.km)) # Need to find out what these indexes mean - 0 to 289
 
 # Land cover change over three time windows for each BCR
 
