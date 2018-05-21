@@ -101,10 +101,10 @@ theme_set(theme_bw())
 code.names <- data.frame(nlcd = c(42, 52, 46, 56),
                          change = c("Forest-Urban", "Grassland-Urban","Forest-Agriculture", "Grassland-Agriculture"))
 summary.plot <- left_join(summary, code.names, by = c("NLCD" = "nlcd"))
-ggplot(summary.plot, aes(x = BCRs, y = total, fill = BCRs)) + geom_col() + facet_wrap(~change) + ylab("No. 900 m x 900 m cells")
+ggplot(summary.plot, aes(x = BCRs, y = total, fill = BCRs)) + geom_col() + facet_wrap(~change) + ylab("No. 900 m x 900 m cells") + ggtitle("1992-2001")
 # 1992-2001 land cover changes of interest per BCR
 
-# Other time points (2001-2006, 2006-2011)
+# 2001-2006
 setwd("\\\\Bioark.bio.unc.edu\\hurlbertlab\\GIS\\LandCoverData\\nlcd_landcover_change\\")
 files <- list.files()
 nlcd.files <- files[str_detect(files, "2006")]
@@ -113,14 +113,83 @@ dir <- getwd()
 get.file.img <- function(x) {
   files2 <- list.files(paste0(dir, "/", nlcd.files[x], ""))
   file.path <- files2[str_detect(files2, "img")]
-  return(list(folder = area.files[x], file.name = file.path))
+  return(list(folder = nlcd.files[x], file.name = file.path))
 }
 
 file.2001 <- get.file.img(1)
 nlcd2001 <- raster(paste0(dir, "/", file.2001$folder, "/", file.2001$file.name, sep = ""))
+
+nlcd2001.df <- as.data.frame(levels(nlcd2001))
+toAnthro <- as.data.frame(levels(nlcd2001)) %>%
+  filter(grepl("Developed|Pasture|Crops", X2006.Class)) %>%
+  filter(grepl("Forest|Grassland|Shrub", X2001.Class))
+# Filtered change pixels to pixels that went from natural areas (forest, grassland, shrubland) to used by humans (urban, agriculture)
+
 nlcd2001.km <- aggregate(nlcd2001, fact = 30, fun = modal)
-nlcd2001.df <- as.data.frame(rasterToPoints(nlcd2001.km)) # Need to find out what these indexes mean - 0 to 289
+
+us.proj <- sp::spTransform(contig.us, crs(nlcd2001.km))
+
+blank <- raster(ext = extent(nlcd2001.km), crs = crs(nlcd2001.km), resolution = res(nlcd2001.km)) # empty raster
+raster.us <- rasterize(us.proj, blank, field = "BCR", fun = "first") # raster of BCRs
+
+# stack BCRs with NLCD data
+bcr.nlcd.2001 <- stack(raster.us, nlcd2001.km)
+names(bcr.nlcd.2001) <- c("BCRs", "NLCD")
+plot(bcr.nlcd.2001)
+
+# Raster to data frame
+stack.df <- as.data.frame(rasterToPoints(bcr.nlcd.2001))
+
+# group pixels four categories: forest -> ag, forest -> dev, grass/shrub -> ag, grass/shrub -> dev
+code.names <- data.frame(change = c(13, 23, 14, 24),
+                         class = c("Forest-Urban", "Grassland-Urban","Forest-Agriculture", "Grassland-Agriculture"))
+
+summary <- stack.df %>%
+  filter(NLCD %in% toAnthro$ID) %>%
+  left_join(toAnthro, by = c("NLCD" = "ID")) %>%
+  mutate(from = ifelse(grepl("Forest", X2001.Class), 1, 2),
+         to = ifelse(grepl("Developed", X2006.Class), 3, 4),
+         change = from*10+to) %>% 
+  group_by(BCRs, change) %>%
+  summarize(total = n()) %>%
+  left_join(code.names, by = "change")
+
+theme_set(theme_bw())
+ggplot(summary, aes(x = BCRs, y = total, fill = BCRs)) + geom_col() + facet_wrap(~class) + ylab("No. 900 m x 900 m cells") + ggtitle("2001-2006")
+
+# 2006-2011
+file.2006 <- get.file.img(2)
+nlcd2006 <- raster(paste0(dir, "/", file.2006$folder, "/", file.2006$file.name, sep = ""))
+
+nlcd2006.df <- as.data.frame(levels(nlcd2006))
+toAnthro <- as.data.frame(levels(nlcd2006)) %>%
+  filter(grepl("Developed|Pasture|Crops", X2011.Class)) %>%
+  filter(grepl("Forest|Grassland|Shrub", X2006.Class))
+# Filtered change pixels to pixels that went from natural areas (forest, grassland, shrubland) to used by humans (urban, agriculture)
+
+nlcd2006.km <- aggregate(nlcd2006, fact = 30, fun = modal)
+
+bcr.nlcd.2006 <- stack(raster.us, nlcd2006.km)
+names(bcr.nlcd.2006) <- c("BCRs", "NLCD")
+plot(bcr.nlcd.2006)
+
+# Raster to data frame
+stack.2006 <- as.data.frame(rasterToPoints(bcr.nlcd.2006))
+
+summary2006 <- stack.2006 %>%
+  filter(NLCD %in% toAnthro$ID) %>%
+  left_join(toAnthro, by = c("NLCD" = "ID")) %>%
+  mutate(from = ifelse(grepl("Forest", X2006.Class), 1, 2),
+         to = ifelse(grepl("Developed", X2011.Class), 3, 4),
+         change = from*10+to) %>% 
+  group_by(BCRs, change) %>%
+  summarize(total = n()) %>%
+  left_join(code.names, by = "change")
+
+theme_set(theme_bw())
+ggplot(summary2006, aes(x = BCRs, y = total, fill = BCRs)) + geom_col() + facet_wrap(~class) + ylab("No. 900 m x 900 m cells") + ggtitle("2006-2011")
 
 # Land cover change over three time windows for each BCR
 
-# Eventually: knit together BBS route paths and overlay onto data about land cover transitions
+
+# Knit together BBS route paths and overlay onto data about land cover transitions
