@@ -5,11 +5,13 @@ library(dplyr)
 library(ggplot2)
 library(stringr)
 
-setwd("C:/Users/gdicecco/Desktop/1992_2001_nlcd/")
-codes <- read.csv("anderson_land_cover_codes.csv", stringsAsFactors = F) # NLCD land cover class codes
+setwd("\\\\BioArk\\hurlbertlab\\GIS\\LandCoverData\\")
 
-# Combine NLCD regions into one for 1992 - 2001
-setwd("C:/Users/gdicecco/Desktop/1992_2001_nlcd/")
+setwd("\\\\BioArk\\hurlbertlab\\GIS\\LandCoverData\\nlcd_landcover_change\\")
+codes <- read.csv("nlcd_1992_to_2001_landcover_change\\anderson_land_cover_codes.csv", stringsAsFactors = F) # NLCD land cover class codes
+
+## Combine NLCD regions into one for 1992 - 2001
+setwd("nlcd_1992_to_2001_landcover_change")
 files <- list.files()
 area.files <- files[str_detect(files, "area")]
 dir <- getwd()
@@ -62,8 +64,8 @@ for(i in 3:length(area.files)) {
 }
 plot(region)
 
-setwd("C:/Users/gdicecco/Desktop/1992_2001_nlcd/")
-writeRaster(region, "1992-2001_changeproduct_US_noMI.grd", overwrite = T)
+## Read in combined 1992-2001 US raster
+region <- raster("1992-2001_changeproduct_US.grd")
 
 ## Stack with BCRs
 # read in BCR shape file, convert to raster
@@ -101,7 +103,7 @@ theme_set(theme_bw())
 code.names <- data.frame(nlcd = c(42, 52, 46, 56),
                          change = c("Forest-Urban", "Grassland-Urban","Forest-Agriculture", "Grassland-Agriculture"))
 summary.plot <- left_join(summary, code.names, by = c("NLCD" = "nlcd"))
-ggplot(summary.plot, aes(x = BCRs, y = total, fill = BCRs)) + geom_col() + facet_wrap(~change) + ylab("No. 900 m x 900 m cells") + ggtitle("1992-2001")
+plot1992 <- ggplot(summary.plot, aes(x = BCRs, y = total, fill = BCRs)) + geom_col() + facet_wrap(~change) + ylab("No. 900 m x 900 m cells") + ggtitle("1992-2001")
 # 1992-2001 land cover changes of interest per BCR
 
 # 2001-2006
@@ -144,7 +146,7 @@ stack.df <- as.data.frame(rasterToPoints(bcr.nlcd.2001))
 code.names <- data.frame(change = c(13, 23, 14, 24),
                          class = c("Forest-Urban", "Grassland-Urban","Forest-Agriculture", "Grassland-Agriculture"))
 
-summary <- stack.df %>%
+summary01 <- stack.df %>%
   filter(NLCD %in% toAnthro$ID) %>%
   left_join(toAnthro, by = c("NLCD" = "ID")) %>%
   mutate(from = ifelse(grepl("Forest", X2001.Class), 1, 2),
@@ -155,7 +157,7 @@ summary <- stack.df %>%
   left_join(code.names, by = "change")
 
 theme_set(theme_bw())
-ggplot(summary, aes(x = BCRs, y = total, fill = BCRs)) + geom_col() + facet_wrap(~class) + ylab("No. 900 m x 900 m cells") + ggtitle("2001-2006")
+plot2001 <- ggplot(summary01, aes(x = BCRs, y = total, fill = BCRs)) + geom_col() + facet_wrap(~class) + ylab("No. 900 m x 900 m cells") + ggtitle("2001-2006")
 
 # 2006-2011
 file.2006 <- get.file.img(2)
@@ -187,9 +189,112 @@ summary2006 <- stack.2006 %>%
   left_join(code.names, by = "change")
 
 theme_set(theme_bw())
-ggplot(summary2006, aes(x = BCRs, y = total, fill = BCRs)) + geom_col() + facet_wrap(~class) + ylab("No. 900 m x 900 m cells") + ggtitle("2006-2011")
+plot2006 <- ggplot(summary2006, aes(x = BCRs, y = total, fill = BCRs)) + geom_col() + facet_wrap(~class) + ylab("No. 900 m x 900 m cells") + ggtitle("2006-2011")
 
 # Land cover change over three time windows for each BCR
 
+library(cowplot)
+multiplot <- plot_grid(plot1992, plot2001, plot2006, nrow = 2)
+
+# How much conversion of natural to human use land in each strata for three time windows
+library(tidyr)
+colnames(summary.plot)[c(2,4)] <- c("change", "class")
+totalchange <- rbind(data.frame(year = 1992, summary.plot),
+                     data.frame(year = 2001, summary01),
+                     data.frame(year = 2006, summary2006)) %>%
+  group_by(year, BCRs) %>%
+  summarize(total.fragment = sum(total)) %>%
+  group_by(year) %>%
+  nest()
+
+# Subset BCR shapefile (us.proj) to just BCR column, use amount of conversion to anthropogenic land use to color strata
+
+us.bcrs <- us.proj[, -c(2:8)]
+bcrs <- unique(us.bcrs@data$BCR)
+bcrs.df <- data.frame(BCRs = bcrs, total.fragment = 0)
+
+library(purrr)
+bcrs.frag <- map(totalchange$data, ~{
+  right_join(., bcrs.df)
+})
+
+bcrs.frag <- map(totalchange$data, ~{
+  left_join(us.bcrs@data, ., by = c("BCR" = "BCRs"))
+})
+
+us.bcrs@data$Frag92 <- bcrs.frag[[1]]$total.fragment
+us.bcrs@data$Frag01 <- bcrs.frag[[2]]$total.fragment
+us.bcrs@data$Frag06 <- bcrs.frag[[3]]$total.fragment
+
+us.bcrs@data$id <- rownames(us.bcrs@data)
+bcr.points <- fortify(us.bcrs, region="id")
+bcr.df <- plyr::join(bcr.points, us.bcrs@data, by="id")
+
+# Plots with just land cover change 
+
+map92 <- ggplot(bcr.df) + aes(long, lat, group = group, fill = Frag92) + geom_polygon() + geom_path(color = "black") + coord_equal() +
+  scale_fill_continuous(low = "white", high = "red", limits = c(1, 3000)) + ggtitle("1992-2001") + theme(axis.line = element_blank(),
+                                                                                    axis.title = element_blank(),
+                                                                                    axis.text = element_blank(),
+                                                                                    axis.ticks = element_blank()) + labs(fill = "No. pixels")
+
+map01 <- ggplot(bcr.df) + aes(long, lat, group = group, fill = Frag01) + geom_polygon() + geom_path(color = "black") + coord_equal() +
+  scale_fill_continuous(low = "white", high = "red", limits = c(1, 3000)) + ggtitle("2001-2006") + theme(axis.line = element_blank(),
+                                                                                    axis.title = element_blank(),
+                                                                                    axis.text = element_blank(),
+                                                                                    axis.ticks = element_blank()) + labs(fill = "No. pixels")
+
+map06 <- ggplot(bcr.df) + aes(long, lat, group = group, fill = Frag06) + geom_polygon() + geom_path(color = "black") + coord_equal() +
+  scale_fill_continuous(low = "white", high = "red", limits = c(1, 3000)) + ggtitle("2006-2011") + theme(axis.line = element_blank(),
+                                                                                    axis.title = element_blank(),
+                                                                                    axis.text = element_blank(),
+                                                                                    axis.ticks = element_blank()) + labs(fill = "No. pixels")
+plot_grid(map92, map01, map06, nrow = 2)
 
 # Knit together BBS route paths and overlay onto data about land cover transitions
+
+setwd("\\\\Bioark.bio.unc.edu/hurlbertlab/Databases/BBS/GPS_stoplocations/")
+
+us_routes <- readOGR("bbsrte_2012_alb/bbsrte_2012_alb.shp")
+
+# subset routes that are between 38000 and 42000 m, remove Alaska (rteno between 3000 and 4000)
+# reproject to crs of us.bcrs
+# use fortify to convert to df
+
+us_routes_short <- us_routes[us_routes@data$rte_length < 42000 & us_routes@data$rte_length > 38000, ]
+us_subs <- us_routes_short[!(us_routes_short@data$rteno < 4000 & us_routes_short@data > 3000), ]
+
+# crs.us <- CRS(us.bcrs)
+us_subs <- spTransform(us_subs, crs.us)
+
+us_subs@data$id <- rownames(us_subs@data)
+us_routes.df <- fortify(us_subs, region = "id")
+
+# Plots with routes 
+
+routes92 <- ggplot() + geom_polygon(bcr.df, aes(long, lat, group = group, fill = Frag92)) + coord_equal() +
+  geom_path(bcr.df, aes(long, lat, group = group), color = "gray19") +
+  geom_path(us_routes.df, aes(long, lat, group = group), color = "black") +
+  scale_fill_continuous(low = "white", high = "red", limits = c(1, 3000)) + ggtitle("1992-2001") + theme(axis.line = element_blank(),
+                                                                                                         axis.title = element_blank(),
+                                                                                                         axis.text = element_blank(),
+                                                                                                         axis.ticks = element_blank()) + labs(fill = "No. pixels")
+
+routes01 <- ggplot() + geom_polygon(bcr.df, aes(long, lat, group = group, fill = Frag01)) + coord_equal() +
+  geom_path(bcr.df, aes(long, lat, group = group), color = "gray19") +
+  geom_path(us_routes.df, aes(long, lat, group = group), color = "black") +
+  scale_fill_continuous(low = "white", high = "red", limits = c(1, 3000)) + ggtitle("2001-2006") + theme(axis.line = element_blank(),
+                                                                                                         axis.title = element_blank(),
+                                                                                                         axis.text = element_blank(),
+                                                                                                         axis.ticks = element_blank()) + labs(fill = "No. pixels")
+
+routes06 <- ggplot() + geom_polygon(bcr.df, aes(long, lat, group = group, fill = Frag06)) + coord_equal() +
+  geom_path(bcr.df, aes(long, lat, group = group), color = "gray19") +
+  geom_path(us_routes.df, aes(long, lat, group = group), color = "black") +
+  scale_fill_continuous(low = "white", high = "red", limits = c(1, 3000)) + ggtitle("2006-2011") + theme(axis.line = element_blank(),
+                                                                                                         axis.title = element_blank(),
+                                                                                                         axis.text = element_blank(),
+                                                                                                         axis.ticks = element_blank()) + labs(fill = "No. pixels")
+
+
+
