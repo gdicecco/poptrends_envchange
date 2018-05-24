@@ -261,8 +261,10 @@ us_routes <- readOGR("bbsrte_2012_alb/bbsrte_2012_alb.shp")
 # reproject to crs of us.bcrs
 # use fortify to convert to df
 
+crs.us <- "+proj=aea +lat_1=29.5 +lat_2=45.5 +lat_0=23 +lon_0=-96 +x_0=0 +y_0=0 +ellps=GRS80 +towgs84=0,0,0,-0,-0,-0,0 +units=m +no_defs"
+
 us_routes_short <- us_routes[us_routes@data$rte_length < 42000 & us_routes@data$rte_length > 38000, ]
-us_subs <- us_routes_short[!(us_routes_short@data$rteno < 4000 & us_routes_short@data > 3000), ]
+us_subs <- us_routes_short[!(us_routes_short@data$rteno < 4000 & us_routes_short@data$rteno > 3000), ]
 
 # crs.us <- CRS(us.bcrs)
 us_subs <- spTransform(us_subs, crs.us)
@@ -272,25 +274,25 @@ us_routes.df <- fortify(us_subs, region = "id")
 
 # Plots with routes 
 
-routes92 <- ggplot() + geom_polygon(bcr.df, aes(long, lat, group = group, fill = Frag92)) + coord_equal() +
-  geom_path(bcr.df, aes(long, lat, group = group), color = "gray19") +
-  geom_path(us_routes.df, aes(long, lat, group = group), color = "black") +
+routes92 <- ggplot() + geom_polygon(data = bcr.df, mapping = aes(long, lat, group = group, fill = Frag92)) + coord_equal() +
+  geom_path(data = bcr.df, mapping = aes(long, lat, group = group), color = "gray19") +
+  geom_path(data = us_routes.df, mapping = aes(long, lat, group = group), color = "black") +
   scale_fill_continuous(low = "white", high = "red", limits = c(1, 3000)) + ggtitle("1992-2001") + theme(axis.line = element_blank(),
                                                                                                          axis.title = element_blank(),
                                                                                                          axis.text = element_blank(),
                                                                                                          axis.ticks = element_blank()) + labs(fill = "No. pixels")
 
-routes01 <- ggplot() + geom_polygon(bcr.df, aes(long, lat, group = group, fill = Frag01)) + coord_equal() +
-  geom_path(bcr.df, aes(long, lat, group = group), color = "gray19") +
-  geom_path(us_routes.df, aes(long, lat, group = group), color = "black") +
+routes01 <- ggplot() + geom_polygon(data = bcr.df, mapping = aes(long, lat, group = group, fill = Frag92)) + coord_equal() +
+  geom_path(data = bcr.df, mapping = aes(long, lat, group = group), color = "gray19") +
+  geom_path(data = us_routes.df, mapping = aes(long, lat, group = group), color = "black") +
   scale_fill_continuous(low = "white", high = "red", limits = c(1, 3000)) + ggtitle("2001-2006") + theme(axis.line = element_blank(),
                                                                                                          axis.title = element_blank(),
                                                                                                          axis.text = element_blank(),
                                                                                                          axis.ticks = element_blank()) + labs(fill = "No. pixels")
 
-routes06 <- ggplot() + geom_polygon(bcr.df, aes(long, lat, group = group, fill = Frag06)) + coord_equal() +
-  geom_path(bcr.df, aes(long, lat, group = group), color = "gray19") +
-  geom_path(us_routes.df, aes(long, lat, group = group), color = "black") +
+routes06 <- ggplot() + geom_polygon(data = bcr.df, mapping = aes(long, lat, group = group, fill = Frag92)) + coord_equal() +
+  geom_path(data = bcr.df, mapping = aes(long, lat, group = group), color = "gray19") +
+  geom_path(data = us_routes.df, mapping = aes(long, lat, group = group), color = "black") +
   scale_fill_continuous(low = "white", high = "red", limits = c(1, 3000)) + ggtitle("2006-2011") + theme(axis.line = element_blank(),
                                                                                                          axis.title = element_blank(),
                                                                                                          axis.text = element_blank(),
