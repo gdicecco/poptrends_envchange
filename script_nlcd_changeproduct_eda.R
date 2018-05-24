@@ -103,7 +103,9 @@ theme_set(theme_bw())
 code.names <- data.frame(nlcd = c(42, 52, 46, 56),
                          change = c("Forest-Urban", "Grassland-Urban","Forest-Agriculture", "Grassland-Agriculture"))
 summary.plot <- left_join(summary, code.names, by = c("NLCD" = "nlcd"))
-plot1992 <- ggplot(summary.plot, aes(x = BCRs, y = total, fill = BCRs)) + geom_col() + facet_wrap(~change) + ylab("No. 900 m x 900 m cells") + ggtitle("1992-2001")
+plot1992 <- ggplot(summary.plot) + geom_col(aes(x = BCRs, y = total, fill = BCRs)) + 
+  facet_wrap(~change) + ylab("No. 900 m x 900 m cells") + ggtitle("1992-2001") + theme(legend.position = "none") + 
+  geom_text(aes(x = BCRs, y = total + 100, label = BCRs))
 # 1992-2001 land cover changes of interest per BCR
 
 # 2001-2006
@@ -156,8 +158,9 @@ summary01 <- stack.df %>%
   summarize(total = n()) %>%
   left_join(code.names, by = "change")
 
-theme_set(theme_bw())
-plot2001 <- ggplot(summary01, aes(x = BCRs, y = total, fill = BCRs)) + geom_col() + facet_wrap(~class) + ylab("No. 900 m x 900 m cells") + ggtitle("2001-2006")
+plot2001 <- ggplot(summary01, aes(x = BCRs, y = total, fill = BCRs)) + geom_col() + facet_wrap(~class) + 
+  ylab("No. 900 m x 900 m cells") + ggtitle("2001-2006") + theme(legend.position = "none") + 
+  geom_text(aes(x = BCRs, y = total + 20, label = BCRs))
 
 # 2006-2011
 file.2006 <- get.file.img(2)
@@ -188,8 +191,9 @@ summary2006 <- stack.2006 %>%
   summarize(total = n()) %>%
   left_join(code.names, by = "change")
 
-theme_set(theme_bw())
-plot2006 <- ggplot(summary2006, aes(x = BCRs, y = total, fill = BCRs)) + geom_col() + facet_wrap(~class) + ylab("No. 900 m x 900 m cells") + ggtitle("2006-2011")
+plot2006 <- ggplot(summary2006, aes(x = BCRs, y = total, fill = BCRs)) + geom_col() + facet_wrap(~class) +
+  ylab("No. 900 m x 900 m cells") + ggtitle("2006-2011") + theme(legend.position = "none") + 
+  geom_text(aes(x = BCRs, y = total + 20, label = BCRs))
 
 # Land cover change over three time windows for each BCR
 
@@ -282,7 +286,7 @@ routes92 <- ggplot() + geom_polygon(data = bcr.df, mapping = aes(long, lat, grou
                                                                                                          axis.text = element_blank(),
                                                                                                          axis.ticks = element_blank()) + labs(fill = "No. pixels")
 
-routes01 <- ggplot() + geom_polygon(data = bcr.df, mapping = aes(long, lat, group = group, fill = Frag92)) + coord_equal() +
+routes01 <- ggplot() + geom_polygon(data = bcr.df, mapping = aes(long, lat, group = group, fill = Frag01)) + coord_equal() +
   geom_path(data = bcr.df, mapping = aes(long, lat, group = group), color = "gray19") +
   geom_path(data = us_routes.df, mapping = aes(long, lat, group = group), color = "black") +
   scale_fill_continuous(low = "white", high = "red", limits = c(1, 3000)) + ggtitle("2001-2006") + theme(axis.line = element_blank(),
@@ -290,7 +294,7 @@ routes01 <- ggplot() + geom_polygon(data = bcr.df, mapping = aes(long, lat, grou
                                                                                                          axis.text = element_blank(),
                                                                                                          axis.ticks = element_blank()) + labs(fill = "No. pixels")
 
-routes06 <- ggplot() + geom_polygon(data = bcr.df, mapping = aes(long, lat, group = group, fill = Frag92)) + coord_equal() +
+routes06 <- ggplot() + geom_polygon(data = bcr.df, mapping = aes(long, lat, group = group, fill = Frag06)) + coord_equal() +
   geom_path(data = bcr.df, mapping = aes(long, lat, group = group), color = "gray19") +
   geom_path(data = us_routes.df, mapping = aes(long, lat, group = group), color = "black") +
   scale_fill_continuous(low = "white", high = "red", limits = c(1, 3000)) + ggtitle("2006-2011") + theme(axis.line = element_blank(),
