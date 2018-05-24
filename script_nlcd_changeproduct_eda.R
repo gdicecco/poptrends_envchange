@@ -302,5 +302,32 @@ routes06 <- ggplot() + geom_polygon(data = bcr.df, mapping = aes(long, lat, grou
                                                                                                          axis.text = element_blank(),
                                                                                                          axis.ticks = element_blank()) + labs(fill = "No. pixels")
 
+## Figure out how much data available: how many route-years/strata of interest
+
+routes.df <- us_subs@data %>%
+  right_join(us_routes.df)
+
+routes <- read.csv("\\\\Bioark.bio.unc.edu\\hurlbertlab\\Databases\\BBS\\2017\\bbs_routes_20170712.csv")
+counts <- read.csv("\\\\Bioark.bio.unc.edu\\hurlbertlab\\Databases\\BBS\\2017\\bbs_counts_20170712.csv")
+species <- read.csv("\\\\Bioark.bio.unc.edu\\hurlbertlab\\Databases\\BBS\\2017\\bbs_species_20170712.csv")
+weather <- read.csv("\\\\Bioark.bio.unc.edu\\hurlbertlab\\Databases\\BBS\\2017\\bbs_weather_20170712.csv")
+
+#Remove routes weather runtype = 0
+routes$stateroute <- routes$statenum*1000 + routes$route
+weather$stateroute <-weather$statenum*1000 + weather$route
+RT1 <- subset(weather, runtype == 1, select = c("stateroute", "year"))
+RT1.routes <- merge(RT1, routes[ , c("statenum", "stateroute", "latitude", "longitude","bcr")], by = "stateroute", all.x = TRUE) %>%
+  filter(stateroute %in% unique(routes.df$rteno), year > 1980, bcr %in% c(27, 29, 9, 19, 18))
+# filter routes by years of interest, BCRs of interest, and that are the right length
+
+# summary stats about routes
+
+routes.summary <- RT1.routes %>%
+  group_by(bcr, year) %>%
+  summarize(total_routes = n())
+
+ggplot(routes.summary) + geom_col(aes(x = year, y = total_routes)) + facet_wrap(~bcr) + ylab("Number of routes") + xlab("Year")
+# number of observations per strata of interest per year - routes are filtered by appropriate length and by runtype = 1
+
 
 
