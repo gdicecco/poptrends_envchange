@@ -8,6 +8,7 @@ library(dplyr)
 library(stringr)
 
 #### Functions ####
+setwd("/proj/hurlbertlab/nlcd_landcover_change/nlcd_1992_to_2001_landcover_change/")
 files <- list.files()
 area.files <- files[str_detect(files, "area")]
 dir <- getwd()
@@ -32,7 +33,6 @@ merge.areas <- function(x, y) {
 }
 
 ## Get codes for landcover change of interest
-setwd("/proj/hurlbertlab/nlcd_landcover_change/nlcd_1992_to_2001_landcover_change/")
 codes <- read.csv("anderson_land_cover_codes.csv", stringsAsFactors = F) # NLCD land cover class codes
 
 fragcodes <- codes %>%
