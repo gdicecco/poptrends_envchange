@@ -28,7 +28,7 @@ merge.areas <- function(x, y) {
 }
 
 ## Get codes for landcover change of interest
-setwd("/proj/hurlbertlab/LandCoverData/nlcd_landcover_change/nlcd_1992_to_2001_landcover_change/")
+setwd("/proj/hurlbertlab/nlcd_landcover_change/nlcd_1992_to_2001_landcover_change/")
 codes <- read.csv("anderson_land_cover_codes.csv", stringsAsFactors = F) # NLCD land cover class codes
 
 fragcodes <- codes %>%
