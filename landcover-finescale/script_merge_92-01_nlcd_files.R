@@ -8,6 +8,10 @@ library(dplyr)
 library(stringr)
 
 #### Functions ####
+files <- list.files()
+area.files <- files[str_detect(files, "area")]
+dir <- getwd()
+
 # Get area changeproduct raster file from NLCD directory
 get.file <- function(x) {
   files2 <- list.files(paste0(dir, "/", area.files[x], ""))
@@ -35,10 +39,6 @@ fragcodes <- codes %>%
   filter(grepl("Forest|Grassland", anderson))
 
 ## Create map of US
-files <- list.files()
-area.files <- files[str_detect(files, "area")]
-dir <- getwd()
-
 file1 <- get.file(1)
 data <- raster(paste0(dir, "/", file1$folder, "/", file1$file.name, sep = ""))
 data.frag <- data[data %in% fragcodes$modified]
