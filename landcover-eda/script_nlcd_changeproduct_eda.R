@@ -45,7 +45,7 @@ file2 <- get.file(2)
 data2 <- raster(paste0(dir, "/", file2$folder, "/", file2$file.name, sep = ""))
 data2.km <- aggregate(data2, fact = 30, fun = modal) #modal - mode of the raster values in the cell
 
-region <- merge.areas(data.km, data2.km)
+region <- merge.areas(data, data2)
 crs <- crs(region)
 
 for(i in 3:length(area.files)) { 
@@ -78,6 +78,7 @@ bcrs.us <- contig.us@data$BCR
 
 # need to re-project contig.us to match crs of region
 us.proj <- sp::spTransform(contig.us, crs(region))
+#shapefile(us.proj, "BCRs_contiguous_us")
 
 blank <- raster(ext = extent(region), crs = crs(region), resolution = res(region)) # empty raster
 raster.us <- rasterize(us.proj, blank, field = "BCR", fun = "first") # raster of BCRs
