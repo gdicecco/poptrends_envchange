@@ -41,28 +41,35 @@ fragcodes <- codes %>%
 ## Create map of US
 file1 <- get.file(1)
 data <- raster(paste0(dir, "/", file1$folder, "/", file1$file.name, sep = ""))
-data.frag <- data[data %in% fragcodes$modified]
+#data.frag <- data[data %in% fragcodes$modified]
+
+print("area 1")
 
 file2 <- get.file(2)
 data2 <- raster(paste0(dir, "/", file2$folder, "/", file2$file.name, sep = ""))
-data2.frag <- data2[data2 %in% fragcodes$modified]
+#data2.frag <- data2[data2 %in% fragcodes$modified]
 
-region <- merge.areas(data.frag, data2.frag)
+print("area 2")
+
+region <- merge.areas(data, data2)
 crs <- crs(region)
+
+print("merge 1")
 
 for(i in 3:length(area.files)) { 
   if(i == 8) { # area 8 - Michigan - has different projection
     file3 <- get.file(i)
     data3 <- raster(paste0(dir, "/", file3$folder, "/", file3$file.name, sep = ""))
-    data3.frag <- data3[data3 %in% fragcodes$modified]
-    data3.proj <- projectRaster(data3.frag, crs = crs)
+    #data3.frag <- data3[data3 %in% fragcodes$modified]
+    data3.proj <- projectRaster(data3, crs = crs)
     region <- merge.areas(region, data3.proj)
   } else {
     file3 <- get.file(i)
     data3 <- raster(paste0(dir, "/", file3$folder, "/", file3$file.name, sep = ""))
-    data3.frag <- data3[data3 %in% fragcodes$modified]
-    region <- merge.areas(region, data3.frag)
+   # data3.frag <- data3[data3 %in% fragcodes$modified]
+    region <- merge.areas(region, data3)
   }
+  print(paste0("Completed area ", i, sep = ""))
 }
 
 setwd("/proj/hurlbertlab/gdicecco/nlcd_frag_proj_shapefiles/")
