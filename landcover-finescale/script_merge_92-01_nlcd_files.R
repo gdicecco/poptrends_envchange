@@ -52,23 +52,20 @@ data2 <- raster(paste0(dir, "/", file2$folder, "/", file2$file.name, sep = ""))
 print("area 2")
 
 region <- merge.areas(data, data2)
-crs <- crs(region)
 
 print("merge 1")
 
 for(i in 3:length(area.files)) { 
-#  if(i == 8) { # area 8 - Michigan - has different projection
-#    file3 <- get.file(i)
-#    data3 <- raster(paste0(dir, "/", file3$folder, "/", file3$file.name, sep = ""))
-    #data3.frag <- data3[data3 %in% fragcodes$modified]
-#    data3.proj <- projectRaster(data3, crs = crs)
-#    region <- merge.areas(region, data3.proj)
- # } else {
+  if(i == 8) { # area 8 - Michigan - has different projection
     file3 <- get.file(i)
     data3 <- raster(paste0(dir, "/", file3$folder, "/", file3$file.name, sep = ""))
-   # data3.frag <- data3[data3 %in% fragcodes$modified]
+    data3.proj <- projectRaster(data3, crs = crs(region))
+    region <- merge.areas(region, data3.proj)
+  } else {
+    file3 <- get.file(i)
+    data3 <- raster(paste0(dir, "/", file3$folder, "/", file3$file.name, sep = ""))
     region <- merge.areas(region, data3)
-  #}
+  }
   print(paste0("Completed area ", i, sep = ""))
 }
 
