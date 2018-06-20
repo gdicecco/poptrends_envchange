@@ -19,7 +19,7 @@ dir <- getwd()
 # Get area changeproduct raster file from NLCD directory
 get.file <- function(x) {
   files2 <- list.files(paste0(dir, "/", area.files[x], ""))
-  file.path <- files2[str_detect(files2, "area")]
+  file.path <- files2[str_detect(files2, "area_")]
   return(list(folder = area.files[x], file.name = file.path))
 }
 
@@ -45,22 +45,15 @@ file2 <- get.file(2)
 data2 <- raster(paste0(dir, "/", file2$folder, "/", file2$file.name, sep = ""))
 data2.km <- aggregate(data2, fact = 30, fun = modal) #modal - mode of the raster values in the cell
 
-region <- merge.areas(data, data2)
+region <- merge.areas(data.km, data2.km)
 crs <- crs(region)
 
 for(i in 3:length(area.files)) { 
-  if(i == 8) { # area 8 - Michigan - has different projection
     file3 <- get.file(i)
     data3 <- raster(paste0(dir, "/", file3$folder, "/", file3$file.name, sep = ""))
     data3.km <- aggregate(data3, fact = 30, fun = modal) #modal - mode of the raster values in the cell
-    data3.proj <- projectRaster(data3.km, crs = crs)
+    data3.proj <- projectRaster(data3.km, crs = crs) # make sure projection is correct
     region <- merge.areas(region, data3.proj)
-  } else {
-  file3 <- get.file(i)
-  data3 <- raster(paste0(dir, "/", file3$folder, "/", file3$file.name, sep = ""))
-  data3.km <- aggregate(data3, fact = 30, fun = modal) #modal - mode of the raster values in the cell
-  region <- merge.areas(region, data3.km)
-  }
 }
 plot(region)
 
