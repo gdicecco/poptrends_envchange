@@ -10,7 +10,7 @@ library(stringr)
 #### Functions ####
 setwd("/proj/hurlbertlab/nlcd_landcover_change/nlcd_1992_to_2001_landcover_change/")
 files <- list.files()
-area.files <- files[str_detect(files, "area")]
+area.files <- files[str_detect(files, "area_")]
 dir <- getwd()
 
 # Get area changeproduct raster file from NLCD directory
@@ -52,20 +52,15 @@ data2 <- raster(paste0(dir, "/", file2$folder, "/", file2$file.name, sep = ""))
 print("area 2")
 
 region <- merge.areas(data, data2)
+crs.region <- crs(region)
 
 print("merge 1")
 
 for(i in 3:length(area.files)) { 
-  if(i == 8) { # area 8 - Michigan - has different projection
     file3 <- get.file(i)
     data3 <- raster(paste0(dir, "/", file3$folder, "/", file3$file.name, sep = ""))
-    data3.proj <- projectRaster(data3, crs = crs(region))
+    data3.proj <- projectRaster(data3, crs = crs.region)
     region <- merge.areas(region, data3.proj)
-  } else {
-    file3 <- get.file(i)
-    data3 <- raster(paste0(dir, "/", file3$folder, "/", file3$file.name, sep = ""))
-    region <- merge.areas(region, data3)
-  }
   print(paste0("Completed area ", i, sep = ""))
 }
 
