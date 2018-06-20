@@ -8,6 +8,11 @@ library(dplyr)
 library(stringr)
 
 #### Functions ####
+setwd("/proj/hurlbertlab/nlcd_landcover_change/nlcd_1992_to_2001_landcover_change/")
+files <- list.files()
+area.files <- files[str_detect(files, "area")]
+dir <- getwd()
+
 # Get area changeproduct raster file from NLCD directory
 get.file <- function(x) {
   files2 <- list.files(paste0(dir, "/", area.files[x], ""))
@@ -28,41 +33,40 @@ merge.areas <- function(x, y) {
 }
 
 ## Get codes for landcover change of interest
-setwd("/proj/hurlbertlab/LandCoverData/nlcd_landcover_change/nlcd_1992_to_2001_landcover_change/")
 codes <- read.csv("anderson_land_cover_codes.csv", stringsAsFactors = F) # NLCD land cover class codes
 
 fragcodes <- codes %>%
   filter(grepl("Forest|Grassland", anderson))
 
 ## Create map of US
-files <- list.files()
-area.files <- files[str_detect(files, "area")]
-dir <- getwd()
-
 file1 <- get.file(1)
 data <- raster(paste0(dir, "/", file1$folder, "/", file1$file.name, sep = ""))
-data.frag <- data[data %in% fragcodes$modified]
+#data.frag <- data[data %in% fragcodes$modified]
+
+print("area 1")
 
 file2 <- get.file(2)
 data2 <- raster(paste0(dir, "/", file2$folder, "/", file2$file.name, sep = ""))
-data2.frag <- data2[data2 %in% fragcodes$modified]
+#data2.frag <- data2[data2 %in% fragcodes$modified]
 
-region <- merge.areas(data.frag, data2.frag)
-crs <- crs(region)
+print("area 2")
+
+region <- merge.areas(data, data2)
+
+print("merge 1")
 
 for(i in 3:length(area.files)) { 
   if(i == 8) { # area 8 - Michigan - has different projection
     file3 <- get.file(i)
     data3 <- raster(paste0(dir, "/", file3$folder, "/", file3$file.name, sep = ""))
-    data3.frag <- data3[data3 %in% fragcodes$modified]
-    data3.proj <- projectRaster(data3.frag, crs = crs)
+    data3.proj <- projectRaster(data3, crs = crs(region))
     region <- merge.areas(region, data3.proj)
   } else {
     file3 <- get.file(i)
     data3 <- raster(paste0(dir, "/", file3$folder, "/", file3$file.name, sep = ""))
-    data3.frag <- data3[data3 %in% fragcodes$modified]
-    region <- merge.areas(region, data3.frag)
+    region <- merge.areas(region, data3)
   }
+  print(paste0("Completed area ", i, sep = ""))
 }
 
 setwd("/proj/hurlbertlab/gdicecco/nlcd_frag_proj_shapefiles/")
