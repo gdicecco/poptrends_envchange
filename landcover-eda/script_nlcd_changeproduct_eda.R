@@ -13,13 +13,13 @@ codes <- read.csv("nlcd_1992_to_2001_landcover_change\\anderson_land_cover_codes
 ## Combine NLCD regions into one for 1992 - 2001
 setwd("nlcd_1992_to_2001_landcover_change")
 files <- list.files()
-area.files <- files[str_detect(files, "area")]
+area.files <- files[str_detect(files, "area_")]
 dir <- getwd()
 
 # Get area changeproduct raster file from NLCD directory
 get.file <- function(x) {
   files2 <- list.files(paste0(dir, "/", area.files[x], ""))
-  file.path <- files2[str_detect(files2, "area_")]
+  file.path <- files2[str_detect(files2, "area")]
   return(list(folder = area.files[x], file.name = file.path))
 }
 
