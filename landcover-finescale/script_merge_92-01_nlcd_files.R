@@ -15,7 +15,7 @@ dir <- getwd()
 
 # Get area changeproduct raster file from NLCD directory
 get.file <- function(x) {
-  files2 <- list.files(paste0(dir, "/", area.files[x], ""))
+  files2 <- list.files(paste0(dir, "/", area.files[x]))
   file.path <- files2[str_detect(files2, "area")]
   return(list(folder = area.files[x], file.name = file.path))
 }
@@ -61,7 +61,7 @@ for(i in 3:length(area.files)) {
     data3 <- raster(paste0(dir, "/", file3$folder, "/", file3$file.name, sep = ""))
     data3.proj <- projectRaster(data3, crs = crs.region)
     region <- merge.areas(region, data3.proj)
-  print(paste0("Completed area ", i, sep = ""))
+  print(paste0("Completed area ", i))
 }
 
 setwd("/proj/hurlbertlab/gdicecco/nlcd_frag_proj_shapefiles/")
