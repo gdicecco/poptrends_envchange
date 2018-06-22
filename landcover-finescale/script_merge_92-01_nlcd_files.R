@@ -60,7 +60,14 @@ for(i in 3:length(area.files)) {
     file3 <- get.file(i)
     data3 <- raster(paste0(dir, "/", file3$folder, "/", file3$file.name, sep = ""))
     data3.proj <- projectRaster(data3, crs = crs.region)
-    region <- merge.areas(region, data3.proj)
+    extent1 <- extent(region)
+    extent2 <- extent(data3.proj)
+    z <- raster(xmn = min(extent1[1], extent2[1]), xmx = max(extent1[2], extent2[2]), # make blank raster file with extent of the two files added
+              ymn = min(extent1[3], extent2[3]), ymx = max(extent1[4], extent2[4]), 
+              resolution = res(region), crs = crs.region)
+    merge1 <- mosaic(z, region, fun = max, tolerance = max(abs(origin(z) - origin(region)))) # function: where rasters overlap keep larger value
+    region <- mosaic(merge1, data3.proj, fun = max, tolerance = max(abs(origin(merge1) - origin(data3.proj)))) # tolerance allows for different origins 
+  #    region <- merge.areas(region, data3.proj)
   print(paste0("Completed area ", i))
 }
 
