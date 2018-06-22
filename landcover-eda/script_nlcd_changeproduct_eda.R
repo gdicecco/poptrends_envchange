@@ -162,9 +162,7 @@ nlcd2006 <- raster(paste0(dir, "/", file.2006$folder, "/", file.2006$file.name, 
 
 nlcd2006.df <- as.data.frame(levels(nlcd2006))
 toAnthro <- as.data.frame(levels(nlcd2006)) %>%
-  filter(grepl("Developed|Pasture|Crops", X2011.Class)) %>%
-  filter(grepl("Forest|Grassland|Shrub", X2006.Class))
-# Filtered change pixels to pixels that went from natural areas (forest, grassland, shrubland) to used by humans (urban, agriculture)
+  filter(grepl("Developed|Pasture|Crops|Forest|Grassland|Shrub", X2006.2011.Class))
 
 nlcd2006.km <- aggregate(nlcd2006, fact = 30, fun = modal)
 

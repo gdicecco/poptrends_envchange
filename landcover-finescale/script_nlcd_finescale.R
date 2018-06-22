@@ -10,10 +10,29 @@ library(stringr)
 
 #### Functions ####
 # Get area changeproduct raster file from NLCD directory
+
+# 1992-2001
+setwd("nlcd_1992_to_2001_landcover_change")
+files <- list.files()
+area.files <- files[str_detect(files, "area_")]
+dir <- getwd()
+
 get.file <- function(x) {
   files2 <- list.files(paste0(dir, "/", area.files[x], ""))
   file.path <- files2[str_detect(files2, "area")]
   return(list(folder = area.files[x], file.name = file.path))
+}
+
+# 2001-2011
+setwd("\\\\Bioark.bio.unc.edu\\hurlbertlab\\GIS\\LandCoverData\\nlcd_landcover_change\\")
+files <- list.files()
+nlcd.files <- files[str_detect(files, "2006")]
+dir.img <- getwd()
+
+get.file.img <- function(x) {
+  files2 <- list.files(paste0(dir.img, "/", nlcd.files[x], ""))
+  file.path <- files2[str_detect(files2, "img")]
+  return(list(folder = nlcd.files[x], file.name = file.path))
 }
 
 # Function to merge two raster files with different origins and extents, same resolution and crs
@@ -28,25 +47,86 @@ merge.areas <- function(x, y) {
   return(merge2) # returns the two rasters merged into one
 }
 
+#### Data needed for all time steps ####
+bcrs <- c(9, 12, 13, 14, 18, 19, 23, 27, 29) # BCRs of interest
+
+# BCR shapefile
+setwd("C:/Users/gdicecco/Desktop/git/NLCD_fragmentation/landcover-finescale/")
+us.proj <- readOGR("BCRS_contiguous_us.shp")
+
 #### 1992 - 2001 ####
 
 ## Crop raster data for each BCR
 region <- raster("nlcd_1992_2001_changepixels_30m_30m.grd")
-setwd("C:/Users/gdicecco/Desktop/git/NLCD_fragmentation/landcover-finescale/")
-us.proj <- readOGR("BCRS_contiguous_us.shp")
 
 crs.nlcd <- crs(region)
 bcrs.proj <- spTransform(us.proj, crs.nlcd)
 
-bcrs <- c(9, 12, 13, 14, 18, 19, 23, 27, 29)
+setwd("\\\\BioArk\\hurlbertlab\\GIS\\LandCoverData\\nlcd_landcover_change\\")
+codes <- read.csv("anderson_land_cover_codes.csv", stringsAsFactors = F) # NLCD land cover class codes
 
+fragcodes <- codes %>%
+  filter(grepl("Forest|Grassland", anderson))
+
+# output: raster file of landcover change
+# output: dataframe of landcover change of interest
 for(i in 1:length(bcrs)) {
   bcr <- bcrs[i]
   bcr.sub <- bcrs.proj[bcrs.proj@data$BCR == bcr, ]
   area.sub <- crop(region, extent(bcr.sub))
   zones.sub <- mask(area.sub, bcr.sub)
   # where to write these files to
-  filename <- paste0("nlcd_30x30_1992_2001_bcr_", bcr, ".grd", sep = "")
+  filename <- paste0("nlcd_30x30_1992_2001_bcr_", bcr, ".grd")
   writeRaster(zones.sub, filename = filename)
+  area.df <- rasterToPoints(zones.sub, fun = fun(x) {x %in% fragcodes$modified})
+  write.csv(area.df, paste0("nlcd_30x30_1992_2001_bcr_", bcr, ".csv"), row.names = F)
 }
 
+#### 2001 - 2011 ####
+
+## 2001 - 2006
+
+# Read in land cover data
+file.2001 <- get.file.img(1)
+nlcd2001 <- raster(paste0(dir, "/", file.2001$folder, "/", file.2001$file.name, sep = ""))
+
+# BCRs
+us01 <- sp::spTransform(us.proj, crs(nlcd2001))
+
+# Land cover class codes
+setwd("C:/Users/gdicecco/Desktop/git/NLCD_fragmentation/landcover-finescale/")
+codes0111 <- read.csv("nlcd_2001-2011_landcover_change_codes.csv", stringsAsFactors = F)
+
+# output: raster file of landcover change
+# output: dataframe of landcover change of interest
+for(i in 1:length(bcrs)) {
+  bcr <- bcrs[i]
+  bcr.sub <- us01[us01@data$BCR == bcr, ]
+  area.sub <- crop(nlcd2001, extent(bcr.sub))
+  zones.sub <- mask(area.sub, bcr.sub)
+  # where to write these files to # setwd()
+  filename <- paste0("nlcd_30x30_2001_2006_bcr_", bcr, ".grd")
+  writeRaster(zones.sub, filename = filename)
+  area.df <- rasterToPoints(zones.sub, fun = fun(x) {x %in% codes0111$ID})
+  write.csv(area.df, paste0("nlcd_30x30_2001_2006_bcr_", bcr, ".csv"), row.names = F)
+}
+
+## 2006-2011
+
+# Read in land cover data
+file.2006 <- get.file.img(2)
+nlcd2006 <- raster(paste0(dir, "/", file.2006$folder, "/", file.2006$file.name, sep = ""))
+
+# output: raster file of landcover change
+# output: dataframe of landcover change of interest
+for(i in 1:length(bcrs)) {
+  bcr <- bcrs[i]
+  bcr.sub <- us01[us01@data$BCR == bcr, ]
+  area.sub <- crop(nlcd2006, extent(bcr.sub))
+  zones.sub <- mask(area.sub, bcr.sub)
+  # where to write these files to # setwd()
+  filename <- paste0("nlcd_30x30_2006_2011_bcr_", bcr, ".grd")
+  writeRaster(zones.sub, filename = filename)
+  area.df <- rasterToPoints(zones.sub, fun = fun(x) {x %in% codes0111$ID})
+  write.csv(area.df, paste0("nlcd_30x30_2006_2011_bcr_", bcr, ".csv"), row.names = F)
+}
