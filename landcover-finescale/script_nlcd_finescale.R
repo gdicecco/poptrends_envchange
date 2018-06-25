@@ -88,7 +88,7 @@ us.proj <- readOGR("BCRS_contiguous_us.shp")
 
 # Read in land cover data
 file.2001 <- get.file.img(1)
-nlcd2001 <- raster(paste0(dir, "/", file.2001$folder, "/", file.2001$file.name, sep = ""))
+nlcd2001 <- raster(paste0(dir.img, "/", file.2001$folder, "/", file.2001$file.name))
 
 # BCRs
 us01 <- sp::spTransform(us.proj, crs(nlcd2001))
@@ -116,7 +116,7 @@ for(i in 1:length(bcrs)) {
 
 # Read in land cover data
 file.2006 <- get.file.img(2)
-nlcd2006 <- raster(paste0(dir, "/", file.2006$folder, "/", file.2006$file.name, sep = ""))
+nlcd2006 <- raster(paste0(dir.img, "/", file.2006$folder, "/", file.2006$file.name))
 
 # output: raster file of landcover change
 # output: dataframe of landcover change of interest
