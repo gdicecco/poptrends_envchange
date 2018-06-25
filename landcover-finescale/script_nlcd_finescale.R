@@ -108,7 +108,7 @@ for(i in 1:length(bcrs)) {
   zones.sub <- mask(area.sub, bcr.sub)
   filename <- paste0("nlcd_30x30_2001_2006_bcr_", bcr, ".grd")
   writeRaster(zones.sub, filename = filename)
-  area.df <- rasterToPoints(zones.sub, fun = fun(x) {x %in% codes0111$ID})
+  area.df <- rasterToPoints(zones.sub, fun = function(x) {x %in% codes0111$ID})
   write.csv(area.df, paste0("nlcd_30x30_2001_2006_bcr_", bcr, ".csv"), row.names = F)
 }
 
@@ -129,6 +129,6 @@ for(i in 1:length(bcrs)) {
   zones.sub <- mask(area.sub, bcr.sub)
   filename <- paste0("nlcd_30x30_2006_2011_bcr_", bcr, ".grd")
   writeRaster(zones.sub, filename = filename)
-  area.df <- rasterToPoints(zones.sub, fun = fun(x) {x %in% codes0111$ID})
+  area.df <- rasterToPoints(zones.sub, fun = function(x) {x %in% codes0111$ID})
   write.csv(area.df, paste0("nlcd_30x30_2006_2011_bcr_", bcr, ".csv"), row.names = F)
 }
