@@ -80,7 +80,7 @@ us.proj <- readOGR("BCRs_contiguous_us.shp")
 #  writeRaster(zones.sub, filename = filename)
 #  area.df <- rasterToPoints(zones.sub, fun = fun(x) {x %in% fragcodes$modified})
 #  write.csv(area.df, paste0("nlcd_30x30_1992_2001_bcr_", bcr, ".csv"), row.names = F)
-}
+#}
 
 #### 2001 - 2011 ####
 
