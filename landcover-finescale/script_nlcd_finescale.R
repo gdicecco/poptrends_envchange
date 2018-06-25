@@ -52,7 +52,7 @@ bcrs <- c(9, 12, 13, 14, 18, 19, 23, 27, 29) # BCRs of interest
 
 # BCR shapefile
 setwd("/proj/hurlbertlab/gdicecco/nlcd_frag_proj_shapefiles/BCRs_contiguous_us/")
-us.proj <- readOGR("BCRS_contiguous_us.shp")
+us.proj <- readOGR("BCRs_contiguous_us.shp")
 
 #### 1992 - 2001 ####
 
