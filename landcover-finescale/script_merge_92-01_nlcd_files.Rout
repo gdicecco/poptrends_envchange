@@ -1,0 +1,237 @@
+
+R version 3.3.1 (2016-06-21) -- "Bug in Your Hair"
+Copyright (C) 2016 The R Foundation for Statistical Computing
+Platform: x86_64-pc-linux-gnu (64-bit)
+
+R is free software and comes with ABSOLUTELY NO WARRANTY.
+You are welcome to redistribute it under certain conditions.
+Type 'license()' or 'licence()' for distribution details.
+
+  Natural language support but running in an English locale
+
+R is a collaborative project with many contributors.
+Type 'contributors()' for more information and
+'citation()' on how to cite R or R packages in publications.
+
+Type 'demo()' for some demos, 'help()' for on-line help, or
+'help.start()' for an HTML browser interface to help.
+Type 'q()' to quit R.
+
+> ## Merge fine scale zone shapefiles - NLCD 1992-2001
+> 
+> #### Libraries ####
+> library(raster)
+Loading required package: sp
+> library(sp)
+> library(rgdal)
+rgdal: version: 1.2-7, (SVN revision 660)
+ Geospatial Data Abstraction Library extensions to R successfully loaded
+ Loaded GDAL runtime: GDAL 1.11.4, released 2016/01/25
+ Path to GDAL shared files: /usr/share/gdal
+ Loaded PROJ.4 runtime: Rel. 4.8.0, 6 March 2012, [PJ_VERSION: 480]
+ Path to PROJ.4 shared files: (autodetected)
+ Linking to sp version: 1.2-4 
+> library(dplyr)
+
+Attaching package: ‘dplyr’
+
+The following objects are masked from ‘package:raster’:
+
+    intersect, select, union
+
+The following objects are masked from ‘package:stats’:
+
+    filter, lag
+
+The following objects are masked from ‘package:base’:
+
+    intersect, setdiff, setequal, union
+
+> library(stringr)
+> 
+> #### Functions ####
+> setwd("/proj/hurlbertlab/nlcd_landcover_change/nlcd_1992_to_2001_landcover_change/")
+> files <- list.files()
+> area.files <- files[str_detect(files, "area_")]
+> dir <- getwd()
+> 
+> # Get area changeproduct raster file from NLCD directory
+> get.file <- function(x) {
++   files2 <- list.files(paste0(dir, "/", area.files[x]))
++   file.path <- files2[str_detect(files2, "area")]
++   return(list(folder = area.files[x], file.name = file.path))
++ }
+> 
+> # Function to merge two raster files with different origins and extents, same resolution and crs
+> merge.areas <- function(x, y) {
++   extent1 <- extent(x)
++   extent2 <- extent(y)
++   z <- raster(xmn = min(extent1[1], extent2[1]), xmx = max(extent1[2], extent2[2]), # make blank raster file with extent of the two files added
++               ymn = min(extent1[3], extent2[3]), ymx = max(extent1[4], extent2[4]), 
++               resolution = res(x), crs = crs(x))
++   merge1 <- mosaic(z, x, fun = max, tolerance = max(abs(origin(z) - origin(x)))) # function: where rasters overlap keep larger value
++   merge2 <- mosaic(merge1, y, fun = max, tolerance = max(abs(origin(merge1) - origin(y)))) # tolerance allows for different origins 
++   return(merge2) # returns the two rasters merged into one
++ }
+> 
+> ## Get codes for landcover change of interest
+> codes <- read.csv("anderson_land_cover_codes.csv", stringsAsFactors = F) # NLCD land cover class codes
+> 
+> fragcodes <- codes %>%
++   filter(grepl("Forest|Grassland", anderson))
+> 
+> ## Create map of US
+> file1 <- get.file(1)
+> data <- raster(paste0(dir, "/", file1$folder, "/", file1$file.name, sep = ""))
+> #data.frag <- data[data %in% fragcodes$modified]
+> 
+> print("area 1")
+[1] "area 1"
+> 
+> file2 <- get.file(2)
+> data2 <- raster(paste0(dir, "/", file2$folder, "/", file2$file.name, sep = ""))
+> #data2.frag <- data2[data2 %in% fragcodes$modified]
+> 
+> print("area 2")
+[1] "area 2"
+> 
+> region <- merge.areas(data, data2)
+> crs.region <- crs(region)
+> 
+> print("merge 1")
+[1] "merge 1"
+> 
+> for(i in 3:length(area.files)) { 
++     file3 <- get.file(i)
++     data3 <- raster(paste0(dir, "/", file3$folder, "/", file3$file.name, sep = ""))
++     data3.proj <- projectRaster(data3, crs = crs.region)
++     print(data3.proj)
++     print(region)
++     extent1 <- extent(region)
++     extent2 <- extent(data3.proj)
++     z <- raster(xmn = min(extent1[1], extent2[1]), xmx = max(extent1[2], extent2[2]), # make blank raster file with extent of the two files added
++               ymn = min(extent1[3], extent2[3]), ymx = max(extent1[4], extent2[4]), 
++               resolution = res(region), crs = crs.region)
++     merge1 <- mosaic(z, region, fun = max, tolerance = max(abs(origin(z) - origin(region)))) # function: where rasters overlap keep larger value
++     region <- mosaic(merge1, data3.proj, fun = max, tolerance = max(abs(origin(merge1) - origin(data3.proj)))) # tolerance allows for different origins 
++   #    region <- merge.areas(region, data3.proj)
++   print(paste0("Completed area ", i))
++ }
+class       : RasterLayer 
+dimensions  : 31168, 33521, 1044782528  (nrow, ncol, ncell)
+resolution  : 30, 30  (x, y)
+extent      : -1744395, -738765, 2169015, 3104055  (xmin, xmax, ymin, ymax)
+coord. ref. : +proj=aea +lat_1=29.5 +lat_2=45.5 +lat_0=23 +lon_0=-96 +x_0=0 +y_0=0 +ellps=GRS80 +towgs84=0,0,0,0,0,0,0 +units=m +no_defs 
+data source : /tmp/RtmprhfG87/raster/r_tmp_2018-06-26_102336_91279_81827.grd 
+names       : area03_changeproduct5k_111907 
+values      : -1.629815e-09, 87  (min, max)
+
+class       : RasterLayer 
+dimensions  : 64797, 28760, 1863561720  (nrow, ncol, ncell)
+resolution  : 30, 30  (x, y)
+extent      : -2366595, -1503795, 1238535, 3182445  (xmin, xmax, ymin, ymax)
+coord. ref. : +proj=aea +lat_1=29.5 +lat_2=45.5 +lat_0=23 +lon_0=-96 +x_0=0 +y_0=0 +ellps=GRS80 +towgs84=0,0,0,0,0,0,0 +units=m +no_defs 
+data source : /tmp/RtmprhfG87/raster/r_tmp_2018-06-26_101437_91279_76767.grd 
+names       : layer 
+values      : 0, 87  (min, max)
+
+[1] "Completed area 3"
+class       : RasterLayer 
+dimensions  : 38762, 31198, 1209296876  (nrow, ncol, ncell)
+resolution  : 30, 30  (x, y)
+extent      : -1653195, -717255, 1414365, 2577225  (xmin, xmax, ymin, ymax)
+coord. ref. : +proj=aea +lat_1=29.5 +lat_2=45.5 +lat_0=23 +lon_0=-96 +x_0=0 +y_0=0 +ellps=GRS80 +towgs84=0,0,0,0,0,0,0 +units=m +no_defs 
+data source : /tmp/RtmprhfG87/raster/r_tmp_2018-06-26_110741_91279_06502.grd 
+names       : area04_changeproduct5k_111907 
+values      : -2.017866e-09, 87  (min, max)
+
+class       : RasterLayer 
+dimensions  : 64797, 54261, 3515950017  (nrow, ncol, ncell)
+resolution  : 30, 30  (x, y)
+extent      : -2366595, -738765, 1238535, 3182445  (xmin, xmax, ymin, ymax)
+coord. ref. : +proj=aea +lat_1=29.5 +lat_2=45.5 +lat_0=23 +lon_0=-96 +x_0=0 +y_0=0 +ellps=GRS80 +towgs84=0,0,0,0,0,0,0 +units=m +no_defs 
+data source : /tmp/RtmprhfG87/raster/r_tmp_2018-06-26_105917_91279_72320.grd 
+names       : layer 
+values      : 0, 87  (min, max)
+
+[1] "Completed area 4"
+class       : RasterLayer 
+dimensions  : 24156, 30722, 742120632  (nrow, ncol, ncell)
+resolution  : 30, 30  (x, y)
+extent      : -1752075, -830415, 972225, 1696905  (xmin, xmax, ymin, ymax)
+coord. ref. : +proj=aea +lat_1=29.5 +lat_2=45.5 +lat_0=23 +lon_0=-96 +x_0=0 +y_0=0 +ellps=GRS80 +towgs84=0,0,0,0,0,0,0 +units=m +no_defs 
+data source : /tmp/RtmprhfG87/raster/r_tmp_2018-06-26_120019_91279_55454.grd 
+names       : area05_changeproduct5k_111907 
+values      : 0, 76  (min, max)
+
+class       : RasterLayer 
+dimensions  : 64797, 54978, 3562409466  (nrow, ncol, ncell)
+resolution  : 30, 30  (x, y)
+extent      : -2366595, -717255, 1238535, 3182445  (xmin, xmax, ymin, ymax)
+coord. ref. : +proj=aea +lat_1=29.5 +lat_2=45.5 +lat_0=23 +lon_0=-96 +x_0=0 +y_0=0 +ellps=GRS80 +towgs84=0,0,0,0,0,0,0 +units=m +no_defs 
+data source : /tmp/RtmprhfG87/raster/r_tmp_2018-06-26_115048_91279_91646.grd 
+names       : layer 
+values      : -2.017866e-09, 87  (min, max)
+
+[1] "Completed area 5"
+class       : RasterLayer 
+dimensions  : 32664, 40045, 1308029880  (nrow, ncol, ncell)
+resolution  : 30, 30  (x, y)
+extent      : -1032645, 168705, 1957485, 2937405  (xmin, xmax, ymin, ymax)
+coord. ref. : +proj=aea +lat_1=29.5 +lat_2=45.5 +lat_0=23 +lon_0=-96 +x_0=0 +y_0=0 +ellps=GRS80 +towgs84=0,0,0,0,0,0,0 +units=m +no_defs 
+data source : /tmp/RtmprhfG87/raster/r_tmp_2018-06-26_123915_91279_05542.grd 
+names       : area06_changeproduct5k_111907 
+values      : -2.607703e-09, 76  (min, max)
+
+class       : RasterLayer 
+dimensions  : 73674, 54978, 4050449172  (nrow, ncol, ncell)
+resolution  : 30, 30  (x, y)
+extent      : -2366595, -717255, 972225, 3182445  (xmin, xmax, ymin, ymax)
+coord. ref. : +proj=aea +lat_1=29.5 +lat_2=45.5 +lat_0=23 +lon_0=-96 +x_0=0 +y_0=0 +ellps=GRS80 +towgs84=0,0,0,0,0,0,0 +units=m +no_defs 
+data source : /tmp/RtmprhfG87/raster/r_tmp_2018-06-26_123007_91279_33707.grd 
+names       : layer 
+values      : 0, 87  (min, max)
+
+[1] "Completed area 6"
+class       : RasterLayer 
+dimensions  : 49478, 23896, 1182326288  (nrow, ncol, ncell)
+resolution  : 30, 30  (x, y)
+extent      : -960075, -243195, 676485, 2160825  (xmin, xmax, ymin, ymax)
+coord. ref. : +proj=aea +lat_1=29.5 +lat_2=45.5 +lat_0=23 +lon_0=-96 +x_0=0 +y_0=0 +ellps=GRS80 +towgs84=0,0,0,0,0,0,0 +units=m +no_defs 
+data source : /tmp/RtmprhfG87/raster/r_tmp_2018-06-26_134248_91279_71535.grd 
+names       : area07_changeproduct5k_111907 
+values      : -1.82384e-10, 85  (min, max)
+
+class       : RasterLayer 
+dimensions  : 73674, 84510, 6226189740  (nrow, ncol, ncell)
+resolution  : 30, 30  (x, y)
+extent      : -2366595, 168705, 972225, 3182445  (xmin, xmax, ymin, ymax)
+coord. ref. : +proj=aea +lat_1=29.5 +lat_2=45.5 +lat_0=23 +lon_0=-96 +x_0=0 +y_0=0 +ellps=GRS80 +towgs84=0,0,0,0,0,0,0 +units=m +no_defs 
+data source : /tmp/RtmprhfG87/raster/r_tmp_2018-06-26_132710_91279_33962.grd 
+names       : layer 
+values      : -2.607703e-09, 87  (min, max)
+
+[1] "Completed area 7"
+class       : RasterLayer 
+dimensions  : 28215, 38256, 1079393040  (nrow, ncol, ncell)
+resolution  : 30, 30  (x, y)
+extent      : -30795, 1116885, 2089425, 2935875  (xmin, xmax, ymin, ymax)
+coord. ref. : +proj=aea +lat_1=29.5 +lat_2=45.5 +lat_0=23 +lon_0=-96 +x_0=0 +y_0=0 +ellps=GRS80 +towgs84=0,0,0,0,0,0,0 +units=m +no_defs 
+data source : /tmp/RtmprhfG87/raster/r_tmp_2018-06-26_145222_91279_85457.grd 
+names       : area08_changeproduct5k_111907 
+values      : -1.676381e-09, 76  (min, max)
+
+class       : RasterLayer 
+dimensions  : 83532, 84510, 7059289320  (nrow, ncol, ncell)
+resolution  : 30, 30  (x, y)
+extent      : -2366595, 168705, 676485, 3182445  (xmin, xmax, ymin, ymax)
+coord. ref. : +proj=aea +lat_1=29.5 +lat_2=45.5 +lat_0=23 +lon_0=-96 +x_0=0 +y_0=0 +ellps=GRS80 +towgs84=0,0,0,0,0,0,0 +units=m +no_defs 
+data source : /tmp/RtmprhfG87/raster/r_tmp_2018-06-26_143447_91279_78435.grd 
+names       : layer 
+values      : -1.82384e-10, 87  (min, max)
+
+Error in matrix(unlist(ini), ncol = 2, byrow = TRUE) : 
+  'data' must be of a vector type, was 'NULL'
+Calls: mosaic ... .rasterObjectFromFile -> .rasterFromRasterFile -> readIniFile -> matrix
+In addition: There were 50 or more warnings (use warnings() to see the first 50)
+Execution halted

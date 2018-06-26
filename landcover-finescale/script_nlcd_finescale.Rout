@@ -1,0 +1,159 @@
+
+R version 3.3.1 (2016-06-21) -- "Bug in Your Hair"
+Copyright (C) 2016 The R Foundation for Statistical Computing
+Platform: x86_64-pc-linux-gnu (64-bit)
+
+R is free software and comes with ABSOLUTELY NO WARRANTY.
+You are welcome to redistribute it under certain conditions.
+Type 'license()' or 'licence()' for distribution details.
+
+  Natural language support but running in an English locale
+
+R is a collaborative project with many contributors.
+Type 'contributors()' for more information and
+'citation()' on how to cite R or R packages in publications.
+
+Type 'demo()' for some demos, 'help()' for on-line help, or
+'help.start()' for an HTML browser interface to help.
+Type 'q()' to quit R.
+
+> # Script: examine land cover change in fine scale NCLD data
+> # 1992-2006 for eastern deciduous and western grassland Bird Conservation Regions
+> 
+> #### Libraries ####
+> library(raster)
+Loading required package: sp
+> library(sp)
+> library(rgdal)
+rgdal: version: 1.2-7, (SVN revision 660)
+ Geospatial Data Abstraction Library extensions to R successfully loaded
+ Loaded GDAL runtime: GDAL 1.11.4, released 2016/01/25
+ Path to GDAL shared files: /usr/share/gdal
+ Loaded PROJ.4 runtime: Rel. 4.8.0, 6 March 2012, [PJ_VERSION: 480]
+ Path to PROJ.4 shared files: (autodetected)
+ Linking to sp version: 1.2-4 
+> library(dplyr)
+
+Attaching package: ‘dplyr’
+
+The following objects are masked from ‘package:raster’:
+
+    intersect, select, union
+
+The following objects are masked from ‘package:stats’:
+
+    filter, lag
+
+The following objects are masked from ‘package:base’:
+
+    intersect, setdiff, setequal, union
+
+> library(stringr)
+> 
+> #### Functions ####
+> # Get area changeproduct raster file from NLCD directory
+> 
+> # 1992-2001
+> #setwd("nlcd_1992_to_2001_landcover_change")
+> #files <- list.files()
+> #area.files <- files[str_detect(files, "area_")]
+> #dir <- getwd()
+> 
+> #get.file <- function(x) {
+> #  files2 <- list.files(paste0(dir, "/", area.files[x], ""))
+> #  file.path <- files2[str_detect(files2, "area")]
+> #  return(list(folder = area.files[x], file.name = file.path))
+> #}
+> 
+> # 2001-2011
+> setwd("/proj/hurlbertlab/nlcd_landcover_change/")
+> files <- list.files()
+> nlcd.files <- files[str_detect(files, "2006")]
+> dir.img <- getwd()
+> 
+> get.file.img <- function(x) {
++   files2 <- list.files(paste0(dir.img, "/", nlcd.files[x], ""))
++   file.path <- files2[str_detect(files2, "img")]
++   return(list(folder = nlcd.files[x], file.name = file.path))
++ }
+> 
+> # Function to merge two raster files with different origins and extents, same resolution and crs
+> merge.areas <- function(x, y) {
++   extent1 <- extent(x)
++   extent2 <- extent(y)
++   z <- raster(xmn = min(extent1[1], extent2[1]), xmx = max(extent1[2], extent2[2]), # make blank raster file with extent of the two files added
++               ymn = min(extent1[3], extent2[3]), ymx = max(extent1[4], extent2[4]), 
++               resolution = res(x), crs = crs(x))
++   merge1 <- mosaic(z, x, fun = max, tolerance = max(abs(origin(z) - origin(x)))) # function: where rasters overlap keep larger value
++   merge2 <- mosaic(merge1, y, fun = max, tolerance = max(abs(origin(merge1) - origin(y)))) # tolerance allows for different origins 
++   return(merge2) # returns the two rasters merged into one
++ }
+> 
+> #### Data needed for all time steps ####
+> bcrs <- c(9, 12, 13, 14, 18, 19, 23, 27, 29) # BCRs of interest
+> 
+> # BCR shapefile
+> setwd("/proj/hurlbertlab/gdicecco/nlcd_frag_proj_shapefiles/BCRs_contiguous_us/")
+> us.proj <- readOGR("BCRs_contiguous_us.shp")
+OGR data source with driver: ESRI Shapefile 
+Source: "BCRs_contiguous_us.shp", layer: "BCRs_contiguous_us"
+with 173 features
+It has 8 fields
+> 
+> #### 1992 - 2001 ####
+> 
+> ## Crop raster data for each BCR
+> #region <- raster("nlcd_1992_2001_changepixels_30m_30m.grd")
+> 
+> #crs.nlcd <- crs(region)
+> #bcrs.proj <- spTransform(us.proj, crs.nlcd)
+> 
+> #setwd("/proj/hurlbertlab/gdicecco/NLCD_fragmentation/landcover-finescale/")
+> #codes <- read.csv("anderson_land_cover_codes.csv", stringsAsFactors = F) # NLCD land cover class codes
+> 
+> #fragcodes <- codes %>%
+> #  filter(grepl("Forest|Grassland", anderson))
+> 
+> # output: raster file of landcover change
+> # output: dataframe of landcover change of interest
+> #for(i in 1:length(bcrs)) {
+> #  bcr <- bcrs[i]
+> #  bcr.sub <- bcrs.proj[bcrs.proj@data$BCR == bcr, ]
+> #  area.sub <- crop(region, extent(bcr.sub))
+> #  zones.sub <- mask(area.sub, bcr.sub)
+>   # where to write these files to
+> #  filename <- paste0("nlcd_30x30_1992_2001_bcr_", bcr, ".grd")
+> #  writeRaster(zones.sub, filename = filename)
+> #  area.df <- rasterToPoints(zones.sub, fun = fun(x) {x %in% fragcodes$modified})
+> #  write.csv(area.df, paste0("nlcd_30x30_1992_2001_bcr_", bcr, ".csv"), row.names = F)
+> #}
+> 
+> #### 2001 - 2011 ####
+> 
+> ## 2001 - 2006
+> 
+> # Read in land cover data
+> file.2001 <- get.file.img(1)
+> nlcd2001 <- raster(paste0(dir.img, "/", file.2001$folder, "/", file.2001$file.name))
+> 
+> # BCRs
+> us01 <- sp::spTransform(us.proj, crs(nlcd2001))
+> 
+> # Land cover class codes
+> setwd("/proj/hurlbertlab/gdicecco/NLCD_fragmentation/landcover-finescale/")
+> codes0111 <- read.csv("nlcd_2001-2011_landcover_change_codes.csv", stringsAsFactors = F)
+> 
+> # output: raster file of landcover change
+> # output: dataframe of landcover change of interest
+> setwd("/proj/hurlbertlab/gdicecco/nlcd_frag_proj_shapefiles/BCRs_landcover_output/")
+> 
+> for(i in 1:length(bcrs)) {
++   bcr <- bcrs[i]
++   bcr.sub <- us01[us01@data$BCR == bcr, ]
++   area.sub <- crop(nlcd2001, extent(bcr.sub))
++   zones.sub <- mask(area.sub, bcr.sub)
++   filename <- paste0("nlcd_30x30_2001_2006_bcr_", bcr, ".grd")
++   writeRaster(zones.sub, filename = filename, overwrite = T)
++   area.df <- rasterToPoints(zones.sub, fun = function(x) {x %in% codes0111$ID})
++   write.csv(area.df, paste0("nlcd_30x30_2001_2006_bcr_", bcr, ".csv"), row.names = F)
++ }
