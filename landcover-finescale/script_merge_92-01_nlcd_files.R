@@ -60,8 +60,8 @@ for(i in 3:length(area.files)) {
     file3 <- get.file(i)
     data3 <- raster(paste0(dir, "/", file3$folder, "/", file3$file.name, sep = ""))
     data3.proj <- projectRaster(data3, crs = crs.region)
-    data3.proj
-    region
+    print(data3.proj)
+    print(region)
     extent1 <- extent(region)
     extent2 <- extent(data3.proj)
     z <- raster(xmn = min(extent1[1], extent2[1]), xmx = max(extent1[2], extent2[2]), # make blank raster file with extent of the two files added
