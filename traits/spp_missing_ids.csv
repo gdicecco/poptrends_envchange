@@ -1,0 +1,33 @@
+Common_name,Scientific_name,Synonyms,Alt_common_names,SISRecID,genus,species,alt_genus,alt_spp,species_id,aou,english_common_name,french_common_name,spanish_common_name,sporder,family
+NA,NA,NA,NA,22681152,Picoides,scalaris,NA,NA,741,3960,Ladder-backed Woodpecker,Pic arlequin,Picoides scalaris,Piciformes,Picidae
+NA,NA,NA,NA,22681149,Picoides,nuttallii,NA,NA,742,3970,Nuttall's Woodpecker,Pic de Nuttall,Picoides nuttallii,Piciformes,Picidae
+NA,NA,NA,NA,22681155,Picoides,pubescens,NA,NA,743,3940,Downy Woodpecker,Pic mineur,Picoides pubescens,Piciformes,Picidae
+NA,NA,NA,NA,22681166,Picoides,villosus,NA,NA,745,3930,Hairy Woodpecker,Pic chevelu,Picoides villosus,Piciformes,Picidae
+NA,NA,NA,NA,22681158,Picoides,borealis,NA,NA,748,3950,Red-cockaded Woodpecker,Pic à face blanche,Picoides borealis,Piciformes,Picidae
+NA,NA,NA,NA,22681169,Picoides,albolarvatus,NA,NA,749,3990,White-headed Woodpecker,Pic à tête blanche,Picoides albolarvatus,Piciformes,Picidae
+NA,NA,NA,NA,22726404,Colaptes,auratus auratus,NA,NA,755,4120,(Yellow-shafted Flicker) Northern Flicker,Pic flamboyant (groupe auratus),Colaptes auratus auratus,Piciformes,Picidae
+NA,NA,NA,NA,22726414,Colaptes,auratus cafer,NA,NA,756,4130,(Red-shafted Flicker) Northern Flicker,Pic flamboyant (groupe cafer),Colaptes auratus cafer,Piciformes,Picidae
+NA,NA,NA,NA,NA,Colaptes,auratus auratus x auratus cafer,NA,NA,757,4125,hybrid Northern Flicker (Red x Yellow-shafted),hybride Pic flamboyant (cafer x auratus),Colaptes auratus auratus x auratus cafer,Piciformes,Picidae
+NA,NA,NA,NA,22681363,Dryocopus,pileatus,NA,NA,761,4050,Pileated Woodpecker,Grand Pic,Dryocopus pileatus,Piciformes,Picidae
+NA,NA,NA,NA,NA,Aphelocoma,woodhouseii,NA,NA,989,4813,Woodhouse's Scrub-Jay,Geai de Woodhouse,Aphelocoma woodhouseii,Passeriformes,Corvidae
+NA,NA,NA,NA,22720702,Coccothraustes,vespertinus,NA,NA,1243,5140,Evening Grosbeak,Gros-bec errant,Coccothraustes vespertinus,Passeriformes,Fringillidae
+NA,NA,NA,NA,NA,Vermivora,cyanoptera x chrysoptera,NA,NA,1257,6412,Brewster's Warbler (Golden-winged x Blue-winged),Paruline de Brewster,Vermivora cyanoptera x chrysoptera,Passeriformes,Parulidae
+NA,NA,NA,NA,NA,Vermivora,chrysoptera x cyanoptera,NA,NA,1258,6413,Lawrence's Warbler (Golden-winged x Blue-winged),Paruline de Lawrence,Vermivora chrysoptera x cyanoptera,Passeriformes,Parulidae
+NA,NA,NA,NA,22721621,Oreothlypis,peregrina,NA,NA,1263,6470,Tennessee Warbler,Paruline obscure,Oreothlypis peregrina,Passeriformes,Parulidae
+NA,NA,NA,NA,22721624,Oreothlypis,celata,NA,NA,1264,6460,Orange-crowned Warbler,Paruline verdâtre,Oreothlypis celata,Passeriformes,Parulidae
+NA,NA,NA,NA,22721636,Oreothlypis,luciae,NA,NA,1266,6430,Lucy's Warbler,Paruline de Lucy,Oreothlypis luciae,Passeriformes,Parulidae
+NA,NA,NA,NA,22721627,Oreothlypis,ruficapilla,NA,NA,1267,6450,Nashville Warbler,Paruline à joues grises,Oreothlypis ruficapilla,Passeriformes,Parulidae
+NA,NA,NA,NA,22721630,Oreothlypis,virginiae,NA,NA,1268,6440,Virginia's Warbler,Paruline de Virginia,Oreothlypis virginiae,Passeriformes,Parulidae
+NA,NA,NA,NA,103798425,Setophaga,coronata coronata,NA,NA,1295,6550,(Myrtle Warbler) Yellow-rumped Warbler,Paruline à croupion jaune (groupe coronata),Setophaga coronata coronata,Passeriformes,Parulidae
+NA,NA,NA,NA,103798482,Setophaga,coronata audoboni,NA,NA,1296,6560,(Audubon's Warbler) Yellow-rumped Warbler,Paruline à croupion jaune (groupe auduboni),Setophaga coronata audoboni,Passeriformes,Parulidae
+NA,NA,NA,NA,NA,Icterus,townsendi x occidentalis,NA,NA,1304,6686,hybrid Townsend's Warbler x Hermit Warbler,hybride Paruline de Townsend x à tête jaune,Icterus townsendi x occidentalis,Passeriformes,Icteridae
+NA,NA,NA,NA,22721141,Ammodramus,bairdii,NA,NA,1397,5450,Baird's Sparrow,Bruant de Baird,Ammodramus bairdii,Passeriformes,Emberizidae
+NA,NA,NA,NA,22721138,Ammodramus,henslowii,NA,NA,1398,5470,Henslow's Sparrow,Bruant de Henslow,Ammodramus henslowii,Passeriformes,Emberizidae
+NA,NA,NA,NA,22721135,Ammodramus,leconteii,NA,NA,1399,5480,Le Conte's Sparrow,Bruant de Le Conte,Ammodramus leconteii,Passeriformes,Emberizidae
+NA,NA,NA,NA,22728393,Ammodramus,nelsoni,NA,NA,1400,5491,Nelson's Sparrow,Bruant de Nelson,Ammodramus nelsoni,Passeriformes,Emberizidae
+NA,NA,NA,NA,22721123,Ammodramus,maritimus,NA,NA,1402,5500,Seaside Sparrow,Bruant maritime,Ammodramus maritimus,Passeriformes,Emberizidae
+NA,NA,NA,NA,NA,Junco,hyemalis hyemalis,NA,NA,1413,5670,(Slate-colored Junco) Dark-eyed Junco,Junco ardoisé (groupe hyemalis),Junco hyemalis hyemalis,Passeriformes,Emberizidae
+NA,NA,NA,NA,NA,Junco,hyemalis oreganus,NA,NA,1414,5671,(Oregon Junco) Dark-eyed Junco,Junco ardoisé (groupe oreganus),Junco hyemalis oreganus,Passeriformes,Emberizidae
+NA,NA,NA,NA,NA,Junco,hyemalis mearnsi,NA,NA,1415,5680,(Pink-sided Junco) Dark-eyed Junco,Junco ardoisé (groupe mearnsi),Junco hyemalis mearnsi,Passeriformes,Emberizidae
+NA,NA,NA,NA,NA,Junco,hyemalis aikeni,NA,NA,1416,5660,(White-winged Junco) Dark-eyed Junco,Junco ardoisé (à ailes blanches),Junco hyemalis aikeni,Passeriformes,Emberizidae
+NA,NA,NA,NA,NA,Junco,hyemalis caniceps,NA,NA,1417,5690,(Gray-headed Junco) Dark-eyed Junco,Junco ardoisé (à tête grise),Junco hyemalis caniceps,Passeriformes,Emberizidae
