@@ -1,0 +1,29 @@
+BBS Species
+
+Water birds, nocturnal birds, raptors
+-Order: Anseriformes (ducks, swans, geese)
+-Order: Podicipediformes (grebes)
+-Order: Caprimulgiformes (nightjars)
+-Order: Gruiformes (rails, cranes)
+-Order: Charadriiformes (terns, gulls, sandpipers, plovers)
+-Order: Gaviiformes (loons)
+-Order: Procellariiformes (shearwaters)
+-Order: Ciconiiformes (stork)
+-Order: Suliformes (boobys, cormorants)
+-Order: Pelecaniformes (pelicans, herons, egrets)
+-Order: Cathartiformes (vultures)
+-Order: Accipitriformes (diurnal birds of prey)
+-Order: Strigiformes (owls)
+-Order: Falconiformes (falcons)
+
+Diurnal land birds
+-Order: Piciformes (woodpeckers)
+-Order: Passeriformes (perching birds)
+-Order: Psittaciformes (parrots)
+-Order: Coraciiformes (kingfishers)
+-Order: Trogoniformes (trogons)
+-Order: Apodiformes (hummingbirds, swifts)
+-Order: Columbiformes (pigeons, doves)
+-Order: Cuculiformes (cuckoos)
+-Order: Galliformes (ground feeding)
+

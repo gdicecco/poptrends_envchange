@@ -2,6 +2,7 @@
 
 library(dplyr)
 library(stringr)
+library(traits)
 
 ## List of species observed in BCRs of interest during time window (1990-present)
 routes <- read.csv("\\\\Bioark.bio.unc.edu\\hurlbertlab\\Databases\\BBS\\2017\\bbs_routes_20170712.csv")
@@ -35,26 +36,36 @@ length(unique(counts.subs$aou))
 ## Get number of habitats
 setwd("\\\\BioArk\\hurlbertlab\\DiCecco\\LTER_birdabund_seasonal\\")
 
-##BirdLife checklist (ID numbers)
+## BirdLife checklist (ID numbers)
 checklist <- read.csv("BirdLife_Checklist_V_9.1.csv", header = TRUE, stringsAsFactors = F)
-checklist.subs <- checklist[,c(4,5,9,10,13)] #just SISRecID, scientific name, synonyms, alt common names, common name
   
 checklist.subs <- checklist %>%
   select(Common_name, Scientific_name, Synonyms, Alt_common_names, SISRecID) %>%
   mutate(genus = word(Scientific_name, 1),
-         species = word(Scientific_name, 2),
-         alt_genus = word(Synonyms, 1),
-         alt_spp = word(Synonyms, 2)) %>%
+         species = word(Scientific_name, 2)) %>%
   right_join(landbirds, by = c("genus", "species")) %>% 
   filter(aou %in% unique(counts.subs$aou))
 
-checklist.unid <- checklist.subs[is.na(checklist.subs$SISRecID), ]
-checklist.nas <- checklist.unid[!grepl("unid.", checklist.unid$english_common_name), ]
+# Which species didn't match up
+checklist.unid <- checklist.subs[is.na(checklist.subs$SISRecID), ] #NAs for SISRecID
+checklist.nas <- checklist.unid[!grepl("unid.", checklist.unid$english_common_name), ] # Omit the ones that are NA because they are unid.
 
 # Manually entered woodpeckers, missing warblers, missing sparrows
 missingspp <- read.csv("spp_missing_ids.csv", stringsAsFactors = F)
 
 ## Index from 0-1 for habitats - logit transform
+
+# Get habitat data
+IUCNids <- na.omit(unique(checklist.subs$SISRecID))
+finescale_habitats <- matrix(nrow = length(IUCNids), ncol = 2) 
+
+for(i in 1:length(IUCNids)) {
+  id <- IUCNids[i]
+  finescale_habitats[i,1] <- id
+  habitat <- birdlife_habitat(id)
+  finescale_habitats[i,2] <- length(habitat$id)
+}
+habitats <- data.frame(SISRecID = finescale_habitats[,1], nHabitats = finescale_habitats[,2]) #38 IDs are zero
 
 ## Thermal niche 
 
