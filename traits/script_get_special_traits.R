@@ -67,6 +67,14 @@ for(i in 1:length(IUCNids)) {
 }
 habitats <- data.frame(SISRecID = finescale_habitats[,1], nHabitats = finescale_habitats[,2]) #38 IDs are zero
 
+habitats$index <- (habitats$nHabitats - 1)/(max(habitats$nHabitats) - 1)
+habitats[habitats$nHabitats == 0, 3] <- NA
+habitats[habitats$nHabitats == 1, 3] <- 0.001
+habitats[habitats$nHabitats == 25, 3] <- 0.975
+habitats$logit <- log(habitats$index/(1 - habitats$index))
+hist(habitats$logit)
+hist(habitats$index)
+
 ## Thermal niche 
 
 ## Thermal niche index 0-1
