@@ -5,10 +5,16 @@ library(stringr)
 library(traits)
 
 ## List of species observed in BCRs of interest during time window (1990-present)
-routes <- read.csv("\\\\Bioark.bio.unc.edu\\hurlbertlab\\Databases\\BBS\\2017\\bbs_routes_20170712.csv")
-counts <- read.csv("\\\\Bioark.bio.unc.edu\\hurlbertlab\\Databases\\BBS\\2017\\bbs_counts_20170712.csv")
-species <- read.csv("\\\\Bioark.bio.unc.edu\\hurlbertlab\\Databases\\BBS\\2017\\bbs_species_20170712.csv")
-weather <- read.csv("\\\\Bioark.bio.unc.edu\\hurlbertlab\\Databases\\BBS\\2017\\bbs_weather_20170712.csv")
+#routes <- read.csv("\\\\Bioark.bio.unc.edu\\hurlbertlab\\Databases\\BBS\\2017\\bbs_routes_20170712.csv")
+#counts <- read.csv("\\\\Bioark.bio.unc.edu\\hurlbertlab\\Databases\\BBS\\2017\\bbs_counts_20170712.csv")
+#species <- read.csv("\\\\Bioark.bio.unc.edu\\hurlbertlab\\Databases\\BBS\\2017\\bbs_species_20170712.csv")
+#weather <- read.csv("\\\\Bioark.bio.unc.edu\\hurlbertlab\\Databases\\BBS\\2017\\bbs_weather_20170712.csv")
+
+# Mac
+routes <- read.csv("/Volumes/hurlbertlab/Databases/BBS/2017/bbs_routes_20170712.csv")
+counts <- read.csv("/Volumes/hurlbertlab/Databases/BBS/2017/bbs_counts_20170712.csv")
+species <- read.csv("/Volumes/hurlbertlab/Databases/BBS/2017/bbs_species_20170712.csv")
+weather <- read.csv("/Volumes/hurlbertlab/Databases/BBS/2017/bbs_weather_20170712.csv")
 
 bcrs <- c(9, 12, 13, 14, 18, 19, 23, 27, 29) # BCRs of interest
 
@@ -34,7 +40,10 @@ counts.subs <- counts %>%
 length(unique(counts.subs$aou))
 
 ## Get number of habitats
-setwd("\\\\BioArk\\hurlbertlab\\DiCecco\\LTER_birdabund_seasonal\\")
+#setwd("\\\\BioArk\\hurlbertlab\\DiCecco\\LTER_birdabund_seasonal\\")
+
+# Mac
+setwd("/Volumes/hurlbertlab/DiCecco/LTER_birdabund_seasonal/")
 
 ## BirdLife checklist (ID numbers)
 checklist <- read.csv("BirdLife_Checklist_V_9.1.csv", header = TRUE, stringsAsFactors = F)
@@ -50,8 +59,11 @@ checklist.subs <- checklist %>%
 checklist.unid <- checklist.subs[is.na(checklist.subs$SISRecID), ] #NAs for SISRecID
 checklist.nas <- checklist.unid[!grepl("unid.", checklist.unid$english_common_name), ] # Omit the ones that are NA because they are unid.
 
-# Manually entered missing woodpeckers, warblers, sparrows
-setwd("C:/Users/gdicecco/Desktop/git/NLCD_fragmentation/traits/")
+# Manually entered woodpeckers, missing warblers, missing sparrows
+
+# Mac
+setwd("/Users/gracedicecco/Desktop/git/NLCD_fragmentation/traits/")
+
 missingspp <- read.csv("spp_missing_ids.csv", stringsAsFactors = F)
 
 ## Index from 0-1 for habitats - logit transform
@@ -72,7 +84,7 @@ habitats$index <- (habitats$nHabitats - 1)/(max(habitats$nHabitats) - 1)
 habitats[habitats$nHabitats == 0, 3] <- NA
 habitats[habitats$nHabitats == 1, 3] <- 0.001
 habitats[habitats$nHabitats == 25, 3] <- 0.975
-habitats$logit <- 1 - log(habitats$index/(1 - habitats$index))
+habitats$logit <- log(habitats$index/(1 - habitats$index))
 hist(habitats$logit)
 hist(habitats$index)
 
@@ -83,7 +95,7 @@ sppHabit <- checklist.subs %>%
 ## Thermal niche 
 # Start with Tol - high tolerance = broad niche
 
-setwd("//BioArk/HurlbertLab/DiCecco/")
+setwd("/Volumes/hurlbertlab/DiCecco/")
 correlates <- read.csv("Master_RO_Correlates_20110610.csv", stringsAsFactors = F)
 traits <- sppHabit %>%
   left_join(select(correlates, AOU, Tol, OMI), by = c("aou" = "AOU")) %>%
@@ -93,10 +105,9 @@ traits <- sppHabit %>%
 library(ggplot2)
 theme_set(theme_bw())
 
-traitplot <- ggplot(traits, aes(x = index, y = Tol)) + geom_point() + geom_abline(slope = 1) 
+traitplot <- ggplot(traits, aes(x = index, y = Tol)) + geom_point()
 traitplot + xlab("Rel. habitat specialization") + ylab("Tolerance") + geom_smooth(method = "lm", col = "blue", se = F)
-traitplot.logit <- ggplot(traits, aes(x = logit, y = Tol)) + geom_point() + geom_abline(slope = 1)
+traitplot.logit <- ggplot(traits, aes(x = logit, y = Tol)) + geom_point()
 traitplot.logit + xlab("Logit(habitat specialization)") + ylab("Tolerance") + geom_smooth(method = "lm", col = "blue", se = F)
 
 # Percentile - specialization
-
