@@ -74,7 +74,7 @@ region <- raster("nlcd_1992_2001_changepixels_30m_30m.grd")
 setwd("/proj/hurlbertlab/gdicecco/nlcd_frag_proj_shapefiles/BCRs_landcover_output/")
 for(i in 1:length(bcrs)) {
   bcr <- bcrs[i]
-  bcr.sub <- bcrs.proj[bcrs.proj@data$BCR == bcr, ]
+  bcr.sub <- us.proj[us.proj@data$BCR == bcr, ]
   area.sub <- crop(region, extent(bcr.sub))
   zones.sub <- mask(area.sub, bcr.sub)
   filename <- paste0("nlcd_30x30_1992_2001_bcr_", bcr, ".grd")
