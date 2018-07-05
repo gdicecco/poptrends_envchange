@@ -50,7 +50,8 @@ checklist.subs <- checklist %>%
 checklist.unid <- checklist.subs[is.na(checklist.subs$SISRecID), ] #NAs for SISRecID
 checklist.nas <- checklist.unid[!grepl("unid.", checklist.unid$english_common_name), ] # Omit the ones that are NA because they are unid.
 
-# Manually entered woodpeckers, missing warblers, missing sparrows
+# Manually entered missing woodpeckers, warblers, sparrows
+setwd("C:/Users/gdicecco/Desktop/git/NLCD_fragmentation/traits/")
 missingspp <- read.csv("spp_missing_ids.csv", stringsAsFactors = F)
 
 ## Index from 0-1 for habitats - logit transform
@@ -71,11 +72,31 @@ habitats$index <- (habitats$nHabitats - 1)/(max(habitats$nHabitats) - 1)
 habitats[habitats$nHabitats == 0, 3] <- NA
 habitats[habitats$nHabitats == 1, 3] <- 0.001
 habitats[habitats$nHabitats == 25, 3] <- 0.975
-habitats$logit <- log(habitats$index/(1 - habitats$index))
+habitats$logit <- 1 - log(habitats$index/(1 - habitats$index))
 hist(habitats$logit)
 hist(habitats$index)
 
-## Thermal niche 
+sppHabit <- checklist.subs %>%
+  left_join(habitats) %>%
+  arrange(nHabitats)
 
-## Thermal niche index 0-1
+## Thermal niche 
+# Start with Tol - high tolerance = broad niche
+
+setwd("//BioArk/HurlbertLab/DiCecco/")
+correlates <- read.csv("Master_RO_Correlates_20110610.csv", stringsAsFactors = F)
+traits <- sppHabit %>%
+  left_join(select(correlates, AOU, Tol, OMI), by = c("aou" = "AOU")) %>%
+  select(-french_common_name, -spanish_common_name)
+
+## Compare thermal niche breadth and habitat specialization
+library(ggplot2)
+theme_set(theme_bw())
+
+traitplot <- ggplot(traits, aes(x = index, y = Tol)) + geom_point() + geom_abline(slope = 1) 
+traitplot + xlab("Rel. habitat specialization") + ylab("Tolerance") + geom_smooth(method = "lm", col = "blue", se = F)
+traitplot.logit <- ggplot(traits, aes(x = logit, y = Tol)) + geom_point() + geom_abline(slope = 1)
+traitplot.logit + xlab("Logit(habitat specialization)") + ylab("Tolerance") + geom_smooth(method = "lm", col = "blue", se = F)
+
+# Percentile - specialization
 
