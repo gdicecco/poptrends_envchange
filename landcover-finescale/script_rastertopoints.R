@@ -8,11 +8,11 @@ library(stringr)
 setwd("/proj/hurlbertlab/gdicecco/nlcd_frag_proj_shapefiles/BCRs_landcover_output/")
 files <- list.files()
 nlcd.files <- files[str_detect(files, ".grd")]
-grd.files <- nlcd.files[!str_detect(files, ".csv")]
+grd.files <- nlcd.files[!str_detect(nlcd.files, ".csv")]
 dir.grd <- getwd()
 nlcd.names <- strsplit(grd.files, "\\.")
 
-for(i in 7:length(grd.files)){
+for(i in 9:length(grd.files)){
   file <- grd.files[i]
   name <- nlcd.names[[i]][1]
   
