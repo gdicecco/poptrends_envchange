@@ -5,16 +5,10 @@ library(stringr)
 library(traits)
 
 ## List of species observed in BCRs of interest during time window (1990-present)
-#routes <- read.csv("\\\\Bioark.bio.unc.edu\\hurlbertlab\\Databases\\BBS\\2017\\bbs_routes_20170712.csv")
-#counts <- read.csv("\\\\Bioark.bio.unc.edu\\hurlbertlab\\Databases\\BBS\\2017\\bbs_counts_20170712.csv")
-#species <- read.csv("\\\\Bioark.bio.unc.edu\\hurlbertlab\\Databases\\BBS\\2017\\bbs_species_20170712.csv")
-#weather <- read.csv("\\\\Bioark.bio.unc.edu\\hurlbertlab\\Databases\\BBS\\2017\\bbs_weather_20170712.csv")
-
-# Mac
-routes <- read.csv("/Volumes/hurlbertlab/Databases/BBS/2017/bbs_routes_20170712.csv")
-counts <- read.csv("/Volumes/hurlbertlab/Databases/BBS/2017/bbs_counts_20170712.csv")
-species <- read.csv("/Volumes/hurlbertlab/Databases/BBS/2017/bbs_species_20170712.csv")
-weather <- read.csv("/Volumes/hurlbertlab/Databases/BBS/2017/bbs_weather_20170712.csv")
+routes <- read.csv("\\\\Bioark.bio.unc.edu\\hurlbertlab\\Databases\\BBS\\2017\\bbs_routes_20170712.csv")
+counts <- read.csv("\\\\Bioark.bio.unc.edu\\hurlbertlab\\Databases\\BBS\\2017\\bbs_counts_20170712.csv")
+species <- read.csv("\\\\Bioark.bio.unc.edu\\hurlbertlab\\Databases\\BBS\\2017\\bbs_species_20170712.csv")
+weather <- read.csv("\\\\Bioark.bio.unc.edu\\hurlbertlab\\Databases\\BBS\\2017\\bbs_weather_20170712.csv")
 
 bcrs <- c(9, 12, 13, 14, 18, 19, 23, 27, 29) # BCRs of interest
 
@@ -26,9 +20,11 @@ routes.short <- subset(RT1.routes, bcr %in% bcrs, select = c("statenum","statero
 counts$stateroute <- counts$statenum*1000 + counts$route
 
 landbirds <- species %>%
-  filter(sporder == "Piciformes" | sporder == "Passeriformes" | sporder == "Psittaciformes" | sporder == "Coraciiformes" |
-         sporder == "Trogoniformes" | sporder == "Apodiformes"| sporder == "Columbiformes" | sporder == "Cuculiformes" |
-         sporder == "Galliformes")
+  filter(aou > 2880) %>%
+  filter(aou < 3650 | aou > 3810) %>%
+  filter(aou < 3900 | aou > 3910) %>%
+  filter(aou < 4160 | aou > 4210) %>%
+  filter(aou != 7010)
 
 # Observations with RT=1, in BCRs of interest, 1990-present, diurnal land birds
 counts.subs <- counts %>%
@@ -36,14 +32,11 @@ counts.subs <- counts %>%
   filter(year >= 1990) %>%
   filter(aou %in% landbirds$aou)
 
-# Number of species: 342
+# Number of species: 367
 length(unique(counts.subs$aou))
 
 ## Get number of habitats
-#setwd("\\\\BioArk\\hurlbertlab\\DiCecco\\LTER_birdabund_seasonal\\")
-
-# Mac
-setwd("/Volumes/hurlbertlab/DiCecco/LTER_birdabund_seasonal/")
+setwd("\\\\BioArk\\hurlbertlab\\DiCecco\\LTER_birdabund_seasonal\\")
 
 ## BirdLife checklist (ID numbers)
 checklist <- read.csv("BirdLife_Checklist_V_9.1.csv", header = TRUE, stringsAsFactors = F)
@@ -59,11 +52,8 @@ checklist.subs <- checklist %>%
 checklist.unid <- checklist.subs[is.na(checklist.subs$SISRecID), ] #NAs for SISRecID
 checklist.nas <- checklist.unid[!grepl("unid.", checklist.unid$english_common_name), ] # Omit the ones that are NA because they are unid.
 
-# Manually entered woodpeckers, missing warblers, missing sparrows
-
-# Mac
-setwd("/Users/gracedicecco/Desktop/git/NLCD_fragmentation/traits/")
-
+# Manually entered missing woodpeckers, warblers, sparrows
+setwd("C:/Users/gdicecco/Desktop/git/NLCD_fragmentation/traits/")
 missingspp <- read.csv("spp_missing_ids.csv", stringsAsFactors = F)
 
 ## Index from 0-1 for habitats - logit transform
@@ -80,12 +70,7 @@ for(i in 1:length(IUCNids)) {
 }
 habitats <- data.frame(SISRecID = finescale_habitats[,1], nHabitats = finescale_habitats[,2]) #38 IDs are zero
 
-habitats$index <- (habitats$nHabitats - 1)/(max(habitats$nHabitats) - 1)
-habitats[habitats$nHabitats == 0, 3] <- NA
-habitats[habitats$nHabitats == 1, 3] <- 0.001
-habitats[habitats$nHabitats == 25, 3] <- 0.975
-habitats$logit <- log(habitats$index/(1 - habitats$index))
-hist(habitats$logit)
+habitats$index <- 1 - (habitats$nHabitats - 1)/(max(habitats$nHabitats) - 1)
 hist(habitats$index)
 
 sppHabit <- checklist.subs %>%
@@ -95,7 +80,7 @@ sppHabit <- checklist.subs %>%
 ## Thermal niche 
 # Start with Tol - high tolerance = broad niche
 
-setwd("/Volumes/hurlbertlab/DiCecco/")
+setwd("//BioArk/HurlbertLab/DiCecco/")
 correlates <- read.csv("Master_RO_Correlates_20110610.csv", stringsAsFactors = F)
 traits <- sppHabit %>%
   left_join(select(correlates, AOU, Tol, OMI), by = c("aou" = "AOU")) %>%
@@ -105,9 +90,10 @@ traits <- sppHabit %>%
 library(ggplot2)
 theme_set(theme_bw())
 
-traitplot <- ggplot(traits, aes(x = index, y = Tol)) + geom_point()
+traitplot <- ggplot(traits, aes(x = index, y = Tol)) + geom_point() 
 traitplot + xlab("Rel. habitat specialization") + ylab("Tolerance") + geom_smooth(method = "lm", col = "blue", se = F)
-traitplot.logit <- ggplot(traits, aes(x = logit, y = Tol)) + geom_point()
-traitplot.logit + xlab("Logit(habitat specialization)") + ylab("Tolerance") + geom_smooth(method = "lm", col = "blue", se = F)
+# Increased habitat specialization is correlated (weakly) with decreased thermal niche breadth
+
 
 # Percentile - specialization
+
