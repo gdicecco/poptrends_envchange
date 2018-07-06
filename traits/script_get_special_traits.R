@@ -2,6 +2,8 @@
 
 library(dplyr)
 library(stringr)
+library(tidyr)
+library(ggplot2)
 library(traits)
 
 ## List of species observed in BCRs of interest during time window (1990-present)
@@ -60,22 +62,49 @@ missingspp <- read.csv("spp_missing_ids.csv", stringsAsFactors = F)
 
 # Get habitat data
 IUCNids <- na.omit(unique(checklist.subs$SISRecID))
-finescale_habitats <- matrix(nrow = length(IUCNids), ncol = 2) 
+finescale_habitats <- matrix(nrow = 1, ncol = 5) 
+colnames(finescale_habitats) <- c("id", "habitat1", "habitat2", "importance", "occurrence")
 
 for(i in 1:length(IUCNids)) {
   id <- IUCNids[i]
   finescale_habitats[i,1] <- id
   habitat <- birdlife_habitat(id)
-  finescale_habitats[i,2] <- length(habitat$id)
+  colnames(habitat) <- c("id", "habitat1", "habitat2", "importance", "occurrence")
+  finescale_habitats <- rbind(finescale_habitats, habitat)
 }
-habitats <- data.frame(SISRecID = finescale_habitats[,1], nHabitats = finescale_habitats[,2]) #38 IDs are zero
 
-habitats$index <- 1 - (habitats$nHabitats - 1)/(max(habitats$nHabitats) - 1)
+habitats <- finescale_habitats %>%
+  filter(occurrence == "breeding") %>%
+  group_by(id) %>%
+  summarize(nHabitats1 = length(unique(habitat1)), nHabitats2 = n())
+
+importance <- finescale_habitats %>%
+  filter(occurrence == "breeding") %>%
+  group_by(id, importance) %>%
+  summarize(nHabitats = n()) %>%
+  arrange(id) %>%
+  spread(importance, nHabitats)
+
+# Compare major vs suitable habitats
+theme_set(theme_bw())
+implot <- ggplot(importance, aes(x = major, y = suitable)) + geom_point() + geom_smooth(method = "lm", se = F)
+implot + ylab("Suitable habitats") + xlab("Major habitats")
+
+# Compare level 1 vs level 2 habitats
+habplot <- ggplot(habitats, aes(x = nHabitats1, y = nHabitats2)) + geom_point() + geom_smooth(method = "lm", se = F)
+habplot + xlab("Level 1 Habitats") + ylab("Level 2 Habitats")
+
+habitats$index <- 1 - (habitats$nHabitats2 - 1)/(max(habitats$nHabitats2) - 1)
 hist(habitats$index)
 
 sppHabit <- checklist.subs %>%
-  left_join(habitats) %>%
-  arrange(nHabitats)
+  left_join(habitats, by = c("SISRecID" = "id")) %>%
+  left_join(importance, by = c("SISRecID" = "id")) %>%
+  arrange(nHabitats2)
+
+# Compare level 1 to level 2 habitats
+unique(finescale_habitats$habitat1)
+unique(finescale_habitats$habitat2)
 
 ## Thermal niche 
 # Start with Tol - high tolerance = broad niche
@@ -87,11 +116,12 @@ traits <- sppHabit %>%
   select(-french_common_name, -spanish_common_name)
 
 ## Compare thermal niche breadth and habitat specialization
-library(ggplot2)
-theme_set(theme_bw())
 
 traitplot <- ggplot(traits, aes(x = index, y = Tol)) + geom_point() 
 traitplot + xlab("Rel. habitat specialization") + ylab("Tolerance") + geom_smooth(method = "lm", col = "blue", se = F)
+
+traitplot.raw <- ggplot(traits, aes(x = nHabitats, y = Tol)) + geom_point() 
+traitplot.raw + xlab("No. habitats used") + ylab("Tolerance") + geom_smooth(method = "lm", col = "blue", se = F)
 # Increased habitat specialization is correlated (weakly) with decreased thermal niche breadth
 
 
