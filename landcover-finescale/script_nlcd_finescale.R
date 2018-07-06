@@ -48,8 +48,8 @@ library(stringr)
 #}
 
 #### Data needed for all time steps ####
-bcrs <- c(18, 19, 23, 27, 29) # BCRs of interest
-# 9, 12, 13, 14, 
+bcrs <- c(19, 23, 27, 29) # BCRs of interest
+# 9, 12, 13, 14, 18
 
 # BCR shapefile
 setwd("/proj/hurlbertlab/gdicecco/nlcd_frag_proj_shapefiles/BCRs_contiguous_us/")
