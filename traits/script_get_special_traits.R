@@ -48,17 +48,18 @@ checklist.subs <- checklist %>%
   mutate(genus = word(Scientific_name, 1),
          species = word(Scientific_name, 2)) %>%
   right_join(landbirds, by = c("genus", "species")) %>% 
-  filter(aou %in% unique(counts.subs$aou))
+  replace_na(list(Common_name = "unknown")) %>%
+  filter(aou %in% unique(counts.subs$aou), Common_name != "")
 
-# Which species didn't match up
+# Check which species didn't match up
 checklist.unid <- checklist.subs[is.na(checklist.subs$SISRecID), ] #NAs for SISRecID
 checklist.nas <- checklist.unid[!grepl("unid.", checklist.unid$english_common_name), ] # Omit the ones that are NA because they are unid.
 
-# Manually entered missing woodpeckers, warblers, sparrows
+# Manually entered species (taxonomic changes in spp_taxon_changes.csv)
 setwd("C:/Users/gdicecco/Desktop/git/NLCD_fragmentation/traits/")
 missingspp <- read.csv("spp_missing_ids.csv", stringsAsFactors = F)
 
-## Index from 0-1 for habitats - logit transform
+checklist.subs$SISRecID[match(missingspp$aou, checklist.subs$aou)] <- missingspp$SISRecID
 
 # Get habitat data
 IUCNids <- na.omit(unique(checklist.subs$SISRecID))
@@ -67,23 +68,24 @@ colnames(finescale_habitats) <- c("id", "habitat1", "habitat2", "importance", "o
 
 for(i in 1:length(IUCNids)) {
   id <- IUCNids[i]
-  finescale_habitats[i,1] <- id
   habitat <- birdlife_habitat(id)
   colnames(habitat) <- c("id", "habitat1", "habitat2", "importance", "occurrence")
   finescale_habitats <- rbind(finescale_habitats, habitat)
 }
 
 habitats <- finescale_habitats %>%
-  filter(occurrence == "breeding") %>%
+  filter(occurrence == "breeding" | occurrence == "resident") %>%
   group_by(id) %>%
   summarize(nHabitats1 = length(unique(habitat1)), nHabitats2 = n())
 
 importance <- finescale_habitats %>%
-  filter(occurrence == "breeding") %>%
+  filter(occurrence == "breeding" | occurrence == "resident") %>%
   group_by(id, importance) %>%
   summarize(nHabitats = n()) %>%
   arrange(id) %>%
-  spread(importance, nHabitats)
+  spread(importance, nHabitats) %>%
+  replace_na(list(major = 0, marginal = 0, suitable = 0)) %>%
+  mutate(weighted = (marginal*1 + suitable*2 + major*3)/sum(marginal, suitable, major)) # This is super arbitrary
 
 # Compare major vs suitable habitats
 theme_set(theme_bw())
@@ -99,12 +101,17 @@ hist(habitats$index)
 
 sppHabit <- checklist.subs %>%
   left_join(habitats, by = c("SISRecID" = "id")) %>%
-  left_join(importance, by = c("SISRecID" = "id")) %>%
-  arrange(nHabitats2)
+  left_join(importance, by = c("SISRecID" = "id"))
+
+sppHabit.missing <- sppHabit %>%
+  filter(is.na(nHabitats1))
 
 # Compare level 1 to level 2 habitats
 unique(finescale_habitats$habitat1)
 unique(finescale_habitats$habitat2)
+# Level 1 is similar to 92-01 classifications
+# Level 2 is more comparable to 01-11 classifications, but no distinction in urban areas
+# Forest distinctions from IUCN are boreal/temperate/subtropical/tropical vs. coniferous and deciduous in 01-11 NLCD
 
 ## Thermal niche 
 # Start with Tol - high tolerance = broad niche
@@ -120,10 +127,10 @@ traits <- sppHabit %>%
 traitplot <- ggplot(traits, aes(x = index, y = Tol)) + geom_point() 
 traitplot + xlab("Rel. habitat specialization") + ylab("Tolerance") + geom_smooth(method = "lm", col = "blue", se = F)
 
-traitplot.raw <- ggplot(traits, aes(x = nHabitats, y = Tol)) + geom_point() 
+traitplot.raw <- ggplot(traits, aes(x = weighted, y = Tol)) + geom_point() 
 traitplot.raw + xlab("No. habitats used") + ylab("Tolerance") + geom_smooth(method = "lm", col = "blue", se = F)
 # Increased habitat specialization is correlated (weakly) with decreased thermal niche breadth
-
+# Changes when weighted average is used 
 
 # Percentile - specialization
 
