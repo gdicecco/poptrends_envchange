@@ -132,5 +132,45 @@ traitplot.raw + xlab("No. habitats used") + ylab("Tolerance") + geom_smooth(meth
 # Increased habitat specialization is correlated (weakly) with decreased thermal niche breadth
 # Changes when weighted average is used 
 
-# Percentile - specialization
+# Hypervolume to quantify thermal niche width
+
+library(hypervolume)
+require(raster)
+require(maps)
+
+data(quercus)
+head(quercus)
+demo('quercus', package='hypervolume')
+
+# Get worldclim at lat/lon occurrences of species
+
+# Test: hairy woodpecker
+
+hairy <- counts.subs %>%
+  filter(aou == 3940) %>%
+  select(stateroute) %>%
+  unique() %>%
+  left_join(routes) %>%
+  select(longitude, latitude)
+
+climatelayers <- getData('worldclim', var='bio', res=10, path=tempdir())
+
+# z-transform climate layers to make axes comparable
+climatelayers_ss = climatelayers[[c(1,4,12,15)]]
+for (i in 1:nlayers(climatelayers_ss))
+   {
+  climatelayers_ss[[i]] <- (climatelayers_ss[[i]] - cellStats(climatelayers_ss[[i]], 'mean')) / cellStats(climatelayers_ss[[i]], 'sd') 
+   }
+   
+climatelayers_ss_cropped = crop(climatelayers_ss, extent(-150,-50,15,60))
+
+# extract transformed climate values
+climate_hairy = raster::extract(climatelayers_ss, hairy)
+
+# unid. error with this function - also happens with iris example and finch example
+hairy_hypervol <- hypervolume_gaussian(climate_hairy, name = "hairy", 
+                                       kde.bandwidth = estimate_bandwidth(climate_hairy))
+
+# use get_volume() to get volume of niche hypervolume
+
 
