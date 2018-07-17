@@ -16,7 +16,7 @@ routes <- readOGR("/proj/hurlbertlab/bbs/BBS_routes_USandCanada/bbs_routes_usand
 
 for(i in 1:length(files)) {
   file <- files[i]
-  bcr <- substr(filename, 22, 27)
+  bcr <- substr(file, 22, 27)
   bcr.raster <- raster(file)
   routes.sub <- crop(routes, extent(bcr.raster))
   zones.sub <- mask(bcr.raster, routes.sub)
@@ -30,7 +30,7 @@ files <- list.files(pattern = "grd")
 
 for(i in 1:length(files)) {
   file <- files[i]
-  bcr <- substr(filename, 22, 27)
+  bcr <- substr(file, 22, 27)
   bcr.raster <- raster(file)
   area.sub <- crop(routes, extent(bcr.raster))
   zones.sub <- mask(area.sub, bcr.raster)
@@ -44,7 +44,7 @@ files <- list.files(pattern = "grd")
 
 for(i in 1:length(files)) {
   file <- files[i]
-  bcr <- substr(filename, 22, 27)
+  bcr <- substr(file, 22, 27)
   bcr.raster <- raster(file)
   area.sub <- crop(routes, extent(bcr.raster))
   zones.sub <- mask(area.sub, bcr.raster)
