@@ -4,6 +4,7 @@
 library(raster)
 library(sp)
 library(rgdal)
+library(rgeos)
 library(dplyr)
 library(stringr)
 
