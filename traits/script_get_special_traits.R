@@ -1,9 +1,6 @@
 ## Script: get trait data for specialization in birds (habitat and thermal niche)
 
-library(dplyr)
-library(stringr)
-library(tidyr)
-library(ggplot2)
+library(tidyverse)
 library(traits)
 
 ## List of species observed in BCRs of interest during time window (1990-present)
@@ -138,13 +135,7 @@ library(hypervolume)
 require(raster)
 require(maps)
 
-data(quercus)
-head(quercus)
-demo('quercus', package='hypervolume')
-
-# Get worldclim at lat/lon occurrences of species
-
-# Test: hairy woodpecker
+## Test: hairy woodpecker
 
 hairy <- counts.subs %>%
   filter(aou == 3940) %>%
@@ -170,7 +161,7 @@ climate_hairy = raster::extract(climatelayers_ss, hairy)
 # unid. error with this function - also happens with iris example and finch example
 hairy_hypervol <- hypervolume_gaussian(climate_hairy, name = "hairy", 
                                        kde.bandwidth = estimate_bandwidth(climate_hairy))
+get_volume(hairy_hypervol)
 
-# use get_volume() to get volume of niche hypervolume
-
+# Compare rank order of hypervolume to tolerance
 
