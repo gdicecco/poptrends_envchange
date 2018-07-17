@@ -33,8 +33,8 @@ for(i in 1:length(files)) {
   file <- files[i]
   bcr <- substr(file, 22, 27)
   bcr.raster <- raster(file)
-  area.sub <- crop(routes, extent(bcr.raster))
-  zones.sub <- mask(area.sub, bcr.raster)
+  routes.sub <- crop(routes, extent(bcr.raster))
+  zones.sub <- mask(bcr.raster, routes.sub)
   filename <- paste0("nlcd_30x30_2001_2006_routes_", bcr, ".grd")
   writeRaster(zones.sub, filename = filename)
 }
@@ -47,8 +47,8 @@ for(i in 1:length(files)) {
   file <- files[i]
   bcr <- substr(file, 22, 27)
   bcr.raster <- raster(file)
-  area.sub <- crop(routes, extent(bcr.raster))
-  zones.sub <- mask(area.sub, bcr.raster)
+  routes.sub <- crop(routes, extent(bcr.raster))
+  zones.sub <- mask(bcr.raster, routes.sub)
   filename <- paste0("nlcd_30x30_2006_2011_routes_", bcr, ".grd")
   writeRaster(zones.sub, filename = filename)
 }
