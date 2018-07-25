@@ -77,7 +77,7 @@ for(i in 1:length(bcrs)) {
   bcr <- bcrs[i]
   bcr.sub <- us.proj[us.proj@data$BCR == bcr, ]
   area.sub <- crop(region, extent(bcr.sub))
-  zones.sub <- mask(area.sub, bcr.sub)
+  zones.sub <- extract(area.sub, bcr.sub, buffer = 200)
   filename <- paste0("nlcd_30x30_1992_2001_bcr_", bcr, ".grd")
   writeRaster(zones.sub, filename = filename)
 #  area.df <- rasterToPoints(zones.sub, fun = fun(x) {x %in% fragcodes$modified})

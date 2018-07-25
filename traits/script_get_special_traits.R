@@ -113,11 +113,11 @@ unique(finescale_habitats$habitat2)
 ## Thermal niche 
 # Start with Tol - high tolerance = broad niche
 
-setwd("//BioArk/HurlbertLab/DiCecco/")
+setwd("//BioArk/HurlbertLab/DiCecco/Data/")
 correlates <- read.csv("Master_RO_Correlates_20110610.csv", stringsAsFactors = F)
 traits <- sppHabit %>%
-  left_join(select(correlates, AOU, Tol, OMI), by = c("aou" = "AOU")) %>%
-  select(-french_common_name, -spanish_common_name)
+  left_join(dplyr::select(correlates, AOU, Tol, OMI), by = c("aou" = "AOU")) %>%
+  dplyr::select(-french_common_name, -spanish_common_name)
 
 ## Compare thermal niche breadth and habitat specialization
 
@@ -135,33 +135,50 @@ library(hypervolume)
 require(raster)
 require(maps)
 
-## Test: hairy woodpecker
-
-hairy <- counts.subs %>%
-  filter(aou == 3940) %>%
-  select(stateroute) %>%
-  unique() %>%
-  left_join(routes) %>%
-  select(longitude, latitude)
-
 climatelayers <- getData('worldclim', var='bio', res=10, path=tempdir())
 
-# z-transform climate layers to make axes comparable
 climatelayers_ss = climatelayers[[c(1,4,12,15)]]
+
+# z-transform climate layers to make axes comparable
 for (i in 1:nlayers(climatelayers_ss))
-   {
+{
   climatelayers_ss[[i]] <- (climatelayers_ss[[i]] - cellStats(climatelayers_ss[[i]], 'mean')) / cellStats(climatelayers_ss[[i]], 'sd') 
-   }
-   
+}
+
 climatelayers_ss_cropped = crop(climatelayers_ss, extent(-150,-50,15,60))
 
-# extract transformed climate values
-climate_hairy = raster::extract(climatelayers_ss, hairy)
+## Test: hairy woodpecker
+birds.subs <- counts.subs %>%
+  group_by(aou) %>%
+  summarize(nRoutes = length(unique(stateroute))) %>%
+  filter(nRoutes >= 10) %>%
+  left_join(counts.subs)
 
-# unid. error with this function - also happens with iris example and finch example
-hairy_hypervol <- hypervolume_gaussian(climate_hairy, name = "hairy", 
-                                       kde.bandwidth = estimate_bandwidth(climate_hairy))
-get_volume(hairy_hypervol)
+## Takes ~ 2 hours
+bird.coords <- birds.subs %>%
+  group_by(aou) %>%
+  dplyr::select(stateroute) %>%
+  unique() %>%
+  left_join(routes) %>%
+  dplyr::select(longitude, latitude) %>%
+  nest() %>%
+  mutate(volume = purrr::map_dbl(data, ~{
+    df <- .
+    climate <- raster::extract(climatelayers_ss_cropped, df)
+    hypervol <- hypervolume_gaussian(climate)
+    get_volume(hypervol)
+  }))
+
+birds.vol <- dplyr::select(bird.coords, aou, volume)
+#write.csv(birds.vol, "C:/Users/gdicecco/Desktop/git/NLCD_fragmentation/traits/spp_hypervolumes.csv", row.names = F)
+
+traits %<>% left_join(birds.vol)
 
 # Compare rank order of hypervolume to tolerance
 
+## Z scores of tolerance and volume
+traits %<>% mutate(zTol = (Tol - mean(Tol, na.rm = T))/sd(Tol, na.rm = T), 
+                   zVol = (volume - mean(volume, na.rm = T))/sd(volume, na.rm = T)) %>%
+  filter(!grepl("unid", english_common_name)) # remove unid. species
+
+ggplot(traits, aes(x = zTol, y = zVol)) + geom_point() + xlab("Tolerance") + ylab("Hypervolume") + geom_abline(slope = 1)
