@@ -6,7 +6,7 @@ library(stringr)
 setwd("/proj/hurlbertlab/gdicecco/nlcd_frag_proj_shapefiles/BCRs_landcover_output/01-06/")
 
 files <- list.files(pattern = "2006_bcr_")
-files.grd <- grep("grd", files)
+files.grd <- files[grepl("grd", files)]
 wd <- "/proj/hurlbertlab/gdicecco/nlcd_frag_proj_shapefiles/BCRs_landcover_output/csvs/"
 
 for(i in files.grd) {
