@@ -135,9 +135,20 @@ library(hypervolume)
 require(raster)
 require(maps)
 
+# WorldClim
 climatelayers <- getData('worldclim', var='bio', res=10, path=tempdir())
+climatelayers_ss = climatelayers[[c(10, 18)]]
 
-climatelayers_ss = climatelayers[[c(1,4,12,15)]]
+# NDVI data
+gimms_ndvi = read.csv("https://raw.githubusercontent.com/hurlbertlab/Biotic-Interactions/master/ENV%20DATA/gimms_ndvi_bbs_data.csv?token=AdzxAN_oTo30YIQcPTsjtzuK0GbPx0Lfks5baevMwA%3D%3D", header = TRUE)
+gimms_agg = gimms_ndvi %>% filter(month == c("may", "jun", "jul")) %>% 
+  group_by(site_id)  %>%  summarise(ndvi.mean=mean(ndvi))
+gimms_agg$stateroute = gimms_agg$site_id
+ndvi = gimms_agg[,c("stateroute", "ndvi.mean")] %>%
+  left_join(routes) %>%
+  select(stateroute, longitude, latitude, ndvi.mean)
+
+# Elevation
 
 # z-transform climate layers to make axes comparable
 for (i in 1:nlayers(climatelayers_ss))
@@ -147,7 +158,7 @@ for (i in 1:nlayers(climatelayers_ss))
 
 climatelayers_ss_cropped = crop(climatelayers_ss, extent(-150,-50,15,60))
 
-## Test: hairy woodpecker
+## Species observed on 10 or more routes
 birds.subs <- counts.subs %>%
   group_by(aou) %>%
   summarize(nRoutes = length(unique(stateroute))) %>%
@@ -160,11 +171,15 @@ bird.coords <- birds.subs %>%
   dplyr::select(stateroute) %>%
   unique() %>%
   left_join(routes) %>%
-  dplyr::select(longitude, latitude) %>%
+  dplyr::select(stateroute, longitude, latitude) %>%
   nest() %>%
   mutate(volume = purrr::map_dbl(data, ~{
     df <- .
-    climate <- raster::extract(climatelayers_ss_cropped, df)
+    climate <- raster::extract(climatelayers_ss_cropped, select(df, longitude, latitude))
+    env <- ndvi %>%
+      right_join(df) %>%
+      select(ndvi.mean) %>%
+      cbind(climate)
     hypervol <- hypervolume_gaussian(climate)
     get_volume(hypervol)
   }))
