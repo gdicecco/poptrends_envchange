@@ -140,6 +140,7 @@ climatelayers <- getData('worldclim', var='bio', res=10, path=tempdir())
 climatelayers_ss = climatelayers[[c(10, 18)]]
 
 # NDVI data
+### CSV obtained using script  https://github.com/ethanwhite/bbs-forecasting/blob/master/R/get_ndvi_data.R 
 gimms_ndvi = read.csv("https://raw.githubusercontent.com/hurlbertlab/Biotic-Interactions/master/ENV%20DATA/gimms_ndvi_bbs_data.csv?token=AdzxAN_oTo30YIQcPTsjtzuK0GbPx0Lfks5baevMwA%3D%3D", header = TRUE)
 gimms_agg = gimms_ndvi %>% filter(month == c("may", "jun", "jul")) %>% 
   group_by(site_id)  %>%  summarise(ndvi.mean=mean(ndvi))
