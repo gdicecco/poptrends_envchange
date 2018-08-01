@@ -14,12 +14,14 @@ library(stringr)
 setwd("/proj/hurlbertlab/gdicecco/nlcd_frag_proj_shapefiles/BCRs_landcover_output/92-01/")
 files <- list.files(pattern = "grd")
 routes <- readOGR("/proj/hurlbertlab/bbs/BBS_routes_USandCanada/bbs_routes_usandcanada.shp")
+routes.pts <- as(routes, "SpatialPointsDataFrame")
+bufferRoutes <- gBuffer(routes.pts, width = 500)
 
 for(i in 1:length(files)) {
   file <- files[i]
   bcr <- substr(file, 22, 27)
   bcr.raster <- raster(file)
-  routes.sub <- crop(routes, extent(bcr.raster))
+  routes.sub <- crop(bufferRoutes, extent(bcr.raster))
   zones.sub <- mask(bcr.raster, routes.sub)
   filename <- paste0("nlcd_30x30_1992_2001_routes_", bcr, ".grd")
   writeRaster(zones.sub, filename = filename)
@@ -33,7 +35,7 @@ for(i in 1:length(files)) {
   file <- files[i]
   bcr <- substr(file, 22, 27)
   bcr.raster <- raster(file)
-  routes.sub <- crop(routes, extent(bcr.raster))
+  routes.sub <- crop(bufferRoutes, extent(bcr.raster))
   zones.sub <- mask(bcr.raster, routes.sub)
   filename <- paste0("nlcd_30x30_2001_2006_routes_", bcr, ".grd")
   writeRaster(zones.sub, filename = filename)
@@ -47,7 +49,7 @@ for(i in 1:length(files)) {
   file <- files[i]
   bcr <- substr(file, 22, 27)
   bcr.raster <- raster(file)
-  routes.sub <- crop(routes, extent(bcr.raster))
+  routes.sub <- crop(bufferRoutes, extent(bcr.raster))
   zones.sub <- mask(bcr.raster, routes.sub)
   filename <- paste0("nlcd_30x30_2006_2011_routes_", bcr, ".grd")
   writeRaster(zones.sub, filename = filename)
