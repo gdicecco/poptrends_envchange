@@ -24,7 +24,7 @@ for(i in 1:length(files)) {
   routes.sub <- crop(bufferRoutes, extent(bcr.raster))
   zones.sub <- mask(bcr.raster, routes.sub)
   filename <- paste0("nlcd_30x30_1992_2001_routes_", bcr, ".grd")
-  writeRaster(zones.sub, filename = filename)
+  writeRaster(zones.sub, filename = filename, overwrite = T)
 }
 
 # 01-06
@@ -38,7 +38,7 @@ for(i in 1:length(files)) {
   routes.sub <- crop(bufferRoutes, extent(bcr.raster))
   zones.sub <- mask(bcr.raster, routes.sub)
   filename <- paste0("nlcd_30x30_2001_2006_routes_", bcr, ".grd")
-  writeRaster(zones.sub, filename = filename)
+  writeRaster(zones.sub, filename = filename, overwrite = T)
 }
 
 # 06-11
@@ -52,5 +52,5 @@ for(i in 1:length(files)) {
   routes.sub <- crop(bufferRoutes, extent(bcr.raster))
   zones.sub <- mask(bcr.raster, routes.sub)
   filename <- paste0("nlcd_30x30_2006_2011_routes_", bcr, ".grd")
-  writeRaster(zones.sub, filename = filename)
+  writeRaster(zones.sub, filename = filename, overwrite = T)
 }
