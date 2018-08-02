@@ -139,18 +139,6 @@ require(maps)
 climatelayers <- getData('worldclim', var='bio', res=10, path=tempdir())
 climatelayers_ss = climatelayers[[c(10, 18)]]
 
-# NDVI data
-### CSV obtained using script  https://github.com/ethanwhite/bbs-forecasting/blob/master/R/get_ndvi_data.R 
-gimms_ndvi = read.csv("https://raw.githubusercontent.com/hurlbertlab/Biotic-Interactions/master/ENV%20DATA/gimms_ndvi_bbs_data.csv?token=AdzxAN_oTo30YIQcPTsjtzuK0GbPx0Lfks5baevMwA%3D%3D", header = TRUE)
-gimms_agg = gimms_ndvi %>% filter(month == c("may", "jun", "jul")) %>% 
-  group_by(site_id)  %>%  summarise(ndvi.mean=mean(ndvi))
-gimms_agg$stateroute = gimms_agg$site_id
-ndvi = gimms_agg[,c("stateroute", "ndvi.mean")] %>%
-  left_join(routes) %>%
-  select(stateroute, longitude, latitude, ndvi.mean)
-
-# Elevation
-
 # z-transform climate layers to make axes comparable
 for (i in 1:nlayers(climatelayers_ss))
 {
@@ -158,6 +146,21 @@ for (i in 1:nlayers(climatelayers_ss))
 }
 
 climatelayers_ss_cropped = crop(climatelayers_ss, extent(-150,-50,15,60))
+
+# Elevation
+elev <- raster("\\\\BioArk\\HurlbertLab\\GIS\\DEM\\USA1_msk_alt.grd")
+elev_z <- (elev - cellStats(elev, 'mean'))/cellStats(elev, 'sd')
+
+# NDVI data
+### CSV obtained using script  https://github.com/ethanwhite/bbs-forecasting/blob/master/R/get_ndvi_data.R 
+gimms_ndvi = read.csv("https://raw.githubusercontent.com/hurlbertlab/Biotic-Interactions/master/ENV%20DATA/gimms_ndvi_bbs_data.csv?token=AdzxAN_oTo30YIQcPTsjtzuK0GbPx0Lfks5baevMwA%3D%3D", header = TRUE)
+gimms_agg = gimms_ndvi %>% filter(month == c("may", "jun", "jul")) %>% 
+  group_by(site_id)  %>%  summarise(ndvi.mean=mean(ndvi))
+gimms_agg$stateroute = gimms_agg$site_id
+ndvi = gimms_agg[,c("stateroute", "ndvi.mean")] %>%
+  mutate(ndvi.z = (ndvi.mean - mean(ndvi.mean))/sd(ndvi.mean)) %>%
+  left_join(routes) %>%
+  dplyr::select(stateroute, longitude, latitude, ndvi.z)
 
 ## Species observed on 10 or more routes
 birds.subs <- counts.subs %>%
@@ -176,25 +179,20 @@ bird.coords <- birds.subs %>%
   nest() %>%
   mutate(volume = purrr::map_dbl(data, ~{
     df <- .
-    climate <- raster::extract(climatelayers_ss_cropped, select(df, longitude, latitude))
+    climate <- raster::extract(climatelayers_ss_cropped, dplyr::select(df, longitude, latitude))
+    elev <- raster::extract(elev_z, dplyr::select(df, longitude, latitude))
     env <- ndvi %>%
       right_join(df) %>%
-      select(ndvi.mean) %>%
-      cbind(climate)
+      dplyr::select(ndvi.z) %>%
+      cbind(climate, elev)
     hypervol <- hypervolume_gaussian(climate)
     get_volume(hypervol)
   }))
 
 birds.vol <- dplyr::select(bird.coords, aou, volume)
-#write.csv(birds.vol, "C:/Users/gdicecco/Desktop/git/NLCD_fragmentation/traits/spp_hypervolumes.csv", row.names = F)
 
-traits %<>% left_join(birds.vol)
+traits <- traits %>% left_join(birds.vol)
+write.csv(traits, "C:/Users/gdicecco/Desktop/git/NLCD_fragmentation/traits/spp_traits.csv", row.names = F)
 
-# Compare rank order of hypervolume to tolerance
-
-## Z scores of tolerance and volume
-traits %<>% mutate(zTol = (Tol - mean(Tol, na.rm = T))/sd(Tol, na.rm = T), 
-                   zVol = (volume - mean(volume, na.rm = T))/sd(volume, na.rm = T)) %>%
-  filter(!grepl("unid", english_common_name)) # remove unid. species
-
-ggplot(traits, aes(x = zTol, y = zVol)) + geom_point() + xlab("Tolerance") + ylab("Hypervolume") + geom_abline(slope = 1)
+# Compare hypervolume to tolerance
+ggplot(traits, aes(x = Tol, y = volume)) + geom_point() + xlab("Tolerance") + ylab("Hypervolume") + geom_smooth(method = "lm", se = F)
