@@ -12,7 +12,7 @@ files <- list.files(pattern = "2006_routes_")
 files.grd <- files[grepl("grd", files)]
 wd <- "/proj/hurlbertlab/gdicecco/nlcd_frag_proj_shapefiles/BCRs_landcover_output/csvs/"
 
-for(i in 7:length(files.grd)) {
+for(i in 1:6) {
   filename <- files.grd[i]
   nameid <- word(filename, sep = "\\.")[1]
   data <- raster(filename)
@@ -21,32 +21,32 @@ for(i in 7:length(files.grd)) {
 }
 
 # 2006-2011
-setwd("/proj/hurlbertlab/gdicecco/nlcd_frag_proj_shapefiles/BCRs_landcover_output/06-11/")
+#setwd("/proj/hurlbertlab/gdicecco/nlcd_frag_proj_shapefiles/BCRs_landcover_output/06-11/")
 
-files <- list.files(pattern = "2011_routes_")
-files.grd <- files[grepl("grd", files)]
-wd <- "/proj/hurlbertlab/gdicecco/nlcd_frag_proj_shapefiles/BCRs_landcover_output/csvs/"
+#files <- list.files(pattern = "2011_routes_")
+#files.grd <- files[grepl("grd", files)]
+#wd <- "/proj/hurlbertlab/gdicecco/nlcd_frag_proj_shapefiles/BCRs_landcover_output/csvs/"
 
-for(i in 1:length(files.grd)) {
-  filename <- files.grd[i]
-  nameid <- word(filename, sep = "\\.")[1]
-  data <- raster(filename)
-  fragstats <- ClassStat(data, cellsize = 30, bkgd = 0)
-  write.csv(fragstats, paste0(wd, nameid, "_frag.csv"), row.names = F)
-}
+#for(i in 1:length(files.grd)) {
+#  filename <- files.grd[i]
+#  nameid <- word(filename, sep = "\\.")[1]
+#  data <- raster(filename)
+#  fragstats <- ClassStat(data, cellsize = 30, bkgd = 0)
+#  write.csv(fragstats, paste0(wd, nameid, "_frag.csv"), row.names = F)
+#}
 
 # 1992-2001
-setwd("/proj/hurlbertlab/gdicecco/nlcd_frag_proj_shapefiles/BCRs_landcover_output/92-01/")
+#setwd("/proj/hurlbertlab/gdicecco/nlcd_frag_proj_shapefiles/BCRs_landcover_output/92-01/")
 
-files <- list.files(pattern = "2001_routes_")
-files.grd <- files[grepl("grd", files)]
-wd <- "/proj/hurlbertlab/gdicecco/nlcd_frag_proj_shapefiles/BCRs_landcover_output/csvs/"
+#files <- list.files(pattern = "2001_routes_")
+#files.grd <- files[grepl("grd", files)]
+#wd <- "/proj/hurlbertlab/gdicecco/nlcd_frag_proj_shapefiles/BCRs_landcover_output/csvs/"
 
-for(i in 1:length(files.grd)) {
-  filename <- files.grd[i]
-  nameid <- word(filename, sep = "\\.")[1]
-  data <- raster(filename)
-  fragstats <- ClassStat(data, cellsize = 30, bkgd = 0)
-  write.csv(fragstats, paste0(wd, nameid, "_frag.csv"), row.names = F)
-}
+#for(i in 1:length(files.grd)) {
+#  filename <- files.grd[i]
+#  nameid <- word(filename, sep = "\\.")[1]
+#  data <- raster(filename)
+#  fragstats <- ClassStat(data, cellsize = 30, bkgd = 0)
+#  write.csv(fragstats, paste0(wd, nameid, "_frag.csv"), row.names = F)
+#}
 
