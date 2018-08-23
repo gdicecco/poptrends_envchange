@@ -12,7 +12,7 @@ files <- list.files(pattern = "2006_routes_")
 files.grd <- files[grepl("grd", files)]
 wd <- "/proj/hurlbertlab/gdicecco/nlcd_frag_proj_shapefiles/BCRs_landcover_output/csvs/"
 
-for(i in 1:6) {
+for(i in 5:6) {
   filename <- files.grd[i]
   nameid <- word(filename, sep = "\\.")[1]
   data <- raster(filename)
