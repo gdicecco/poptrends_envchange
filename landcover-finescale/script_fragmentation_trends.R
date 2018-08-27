@@ -44,7 +44,7 @@ for(i in c(4,5,7,8)) {
   filename <- files.grd[i]
   nameid <- word(filename, sep = "\\.")[1]
   data <- raster(filename)
-  fragstats <- ClassStat(data, cellsize = 30, bkgd = 0)
+  fragstats <- ClassStat(data, cellsize = 30, bkgd = NA)
   write.csv(fragstats, paste0(wd, nameid, "_frag.csv"), row.names = F)
 }
 
