@@ -18,7 +18,8 @@ us.proj <- readOGR("BCRs_contiguous_us.shp")
 
 ## Crop raster data for each BCR
 setwd("/proj/hurlbertlab/nlcd_landcover/nlcd_1992_landcover_2018_08_31/")
-region <- raster("nlcd_1992_30meter_whole.img")
+filepath <- list.files(pattern = "img")
+region <- raster(filepath)
 
 crs.nlcd <- crs(region)
 bcrs.proj <- spTransform(us.proj, crs.nlcd)
