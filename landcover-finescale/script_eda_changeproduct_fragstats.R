@@ -36,5 +36,5 @@ setwd("//BioArk/HurlbertLab/DiCecco/data/")
 write.csv(nlcd, "fragmentation_indices_nlcd_changeproducts.csv", row.names = F)
 
 ##### EDA of fragmentation indices ####
-
+setwd("C:/Users/gdicecco/Desktop/git/NLCD_fragmentation/landcover-finescale/")
 
