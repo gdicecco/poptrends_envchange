@@ -17,7 +17,7 @@ us.proj <- readOGR("BCRs_contiguous_us.shp")
 #### 1992 ####
 
 ## Crop raster data for each BCR
-setwd("/proj/hurlbertlab/nlcd_landcover/nlcd_1992_landcover_2018_08_31/")
+setwd("/nas/longleaf/home/gdicecco/nlcd_landcover/nlcd_1992_landcover_2018_08_31/")
 filepath <- list.files(pattern = "img")
 region <- raster(filepath)
 
@@ -31,7 +31,7 @@ for(i in 1:length(bcrs)) {
   bcr <- bcrs[i]
   bcr.sub <- us.proj[us.proj@data$BCR == bcr, ]
   area.sub <- crop(region, extent(bcr.sub))
-  zones.sub <- extract(area.sub, bcr.sub, buffer = 200)
-  filename <- paste0("nlcd_30x30_1992_2001_bcr_", bcr, ".grd")
+  zones.sub <- extract(area.sub, bcr.sub)
+  filename <- paste0("nlcd_30x30_1992_bcr_", bcr, ".grd")
   writeRaster(zones.sub, filename = filename)
 }
