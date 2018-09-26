@@ -18,7 +18,7 @@ us.proj <- readOGR("BCRs_contiguous_us.shp")
 
 ## Crop raster data for each BCR
 setwd("/nas/longleaf/home/gdicecco/nlcd_landcover/nlcd_1992_landcover_2018_08_31/")
-filepath <- list.files(pattern = "img")
+filepath <- list.files(pattern = "img$")
 region <- raster(filepath)
 
 crs.nlcd <- crs(region)
