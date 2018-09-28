@@ -30,8 +30,9 @@ setwd("/proj/hurlbertlab/gdicecco/nlcd_frag_proj_shapefiles_nochange/bcrs_92/")
 for(i in 1:length(bcrs)) {
   bcr <- bcrs[i]
   bcr.sub <- us.proj[us.proj@data$BCR == bcr, ]
-  area.sub <- crop(region, extent(bcr.sub))
-  zones.sub <- extract(area.sub, bcr.sub)
+  bcr.sub1 <- bcr.sub[, -(7:8)]
+  area.sub <- crop(region, extent(bcr.sub1))
+  zones.sub <- raster::mask(area.sub, bcr.sub1)
   filename <- paste0("nlcd_30x30_1992_bcr_", bcr, ".grd")
   writeRaster(zones.sub, filename = filename)
 }
