@@ -33,12 +33,12 @@ library(stringr)
 #  write.csv(fragstats, paste0(wd, nameid, "_frag.csv"), row.names = F)
 #}
 
-# 1992-2001
-setwd("/proj/hurlbertlab/gdicecco/nlcd_frag_proj_shapefiles/BCRs_landcover_output/92-01/")
+# 1992
+setwd("/proj/hurlbertlab/gdicecco/nlcd_frag_proj_shapefiles_nochange/bcrs_92/")
 
-files <- list.files(pattern = "2001_bcr_")
+files <- list.files(pattern = "1992_bcr_")
 files.grd <- files[grepl("grd", files)]
-wd <- "/proj/hurlbertlab/gdicecco/nlcd_frag_proj_shapefiles/BCRs_landcover_output/csvs/"
+wd <- "/proj/hurlbertlab/gdicecco/nlcd_frag_proj_shapefiles_nochange/csvs/"
 
 for(i in c(4,5,7,8)) {
   filename <- files.grd[i]
