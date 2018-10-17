@@ -12,14 +12,15 @@ library(prism)
 library(rgdal)
 library(rgeos)
 
-options(prism.path = "C:/Users/gdicecco/Desktop/data/prism_1990_2014/")
+options(prism.path = "C:/Users/gdicecco/Desktop/data/prism_1990_2018/")
 
 # Get the PRISM data (1 time only)
-get_prism_monthlys("ppt", years = 1990:2014, mon = c(5:9), keepZip = F)
+# Annual precip, monthly temperature mins and maxes for breeding season
+get_prism_annual("ppt", years = 1990:2017, keepZip = F)
 
-get_prism_monthlys("tmin", years = 1990:2014, mon = c(5:9), keepZip = F)
+get_prism_monthlys("tmin", years = 1990:2018, mon = c(5:9), keepZip = F)
 
-get_prism_monthlys("tmax", years = 1990:2014, mon = c(5:9), keepZip = F)
+get_prism_monthlys("tmax", years = 1990:2018, mon = c(5:9), keepZip = F)
 
 # Extract breeding season average temps 
 prism_files <- ls_prism_data()
@@ -28,7 +29,7 @@ prism_files$date <- word(prism_files$files, start = 5, sep = "_")
 prism_files$year <- substr(prism_files$date, 1, 4)
 prism_files$month <- substr(prism_files$date, 5, 6)
 
-prism <- prism_stack(prism_files$files)
+prism <- prism_stack(filter(prism_files, year != 2018)$files) # leave out provisional 2018 data for now
 prismCRS <- CRS("+proj=longlat +datum=NAD83 +no_defs +ellps=GRS80 +towgs84=0,0,0")
 
 ## Get routes 
@@ -56,7 +57,7 @@ spdf <- SpatialPointsDataFrame(coords = xy, data = routes_subs,
 # Extract breeding season climate data at routes
 routePRISM <- raster::extract(prism, xy, df = T) %>%
   bind_cols(xy) %>%
-  gather(key = "prismFile", value = "val", 2:376)
+  gather(key = "prismFile", value = "val", 2:309)
 
 routePRISM %<>% mutate(env = word(prismFile, start = 2, sep = "_")) %>%
   mutate(date = word(prismFile, start = 5, sep = "_")) %>%
