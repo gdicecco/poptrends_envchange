@@ -53,6 +53,7 @@ xy <- dplyr::select(routes_subs, longitude, latitude) # just need lon-lat for ex
 spdf <- SpatialPointsDataFrame(coords = xy, data = routes_subs,
                                proj4string = prismCRS) # routes being used
 
+# Extract breeding season climate data at routes
 routePRISM <- raster::extract(prism, xy, df = T) %>%
   bind_cols(xy) %>%
   gather(key = "prismFile", value = "val", 2:376)
