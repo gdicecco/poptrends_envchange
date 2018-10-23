@@ -10,7 +10,7 @@ files <- list.files(pattern = "1992_bcr_")
 files.grd <- files[grepl("grd", files)]
 wd <- "/proj/hurlbertlab/gdicecco/nlcd_frag_proj_shapefiles_nochange/bcrs_92_cloud/"
 
-for(i in length(files.grd) {
+for(i in length(files.grd)) {
   filename <- files.grd[i]
   nameid <- word(filename, sep = "\\.")[1]
   data <- raster(filename)
