@@ -123,6 +123,8 @@ clim_hab_poptrend <- abund_trend %>%
   left_join(traits.short, by = c("AOU" = "aou")) %>%
   left_join(frags.short, by = "bcr") %>%
   left_join(climate_wide, by = "bcr")
+setwd("C:/Users/gdicecco/Desktop/git/NLCD_fragmentation/model/")
+write.csv(select(clim_hab_poptrend, -data, -lmFit, -lm_broom), "climate_fragmentation_traits_by_species.csv", row.names = F)
 
 mod_clim <- lm(abundTrend ~ ppt + tmax + tmin, clim_hab_poptrend)
 plot(clim_hab_poptrend$tmin, clim_hab_poptrend$abundTrend)
