@@ -67,6 +67,8 @@ routePRISM %<>% mutate(env = word(prismFile, start = 2, sep = "_")) %>%
 setwd("\\\\Bioark.bio.unc.edu\\hurlbertlab\\DiCecco\\data\\")
 write.csv(routePRISM, "bbs_routes_breeding_season_climate.csv", row.names = F)
 
+routePRISM <- read.csv("bbs_routes_breeding_season_climate.csv", stringsAsFactors = F)
+
 # Calculate climate trend at each route
 library(broom)
 library(purrr)
@@ -82,20 +84,20 @@ climate_trends <- routePRISM %>%
     df.short <- df %>%
       select(year, breedingAvg) %>%
       unique()
-    lm(year ~ breedingAvg, df.short)
+    lm(breedingAvg ~ year, df.short)
   })) %>%
   mutate(lm_broom = map(lmFit, tidy)) %>%
   mutate(climateTrend = map_dbl(lm_broom, ~{
     df <- .
     slope <- df %>%
-    filter(term == "breedingAvg") %>%
+    filter(term == "year") %>%
       select(estimate)
     slope[[1]]
   })) %>%
   mutate(trendPval = map_dbl(lm_broom, ~{
     df <- .
     p <- df %>%
-      filter(term == "breedingAvg") %>%
+      filter(term == "year") %>%
       select(p.value)
     p[[1]]
   }))
@@ -105,3 +107,4 @@ climate_trends_write <- climate_trends %>%
 
 setwd("C:/Users/gdicecco/Desktop/git/NLCD_fragmentation/climate/")
 write.csv(climate_trends_write, "bbs_routes_climate_trends.csv", row.names = F)
+climate_trends <- read.csv("bbs_routes_climate_trends.csv", stringsAsFactors = F)
