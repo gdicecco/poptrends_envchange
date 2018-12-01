@@ -25,8 +25,8 @@ for(i in 1:nrow(routes_tr@data)) {
   rte <- subset(routes_tr, rteno == routenos[i])
   rtenum <- routenos[i]
   nlcd_crop <- crop(nlcd, rte)
-  nlcd_mask <- mask(nlcd_crop, rtenum)
+  nlcd_mask <- mask(nlcd_crop, rte)
   class <- ClassStat(nlcd_mask)
-  filename <- paste0("classStat_nlcd_30x30_2011_route_", rte, ".csv")
+  filename <- paste0("classStat_nlcd_30x30_2011_route_", rtenum, ".csv")
   write.csv(class, filename, row.names = F)
 }
