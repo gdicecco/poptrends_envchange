@@ -15,8 +15,7 @@ library(SDMTools)
 # 2001
 setwd("/proj/hurlbertlab/nlcd_landcover/nlcd_2001_landcover_2011_edition_2014_10_10/")
 nlcd <- raster("nlcd_2001_landcover_2011_edition_2014_10_10.img")
-routes <- readOGR("/proj/hurlbertlab/gdicecco/nlcd_frag_proj_shapefiles/BBS_routepaths/bbsroutes_5km_buffer_bcrsub.shp", 
-                  p4s = crs(nlcd))
+routes <- readOGR("/proj/hurlbertlab/gdicecco/nlcd_frag_proj_shapefiles/BBS_routepaths/bbsroutes_5km_buffer_bcrsub.shp")
 routes_tr <- spTransform(routes, crs(nlcd))
 
 routenos <- routes_tr@data[ , 1]
