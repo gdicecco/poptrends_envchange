@@ -15,15 +15,14 @@ library(SDMTools)
 # 2001
 setwd("/proj/hurlbertlab/nlcd_landcover/nlcd_2011_landcover_2011_edition_2014_10_10/")
 nlcd <- raster("nlcd_2011_landcover_2011_edition_2014_10_10.img")
-routes <- readOGR("/proj/hurlbertlab/gdicecco/nlcd_frag_proj_shapefiles/BBS_routepaths/bbsroutes_5km_buffer.shp", 
-                  p4s = crs(nlcd))
+routes <- readOGR("/proj/hurlbertlab/gdicecco/nlcd_frag_proj_shapefiles/BBS_routepaths/bbsroutes_5km_buffer.shp")
+routes_tr <- spTransform(routes, crs(nlcd))
 
-routenos <- routes@data[ , 1]
+routenos <- routes_tr@data[ , 1]
 
 setwd("/proj/hurlbertlab/gdicecco/nlcd_frag_proj_routes_all/")
-for(i in 1:nrow(routes@data)) {
-  rte <- subset(routes, rteno == routenos[i])
-  rtenum <- routenos[i]
+for(i in 1:nrow(routes_tr@data)) {
+  rte <- subset(routes_tr, rteno == routenos[i])  rtenum <- routenos[i]
   nlcd_crop <- crop(nlcd, rte)
   nlcd_mask <- mask(nlcd_crop, rte)
   class <- ClassStat(nlcd_mask)
