@@ -20,8 +20,8 @@ library(tmap)
 [Bird Conservation Regions](http://nabci-us.org/resources/bird-conservation-regions-map/) in continental US.
 
 ```{r}
-#bcrshp <- read_sf("\\\\Bioark.bio.unc.edu\\hurlbertlab\\DiCecco\\bcr_terrestrial_shape\\BCR_Terrestrial_master.shp")
-bcrshp <- read_sf("/Volumes/hurlbertlab/DiCecco/bcr_terrestrial_shape/BCR_Terrestrial_master.shp")
+bcrshp <- read_sf("\\\\Bioark.bio.unc.edu\\hurlbertlab\\DiCecco\\bcr_terrestrial_shape\\BCR_Terrestrial_master.shp")
+#bcrshp <- read_sf("/Volumes/hurlbertlab/DiCecco/bcr_terrestrial_shape/BCR_Terrestrial_master.shp")
 #BCRs
 
 bcrs.us <- bcrshp %>%
@@ -44,6 +44,8 @@ For my project, I looked at a subset of BCRs:
 23 - Prairie Hardwood Transition
 27 - Southeastern Coastal Plain
 29 - Piedmont
+
+I picked these BCRs to be representative of different major habitat types (grassland, forest), urbanization gradients (dense urban, suburban, rural), and impacts of climate change to date (e.g. more intense warming in northern BCRs).
 
 ```{r}
 bcrs <- c(9, 12, 13, 14, 18, 19, 23, 27, 29) # BCRs of interest
@@ -78,12 +80,11 @@ Analysis workflow:
 ## EDA/Plots of habitat fragmentation over time in study regions
 
 ```{r read in data}
-#frags <- read.csv("\\\\Bioark.bio.unc.edu\\hurlbertlab\\DiCecco\\data\\fragmentation_indices_nlcd.csv", stringsAsFactors = F)
-frags <- read.csv("/Volumes/hurlbertlab/DiCecco/data/fragmentation_indices_nlcd.csv", stringsAsFactors = F)
-head(frags)
+frags <- read.csv("\\\\BioArk\\hurlbertlab\\DiCecco\\data\\fragmentation_indices_nlcd_bcrs.csv", stringsAsFactors = F)
+#frags <- read.csv("/Volumes/hurlbertlab/DiCecco/data/fragmentation_indices_nlcd_bcrs.csv", stringsAsFactors = F)
 ```
 
-Matching land cover classes over time [https://pubs.usgs.gov/of/2008/1379/pdf/ofr2008-1379.pdf]
+Matching land cover classes over time [https://pubs.usgs.gov/of/2008/1379/pdf/ofr2008-1379.pdf]. There was a change in legend used from 1992 to the 2000's data, so I used this chart to match legends from different time points.
 
 ```{r}
 classlegend00s <- data.frame(class = c(11:12, 21:24, 31, 41:43, 51, 52, 71, 81:82, 90, 95), 
@@ -121,7 +122,7 @@ frags.deltas <- frags.11 %>%
 ```{r}
 theme_set(theme_classic())
 # Proportion of landscape
-ggplot(filter(frags.filter, year == 2011), aes(x = as.factor(bcr), y = prop.landscape, fill = legend)) + geom_col(position = "stack") + labs(x = "BCR", y = "Proportion of landscape", fill = "Land cover class") + scale_color_viridis_d()
+ggplot(filter(frags.filter, year == 2011), aes(x = as.factor(bcr), y = prop.landscape, fill = legend)) + geom_col(position = "stack") + labs(x = "BCR", y = "Proportion of landscape", fill = "Land cover class") + scale_fill_viridis_d()
 # low proportions include the great lakes
 # recalculate proportion as proportion of land cover classes excluding water/maybe ag land
 
@@ -130,6 +131,8 @@ ggplot(frags.deltas, aes(x = as.factor(bcr), y = delta.PL, color = legend)) + ge
 # Table
 # Facet on log/logit scale
 ```
+
+These figures show the variation in land cover change between BCRs used: eastern BCRs (27 and 29) show increase in shrub/scrub lands and developed lands, while western BCRs (18 and 19) show decreases in shrubland and smaller increase in urbanization.
 
 ```{r}
 # Edge density
@@ -140,6 +143,11 @@ ggplot(filter(frags.filter, year == 2011), aes(x = bcr, y = edge.density, color 
 ggplot(frags.deltas, aes(x = as.factor(bcr), y = delta.ED, color = legend)) + geom_line(aes(group = legend)) + geom_hline(yintercept = 0, color = "red") + labs(x = "BCR", y = "Change in edge density", color = "Land cover class") + scale_color_viridis_d()
 ```
 
+There is the highest variation in changes in edge density of pasture/hay, shrub/scrub, mixed forest, and 
+grassland/herbaceous land cover types between BCRs.
+
+Urban land cover types show increases in edge density in almost all BCRs, but with less variation between BCRs. 
+
 ```{r}
 # Perimeter area ratio over time
 ggplot(filter(frags.filter, year == 2011), aes(x = as.factor(bcr), y = mean.perim.area.ratio, color = legend)) + geom_line(aes(group = legend)) + labs(x = "BCR", y = "Mean P:A", color = "Land cover class") + scale_color_viridis_d()
@@ -149,3 +157,12 @@ ggplot(filter(frags.filter, year == 2011), aes(x = as.factor(bcr), y = mean.peri
 ggplot(frags.deltas, aes(x = as.factor(bcr), y = delta.PAR, color = legend)) + geom_line(aes(group = legend)) + geom_hline(yintercept = 0, color = "red") + labs(x = "BCR", y = "Change in P:A", color = "Land cover class") + scale_color_viridis_d()
 ```
 
+Using perimeter to area ratio as the measure of fragmentation yields slightly different results: mixed forest, pasture/hay, and shrub/scrub still show the greatest variation between BCRs, however the direction of change is not always uniform. Additionally, this measure shows increased patchiness in developed land, which may represent increases in urban sprawl, especially in Great Basin and Eastern forest biome types.
+
+### Conclusions and future directions: 
+
+Edge density will be the most relevant fragmentation measure for my project going forward, since it has the clearest translation to habitat factors that matter to birds. Many bird species can be grouped into edge-tolerant or edge-avoiding, and edge density will provide a useful way to measure how habitat fragmentation is impacting my taxonomic group of interest.
+
+Additionally, I plan to repeat this analysis on the route level, as opposed to regional (using the BCRs). I think this will provide several benefits: 1) I'll be able to capture a greater range of variation, 2) I'll be able to make use of a larger sample size of bird population data by conducting the analysis on the route level, and 3) I can expand my region of interest to the continental US and potentially Alaska as well. 
+
+I also plan to include cultivated cropland in future analyses, since this land cover type can provide important habitat for many highly abundant bird species that I'm interested in including in my analysis.
