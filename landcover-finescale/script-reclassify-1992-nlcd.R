@@ -1,7 +1,13 @@
-setwd("\\\\Bioark.bio.unc.edu\\hurlbertlab\\GIS\\LandCoverData\\nlcd_1992_landcover_2018_08_31\\")
+library(raster)
+
+setwd("\\\\BioArk\\hurlbertlab\\GIS\\LandCoverData\\nlcd_1992_landcover_2018_08_31\\")
 nlcd1992 <- raster("nlcd_1992_whole.tif")
 
-nlcd1992_conv <- reclassify(nlcd1992, c(32,33,31, 61,61,82, 83,84,82))
+reclass <- matrix(nrow = 5, ncol = 2)
+reclass[, 1] <- c(32, 33, 61, 83, 84)
+reclass[, 2] <- c(31, 31, 82, 82, 82)
+colnames(reclass) <- c("is", "becomes")
 
-setwd("\\\\Bioark.bio.unc.edu\\hurlbertlab\\DiCecco\\")
-writeRaster(nlcd1992_conv, "nlcd_1992_whole_reclassified.tif")
+nlcd1992_reclass <- reclassify(nlcd1992, rcl = reclass, right = NA)
+
+writeRaster(nlcd1992_reclass, "nlcd_1992_whole_reclassified.tif", overwrite = T)
