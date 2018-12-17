@@ -131,6 +131,7 @@ clim_hab_poptrend <- abund_trend %>%
   left_join(climate_wide, by = "stateroute")
 setwd("\\\\BioArk\\hurlbertlab\\DiCecco\\data\\")
 write.csv(clim_hab_poptrend, "climate_fragmentation_traits_by_species.csv", row.names = F)
+clim_hab_poptrend <- read.csv("climate_fragmentation_traits_by_species.csv", stringsAsFactors = F)
 
 ## Start with 10 most abundant species
 abund_spp <- counts.subs %>% 
@@ -156,54 +157,58 @@ spp_hab <- ebird_hab %>%
 # 4 models for each species: abund_trend ~ maxtemp + deltaED + maxtemp:deltaED
 # AIC, effect sizes for each (glance, tidy functions)
 
-spp_models <- clim_hab_poptrend %>%
+library(MuMIn)
+spp_models_indv <- clim_hab_poptrend %>%
   group_by(aou) %>%
   nest() %>%
   right_join(spp_hab) %>%
   mutate(data.subs = map(data, ~{
     df <- .
     df.short <- df %>%
-      filter(legend == spp_models$legend[Species == unique(df$Common_name)]) %>%
-      dplyr::select(stateroute, abundTrend, legend, deltaED, tmax)
+      filter(legend == spp_hab$legend[Species == unique(df$Common_name)]) %>%
+      mutate(dEDz = (deltaED - mean(deltaED))/sd(deltaED)) %>%
+      dplyr::select(stateroute, abundTrend, legend, dEDz, tmax, tmin, ppt)
     df.short
   })) %>%
-  mutate(clim_mod = map(data.subs, ~{
+  mutate(dredged = map(data.subs, ~{
     df <- .
-    lm(abundTrend ~ tmax, df)
+    mod <- lm(abundTrend ~ tmax + tmin + ppt + dEDz, df, na.action = na.fail)
+    dobj <- dredge(mod)
+    topmods <- get.models(dobj, subset = delta < 4)
+    modlavg <- model.avg(topmods)
+    summary(modlavg)})) %>%
+  mutate(coefs = map(dredged, ~{
+    sum <- . 
+    sum$coefmat.full
   })) %>%
-  mutate(ed_mod = map(data.subs, ~{
-    df <- .
-    lm(abundTrend ~ deltaED, df)
-  })) %>%
-  mutate(add_mod = map(data.subs, ~{
-    df <- .
-    lm(abundTrend ~ tmax + deltaED, df)
-  })) %>%
-  mutate(int_mod = map(data.subs, ~{
-    df <- .
-    lm(abundTrend ~ tmax + deltaED + tmax*deltaED, df)
-  })) %>%
-  mutate(clim_tidy = map(clim_mod, tidy)) %>%
-  mutate(clim_glance = map(clim_mod, glance)) %>%
-  mutate(ed_tidy = map(ed_mod, tidy)) %>%
-  mutate(ed_glance = map(ed_mod, glance)) %>%
-  mutate(add_tidy = map(add_mod, tidy)) %>%
-  mutate(add_glance = map(add_mod, glance)) %>%
-  mutate(int_tidy = map(int_mod, tidy)) %>%
-  mutate(int_glance = map(int_mod, glance))
-  
+  mutate(importance = map(dredged, ~{
+    sum <- .
+    sum$importance
+  }))
 
-spp_mod_glances <- spp_models %>%
-  dplyr::select(aou, Species, Habitat, nHabitats1, nHabitats2, volume, legend, clim_glance, ed_glance, add_glance, int_glance) %>%
-  gather(key = model, value = glance, clim_glance, ed_glance, add_glance, int_glance) %>%
-  unnest() %>%
-  arrange(aou, AIC)
+model_coefs_indv <- spp_models_indv %>%
+  dplyr::select(aou, coefs) %>%
+  mutate(coefs.df = map(coefs, ~{
+    mat <- .
+    vars <- rownames(mat)
+    df <- data.frame(param = vars, mat)
+  })) %>%
+  dplyr::select(aou, coefs.df) %>%
+  unnest()
 
-spp_mod_params <- spp_models %>%
-  dplyr::select(aou, Species, Habitat, nHabitats1, nHabitats2, volume, legend, clim_tidy, ed_tidy, add_tidy, int_tidy) %>%
-  gather(key = model, value = tidy, clim_tidy, ed_tidy, add_tidy, int_tidy) %>%
-  unnest() %>%
-  arrange(aou, model, term)
+model_importance_indv <- spp_models_indv %>%
+  dplyr::select(aou, importance) %>%
+  mutate(import.df = map(importance, ~{
+    import <- .
+    df <- data.frame(import)
+    data.frame(param = rownames(df), importance = df$import)
+  })) %>%
+  dplyr::select(aou, import.df) %>%
+  unnest()
+
+setwd("C:/Users/gdicecco/Desktop/git/NLCD_fragmentation/model/")
+write.csv(model_coefs_indv, "weighted_model_coefficients_subsetspecies.csv", row.names = F)
+write.csv(model_importance_indv, "weighted_model_coefficient_importance_subsetspecies.csv", row.names = F)
 
 ## General model selection
 
@@ -226,70 +231,22 @@ route_env <- abund_trend %>%
   left_join(route_ed)
 
 # For each species:
-## Make four models - abund_trend ~ dED, abund_trend ~ cliamte trends, abund_trend ~ dED + climate trends, abund_trend ~ dED:climate trends
+## Make four models - abund_trend ~ dED, abund_trend ~ climate trends, abund_trend ~ dED + climate trends, abund_trend ~ dED:climate trends
 ## For each keep AIC, R^2, effect sizes & p vals
-
-models <- route_env %>%
-  group_by(aou) %>%
-  nest() %>%
-  mutate(clim_mod = map(data, ~{
-    df <- .
-    lm(abundTrend ~ tmax + tmin + ppt, df)
-  })) %>%
-  mutate(ed_mod = map(data, ~{
-    df <- .
-    lm(abundTrend ~ dEDz, df)
-  })) %>%
-  mutate(add_mod = map(data, ~{
-    df <- .
-    lm(abundTrend ~ tmax + tmin + ppt + dEDz, df)
-  })) %>%
-  mutate(int_mod = map(data, ~{
-    df <- .
-    lm(abundTrend ~ tmax + tmin + ppt + dEDz + tmax*dEDz + tmin*dEDz + ppt*dEDz, df)
-  })) %>%
-  mutate(clim_tidy = map(clim_mod, tidy)) %>%
-  mutate(clim_glance = map(clim_mod, glance)) %>%
-  mutate(ed_tidy = map(ed_mod, tidy)) %>%
-  mutate(ed_glance = map(ed_mod, glance)) %>%
-  mutate(add_tidy = map(add_mod, tidy)) %>%
-  mutate(add_glance = map(add_mod, glance)) %>%
-  mutate(int_tidy = map(int_mod, tidy)) %>%
-  mutate(int_glance = map(int_mod, glance))
-
-model_glances <- models %>%
-  dplyr::select(aou, clim_glance, ed_glance, add_glance, int_glance) %>%
-  gather(key = model, value = glance, clim_glance, ed_glance, add_glance, int_glance) %>%
-  unnest() %>%
-  arrange(aou, AIC) %>%
-  group_by(aou) %>%
-  mutate(dAIC = AIC - min(AIC))
-
-model_params <- models %>%
-  dplyr::select(aou, clim_tidy, ed_tidy, add_tidy, int_tidy) %>%
-  gather(key = model, value = tidy, clim_tidy, ed_tidy, add_tidy, int_tidy) %>%
-  unnest() %>% 
-  filter(term != "(Intercept)") %>%
-  arrange(aou, model, term)
-
-best_mods <- model_glances %>%
-  filter(dAIC < 2)
-
-library(MuMIn)
-
 
 model_avgs <- route_env %>%
   group_by(aou) %>%
   nest() %>%
   mutate(dredged = map(data, ~{
     df <- .
-    mod <- lm(abundTrend ~ tmax + tmin + ppt + dEDz + tmax*dEDz + tmin*dEDz + ppt*dEDz, df, na.action = na.fail)
+    mod <- lm(abundTrend ~ tmax + tmin + ppt + dEDz, df, na.action = na.fail)
     dobj <- dredge(mod)
-    modlavg <- model.avg(dobj)
+    topmods <- get.models(dobj, subset = delta < 4)
+    modlavg <- model.avg(topmods)
     summary(modlavg)})) %>%
   mutate(coefs = map(dredged, ~{
     sum <- . 
-    sum$coefmat.subset
+    sum$coefmat.full
   })) %>%
   mutate(importance = map(dredged, ~{
     sum <- .
@@ -320,4 +277,155 @@ setwd("C:/Users/gdicecco/Desktop/git/NLCD_fragmentation/model/")
 write.csv(model_coefs, "weighted_model_coefficients.csv", row.names = F)
 write.csv(model_importance, "weighted_model_coefficient_importance.csv", row.names = F)
 
-############ Plots ##############
+############ Plots/Results ##############
+
+setwd("\\\\BioArk\\hurlbertlab\\DiCecco\\data\\")
+
+spp_codes <- read.csv("four_letter_codes_birdspp.csv", stringsAsFactors = F)
+
+## 9 species, specific habitat edge density
+
+coefs_indv_sig <- model_coefs_indv %>%
+  filter(Pr...z.. < 0.05, param != "(Intercept)") %>%
+  mutate(confint = Std..Error*1.96) %>%
+  left_join(spp_hab) %>%
+  left_join(spp_codes, by = c("Species" = "COMMONNAME"))
+
+library(ggplot2)
+library(cowplot)
+
+setwd("C:/Users/gdicecco/Desktop/git/NLCD_fragmentation/figures/")
+theme_set(theme_classic())
+ggplot(coefs_indv_sig, aes(x = SPEC, y = Estimate, color = param)) + 
+  geom_point(size = 3, position = position_dodge(0.5)) + 
+  geom_errorbar(aes(ymin = Estimate - confint, ymax = Estimate + confint), width = 0.2, position = position_dodge(0.5), cex = 1) +
+  scale_color_viridis_d(labels = c("Change in edge density", "Trend in Tmax", "Trend in Tmin")) +
+  geom_hline(yintercept = 0, color = "black", lty = 2) +
+  theme(legend.position = c(0.15, 0.9), legend.title = element_blank()) +
+  xlab("")
+ggsave("ninespp_params.pdf")
+
+importance_indv <- model_importance_indv %>%
+  left_join(spp_hab) %>%
+  left_join(spp_codes, by = c("Species" = "COMMONNAME"))
+
+library(forcats)
+dedz <- ggplot(filter(importance_indv, param == "dEDz"), aes(x = fct_reorder(SPEC, importance), y = importance, color = param)) + 
+  geom_point(size = 3) + 
+  scale_color_viridis_d() +
+  theme(legend.position = "none") + 
+  labs(x = "", y = "Relative importance")
+ppt <- ggplot(filter(importance_indv, param == "ppt"), aes(x = fct_reorder(SPEC, importance), y = importance, color = param)) + 
+  geom_point(size = 3) + 
+  scale_color_viridis_d(begin = 0.25) +
+  theme(legend.position = "none") + 
+  labs(x = "", y = "Relative importance")
+tmax <- ggplot(filter(importance_indv, param == "tmax"), aes(x = fct_reorder(SPEC, importance), y = importance, color = param)) + 
+  geom_point(size = 3) + 
+  scale_color_viridis_d(begin = 0.5) +
+  theme(legend.position = "none") + 
+  labs(x = "", y = "Relative importance")
+tmin <- ggplot(filter(importance_indv, param == "tmin"), aes(x = fct_reorder(SPEC, importance), y = importance, color = param)) + 
+  geom_point(size = 3) + 
+  scale_color_viridis_d(begin = 0.75) +
+  theme(legend.position = "none") + 
+  labs(x = "", y = "Relative importance")
+  
+plot_grid(tmax, dedz, tmin, ppt, nrow = 2,
+          labels = c("Tmax", "Edge density", "Tmin", "Ppt"),
+          label_x = c(0.065, 0, 0.065, 0.085))
+ggsave("ninespp_relimport.pdf", width = 9, height = 6)
+
+## All species, landscape edge density
+model_coefs_sig <- model_coefs %>%
+  filter(Pr...z.. < 0.05, param != "(Intercept)") %>%
+  mutate(confint = Std..Error*1.96) %>%
+  left_join(species) %>%
+  left_join(spp_codes, by = c("english_common_name" = "COMMONNAME")) %>%
+  left_join(traits.short)
+
+null_traits <- traits.short %>%
+  filter(aou %in% unique(route_env$aou))
+
+# Species that respond well to increases in habitat fragment 
+dEDz <- model_coefs_sig %>%
+  left_join(species) %>%
+  left_join(spp_codes, by = c("english_common_name" = "COMMONNAME")) %>%
+  left_join(traits.short) %>%
+  filter(param == "dEDz", Estimate < 0)
+
+shapiro.test(dEDz$Estimate)
+wilcox.test(dEDz$nHabitats1, null_traits$nHabitats1)
+wilcox.test(dEDz$volume, null_traits$volume)
+
+# Species that respond poorly to increases in habitat fragmentation
+dEDz <- model_coefs_sig %>%
+  left_join(species) %>%
+  left_join(spp_codes, by = c("english_common_name" = "COMMONNAME")) %>%
+  left_join(traits.short) %>%
+  filter(param == "dEDz", Estimate < 0)
+
+shapiro.test(dEDz$Estimate)
+wilcox.test(dEDz$nHabitats1, null_traits$nHabitats1) # marginal
+wilcox.test(dEDz$volume, null_traits$volume)
+
+# Species that respond well to decreases in ppt
+ppt <- model_coefs_sig %>%
+  left_join(species) %>%
+  left_join(spp_codes, by = c("english_common_name" = "COMMONNAME")) %>%
+  left_join(traits.short) %>%
+  filter(param == "ppt", Estimate < 0)
+
+wilcox.test(ppt$nHabitats1, null_traits$nHabitats1) # significant
+wilcox.test(ppt$volume, null_traits$volume)
+
+# Species that respond well to increases in ppt
+ppt <- model_coefs_sig %>%
+  left_join(species) %>%
+  left_join(spp_codes, by = c("english_common_name" = "COMMONNAME")) %>%
+  left_join(traits.short) %>%
+  filter(param == "ppt", Estimate > 0)
+
+wilcox.test(ppt$nHabitats1, null_traits$nHabitats1)
+wilcox.test(ppt$volume, null_traits$volume)
+
+# Species that respond well to increases in tmin
+tmin <- model_coefs_sig %>%
+  left_join(species) %>%
+  left_join(spp_codes, by = c("english_common_name" = "COMMONNAME")) %>%
+  left_join(traits.short) %>%
+  filter(param == "tmin", Estimate > 0)
+
+shapiro.test(tmin$Estimate)
+
+wilcox.test(tmin$nHabitats1, null_traits$nHabitats1) # significant
+wilcox.test(tmin$volume, null_traits$volume) # significant
+
+# Species that respond well to increases in tmax
+tmax <- model_coefs_sig %>%
+  left_join(species) %>%
+  left_join(spp_codes, by = c("english_common_name" = "COMMONNAME")) %>%
+  left_join(traits.short) %>%
+  filter(param == "tmax", Estimate > 0)
+
+shapiro.test(tmax$Estimate)
+
+wilcox.test(tmax$nHabitats1, null_traits$nHabitats1)
+wilcox.test(tmax$volume, null_traits$volume) # significant
+
+### Number of species responding positively/negatively to different drivers
+twodrivers <- model_coefs_sig %>%
+  group_by(aou) %>%
+  count() %>%
+  filter(n > 1)
+# 13 species
+
+twodrivers_coefs <- model_coefs_sig %>%
+  filter(aou %in% twodrivers$aou)
+
+### Species that are responding strongly to two drivers
+
+### Box plots for species tolerant of warming in tmax and tmin
+
+
+
