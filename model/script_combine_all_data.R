@@ -210,6 +210,9 @@ setwd("C:/Users/gdicecco/Desktop/git/NLCD_fragmentation/model/")
 write.csv(model_coefs_indv, "weighted_model_coefficients_subsetspecies.csv", row.names = F)
 write.csv(model_importance_indv, "weighted_model_coefficient_importance_subsetspecies.csv", row.names = F)
 
+model_coefs_indv <- read.csv("weighted_model_coefficients_subsetspecies.csv", stringsAsFactors = F)
+model_importance_indv <- read.csv("weighted_model_coefficient_importance_subsetspecies.csv", stringsAsFactors = F)
+
 ## General model selection
 
 route_ed <- frags %>%
@@ -276,6 +279,9 @@ model_importance <- model_avgs %>%
 setwd("C:/Users/gdicecco/Desktop/git/NLCD_fragmentation/model/")
 write.csv(model_coefs, "weighted_model_coefficients.csv", row.names = F)
 write.csv(model_importance, "weighted_model_coefficient_importance.csv", row.names = F)
+
+model_coefs <- read.csv("weighted_model_coefficients.csv", stringsAsFactors = F)
+model_importance <- read.csv("weighted_model_coefficient_importance.csv", stringsAsFactors = F)
 
 ############ Plots/Results ##############
 
@@ -414,6 +420,39 @@ wilcox.test(tmax$nHabitats1, null_traits$nHabitats1)
 wilcox.test(tmax$volume, null_traits$volume) # significant
 
 ### Number of species responding positively/negatively to different drivers
+
+dir_trends <- model_coefs_sig %>%
+  mutate(sign = ifelse(Estimate < 0, "negative", "positive")) %>%
+  group_by(param, sign) %>%
+  count()
+
+theme_set(theme_classic())
+pos <- ggplot(filter(dir_trends, sign == "positive"), aes(x = param, y = n)) +
+  geom_bar(stat = "identity", fill = "firebrick") +
+  labs(x = "Parameter estimate", y = "Number of species") +
+  ylim(0, 18) + 
+  theme(axis.text.y = element_text(size = 12)) +
+  theme(axis.text.x = element_text(size = 12)) +
+  theme(axis.title.x = element_text(size = 12, face = "bold")) +
+  theme(axis.title.y = element_text(size = 12, face = "bold")) +
+  scale_x_discrete(labels = c("dEDz" = "Edge density", "ppt" = "Ppt", "tmax" = "Tmax", "tmin" = "Tmin"))
+
+neg <- ggplot(filter(dir_trends, sign == "negative"), aes(x = param, y = n)) + 
+  geom_bar(stat = "identity", fill = "dodgerblue4") + 
+  labs(x = "Parameter estimate", y = "Number of species") +
+  ylim(0, 18) +
+  theme(axis.text.y = element_text(size = 12)) +
+  theme(axis.text.x = element_text(size = 12)) +
+  theme(axis.title.x = element_text(size = 12, face = "bold")) +
+  theme(axis.title.y = element_text(size = 12, face = "bold")) +
+  scale_x_discrete(labels = c("dEDz" = "Edge density", "ppt" = "Ppt", "tmax" = "Tmax", "tmin" = "Tmin"))
+
+plot_grid(pos, neg, nrow = 1, labels = c("Estimate > 0", "Estimate < 0"))
+
+setwd("C:/Users/gdicecco/Desktop/git/NLCD_fragmentation/figures/")
+ggsave("allspp_parameter_estimates.pdf", width = 8, height = 4)
+
+### Species that are responding strongly to temperature change and land use change
 twodrivers <- model_coefs_sig %>%
   group_by(aou) %>%
   count() %>%
@@ -421,11 +460,155 @@ twodrivers <- model_coefs_sig %>%
 # 13 species
 
 twodrivers_coefs <- model_coefs_sig %>%
-  filter(aou %in% twodrivers$aou)
+  filter(aou %in% twodrivers$aou) %>%
+  filter(aou != 4440, aou != 5010, aou != 6810, aou != 7310, aou != 5190, aou != 6730, aou != 5960, aou != 3250)
 
-### Species that are responding strongly to two drivers
+pospos <- ggplot(filter(twodrivers_coefs, aou == 4060 | aou == 22860), aes(x = english_common_name, y = Estimate, color = param)) +
+  geom_point(size = 3, position = position_dodge(0.5)) + 
+  geom_errorbar(aes(ymin = Estimate - confint, ymax = Estimate + confint), width = 0.2, position = position_dodge(0.5), cex = 1) +
+  scale_color_viridis_d(labels = c("Edge density","Tmax", "Tmin")) +
+  geom_hline(yintercept = 0, color = "black", lty = 2) +
+  theme(legend.position = c(0.1, 0.9), legend.title = element_blank()) +
+  theme(axis.text.y = element_text(size = 12)) +
+  theme(axis.text.x = element_text(size = 12)) +
+  theme(axis.title.x = element_blank()) +
+  theme(axis.title.y = element_text(size = 12, face = "bold")) +
+  theme(legend.text = element_text(size = 12)) +
+  ylim(c(-6.3, 28))
+pospos
+
+negneg <- ggplot(filter(twodrivers_coefs, aou == 6870), aes(x = english_common_name, y = Estimate, color = param)) +
+  geom_point(size = 3, position = position_dodge(0.5)) + 
+  geom_errorbar(aes(ymin = Estimate - confint, ymax = Estimate + confint), width = 0.2, position = position_dodge(0.5), cex = 1) +
+  scale_color_viridis_d(labels = c("Edge density","Tmax", "Tmin")) +
+  geom_hline(yintercept = 0, color = "black", lty = 2) +
+  theme(legend.position = c(0.1, 0.9), legend.title = element_blank()) +
+  theme(axis.text.y = element_text(size = 12)) +
+  theme(axis.text.x = element_text(size = 12)) +
+  theme(axis.title.x = element_blank()) +
+  theme(axis.title.y = element_blank()) +
+  theme(legend.text = element_text(size = 12)) +
+  ylim(c(-6.3, 28))
+negneg
+
+negpos <- ggplot(filter(twodrivers_coefs, aou != 6870, aou != 4060, aou != 22860), aes(x = english_common_name, y = Estimate, color = param)) +
+  geom_point(size = 3, position = position_dodge(0.5)) + 
+  geom_errorbar(aes(ymin = Estimate - confint, ymax = Estimate + confint), width = 0.2, position = position_dodge(0.5), cex = 1) +
+  scale_color_viridis_d(labels = c("Edge density","Tmax", "Tmin")) +
+  geom_hline(yintercept = 0, color = "black", lty = 2) +
+  theme(legend.position = c(0.1, 0.9), legend.title = element_blank()) +
+  theme(axis.text.y = element_text(size = 12)) +
+  theme(axis.text.x = element_text(size = 12)) +
+  theme(axis.title.x = element_blank()) +
+  theme(axis.title.y = element_blank()) +
+  theme(legend.text = element_text(size = 12)) +
+  ylim(c(-6.3, 28))
+negpos
+
+legend <- get_legend(pospos)
+
+plot_grid(pospos + theme(legend.position = "none"),
+          negneg + theme(legend.position = "none"),
+          negpos + theme(legend.position = "none"),
+          legend,
+          nrow = 1,
+          labels = c("Tolerant of change", "Vulnerable to change", "Mixed response"),
+          hjust = c(-0.32, -0.2, -0.25), 
+          rel_widths = c(1,1,1,0.3))
+ggsave("allspp_twodrivers.pdf", width = 16, height = 4)
 
 ### Box plots for species tolerant of warming in tmax and tmin
 
+# Species that respond well to increases in tmin
+tmin <- model_coefs_sig %>%
+  left_join(species) %>%
+  left_join(spp_codes, by = c("english_common_name" = "COMMONNAME")) %>%
+  left_join(traits.short) %>%
+  filter(param == "tmin", Estimate > 0)
+
+shapiro.test(tmin$Estimate)
+
+wilcox.test(tmin$nHabitats1, null_traits$nHabitats1) # significant
+wilcox.test(tmin$volume, null_traits$volume) # significant
+
+boxplot <- null_traits %>%
+  mutate(group = ifelse(null_traits$aou %in% tmin$aou, "tolerant", "allspp"))
+
+nhab <- ggplot(boxplot, aes(x = group, y = nHabitats1)) + 
+  geom_violin(aes(fill = group), trim = F, draw_quantiles = c(0.5), alpha = 0.5, cex = 1) +
+  scale_fill_viridis_d(begin = 0.5) +
+  geom_jitter(height = 0, width = 0.1, alpha = 0.5) +
+  theme(legend.position = "none") + 
+  theme(axis.text.y = element_text(size = 12)) +
+  theme(axis.text.x = element_text(size = 12)) +
+  theme(axis.title.x = element_blank()) +
+  theme(axis.title.y = element_text(size = 12)) +
+  labs(y = "Number of habitats") + 
+  scale_x_discrete(labels = c("allspp" = "All species", "tolerant" = "Species benefitted by inc. Tmin"))
+  
+vol <- ggplot(boxplot, aes(x = group, y = volume)) + 
+  geom_violin(aes(fill = group), trim = F, draw_quantiles = c(0.5), alpha = 0.5, cex = 1) +
+  scale_fill_viridis_d(begin = 0.5) +
+  geom_jitter(height = 0, width = 0.1, alpha = 0.5) +
+  theme(legend.position = "none") + 
+  theme(axis.text.y = element_text(size = 12)) +
+  theme(axis.text.x = element_text(size = 12)) +
+  theme(axis.title.x = element_blank()) +
+  theme(axis.title.y = element_text(size = 12)) +
+  labs(y = "Environmental niche width") +
+  scale_x_discrete(labels = c("allspp" = "All species", "tolerant" = "Species benefitted by inc. Tmin"))
+  
+
+plot_grid(nhab, vol, 
+          labels = c("*", "*"),
+          label_x = 0.725,
+          label_y = c(1, 0.94))
+
+ggsave("allspp_tmin_box.pdf")
+
+# Species that respond well to increases in tmax
+tmax <- model_coefs_sig %>%
+  left_join(species) %>%
+  left_join(spp_codes, by = c("english_common_name" = "COMMONNAME")) %>%
+  left_join(traits.short) %>%
+  filter(param == "tmax", Estimate > 0)
+
+shapiro.test(tmax$Estimate)
+
+wilcox.test(tmax$nHabitats1, null_traits$nHabitats1)
+wilcox.test(tmax$volume, null_traits$volume) # significant
+
+boxplot2 <- null_traits %>%
+  mutate(group = ifelse(null_traits$aou %in% tmax$aou, "tolerant", "allspp"))
+
+nhab2 <- ggplot(boxplot2, aes(x = group, y = nHabitats1)) + 
+  geom_violin(aes(fill = group), trim = F, draw_quantiles = c(0.5), alpha = 0.5, cex = 1) +
+  scale_fill_viridis_d(begin = 0.5) +
+  geom_jitter(height = 0, width = 0.1, alpha = 0.5) +
+  theme(legend.position = "none") + 
+  theme(axis.text.y = element_text(size = 12)) +
+  theme(axis.text.x = element_text(size = 12)) +
+  theme(axis.title.x = element_blank()) +
+  theme(axis.title.y = element_text(size = 12)) +
+  labs(y = "Number of habitats") + 
+  scale_x_discrete(labels = c("allspp" = "All species", "tolerant" = "Species benefitted by inc. Tmax"))
+
+vol2 <- ggplot(boxplot2, aes(x = group, y = volume)) + 
+  geom_violin(aes(fill = group), trim = F, draw_quantiles = c(0.5), alpha = 0.5, cex = 1) +
+  scale_fill_viridis_d(begin = 0.5) +
+  geom_jitter(height = 0, width = 0.1, alpha = 0.5) +
+  theme(legend.position = "none") + 
+  theme(axis.text.y = element_text(size = 12)) +
+  theme(axis.text.x = element_text(size = 12)) +
+  theme(axis.title.x = element_blank()) +
+  theme(axis.title.y = element_text(size = 12)) +
+  labs(y = "Environmental niche width") +
+  scale_x_discrete(labels = c("allspp" = "All species", "tolerant" = "Species benefitted by inc. Tmax"))
 
 
+plot_grid(nhab2, vol2, 
+          labels = c("", "*"),
+          label_x = 0.725,
+          label_y = 1)
+
+ggsave("allspp_tmax_box.pdf")
