@@ -451,6 +451,7 @@ plot_grid(pos, neg, nrow = 1, labels = c("Estimate > 0", "Estimate < 0"))
 
 setwd("C:/Users/gdicecco/Desktop/git/NLCD_fragmentation/figures/")
 ggsave("allspp_parameter_estimates.pdf", width = 8, height = 4)
+ggsave("allspp_parameter_estimates.tiff", width = 8, height = 4, units = "in")
 
 ### Species that are responding strongly to temperature change and land use change
 twodrivers <- model_coefs_sig %>%
@@ -512,10 +513,11 @@ plot_grid(pospos + theme(legend.position = "none"),
           negpos + theme(legend.position = "none"),
           legend,
           nrow = 1,
-          labels = c("Tolerant of change", "Vulnerable to change", "Mixed response"),
+          labels = c("Benefitting from change", "Vulnerable to change", "Mixed response"),
           hjust = c(-0.32, -0.2, -0.25), 
           rel_widths = c(1,1,1,0.3))
-ggsave("allspp_twodrivers.pdf", width = 16, height = 4)
+ggsave("allspp_twodrivers.pdf", width = 16, height = 4, units = "in")
+ggsave("allspp_twodrivers.tiff", width = 16, height = 4, units = "in")
 
 ### Box plots for species tolerant of warming in tmax and tmin
 
@@ -565,6 +567,7 @@ plot_grid(nhab, vol,
           label_y = c(1, 0.94))
 
 ggsave("allspp_tmin_box.pdf")
+ggsave("allspp_tmin_box.tiff", units = "in")
 
 # Species that respond well to increases in tmax
 tmax <- model_coefs_sig %>%
@@ -612,3 +615,5 @@ plot_grid(nhab2, vol2,
           label_y = 1)
 
 ggsave("allspp_tmax_box.pdf")
+ggsave("allspp_tmax_box.tiff", units = "in")
+
