@@ -27,6 +27,7 @@ setwd("\\\\Bioark.bio.unc.edu\\hurlbertlab\\DiCecco\\")
 writeOGR(bufferRoutes, ".", "bbsroutes_5km_buffer", driver = "ESRI Shapefile")
 
 setwd("/Volumes/hurlbertlab/DiCecco/nlcd_frag_proj_shapefiles/")
+setwd("\\\\Bioark.bio.unc.edu\\hurlbertlab\\DiCecco\\nlcd_frag_proj_shapefiles\\")
 bufferRoutes <- readOGR("bbsroutes_5km_buffer.shp")
 
 library(SDMTools)
@@ -43,6 +44,7 @@ writeOGR(bufferRoutes_tBCR, ".", "bbsroutes_5km_buffer_bcrsub", driver = "ESRI S
 
 route1 <- subset(bufferRoutes_transf, rteno == 2001)
 
-route_nlcd <- mask(nlcd2001, route1)
+nlcd2001_subs <- crop(nlcd2001, extent(route1))
+route_nlcd <- mask(nlcd2001_subs, route1)
 
 plot(route_nlcd)
