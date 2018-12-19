@@ -32,12 +32,16 @@ us_subs <- us_routes_short[!(us_routes_short@data$rteno < 4000 & us_routes_short
 
 # plot of routes
 
-
-setwd("/Volumes/hurlbertlab/gdicecco/nlcd_frag_proj_shapefiles/BCRs_contiguous_us/")
+setwd("/Volumes/hurlbertlab/DiCecco/nlcd_frag_proj_shapefiles/BCRs_contiguous_us/")
 us.proj <- readOGR("BCRs_contiguous_us.shp")
 
+us_subs_transf <- spTransform(us_subs, crs(us.proj))
+
 library(tmap)
-tm_shape(us_subs) + tm_lines()
+tm_shape() + tm_borders(us.proj) + tm_lines(us_subs_transf)
+
+plot(us.proj, col = "gray73", border = "gray73")
+plot(us_subs_transf, add = T)
 
 routes.short <- routes %>% # subset stateroutes that were filtered by criteria above
   filter(stateroute %in% us_subs@data$rteno)
