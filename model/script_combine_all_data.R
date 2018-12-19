@@ -13,6 +13,9 @@ counts <- read.csv("\\\\BioArk\\hurlbertlab\\Databases\\BBS\\2017\\bbs_counts_20
 species <- read.csv("\\\\BioArk\\hurlbertlab\\Databases\\BBS\\2017\\bbs_species_20170712.csv")
 weather <- read.csv("\\\\BioArk\\hurlbertlab\\Databases\\BBS\\2017\\bbs_weather_20170712.csv")
 
+routes <- read.csv("/Volumes/hurlbertlab/Databases/BBS/2017/bbs_routes_20170712.csv")
+weather <- read.csv("/Volumes/hurlbertlab/Databases/BBS/2017/bbs_weather_20170712.csv")
+
 routes$stateroute <- routes$statenum*1000 + routes$route
 weather$stateroute <-weather$statenum*1000 + weather$route
 RT1 <- subset(weather, runtype == 1, select = c("stateroute", "year"))
@@ -21,13 +24,24 @@ counts$stateroute <- counts$statenum*1000 + counts$route
 
 # subset routes that are between 38000 and 42000 m, remove Alaska (rteno between 3000 and 4000)
 setwd("\\\\BioArk/hurlbertlab/Databases/BBS/GPS_stoplocations/")
+setwd("/Volumes/hurlbertlab/Databases/BBS/GPS_stoplocations/")
 us_routes <- readOGR("bbsrte_2012_alb/bbsrte_2012_alb.shp")
 
 us_routes_short <- us_routes[us_routes@data$rte_length < 42000 & us_routes@data$rte_length > 38000, ]
 us_subs <- us_routes_short[!(us_routes_short@data$rteno < 4000 & us_routes_short@data$rteno > 3000), ]
 
+# plot of routes
+
+
+setwd("/Volumes/hurlbertlab/gdicecco/nlcd_frag_proj_shapefiles/BCRs_contiguous_us/")
+us.proj <- readOGR("BCRs_contiguous_us.shp")
+
+library(tmap)
+tm_shape(us_subs) + tm_lines()
+
 routes.short <- routes %>% # subset stateroutes that were filtered by criteria above
   filter(stateroute %in% us_subs@data$rteno)
+## ADD this filter(stateroute %in% RT1.routes)
 
 # Subset species
 landbirds <- species %>%

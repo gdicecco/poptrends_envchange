@@ -26,10 +26,14 @@ bufferRoutes <- gBuffer(us_subs, width = 5000, byid = TRUE)
 setwd("\\\\Bioark.bio.unc.edu\\hurlbertlab\\DiCecco\\")
 writeOGR(bufferRoutes, ".", "bbsroutes_5km_buffer", driver = "ESRI Shapefile")
 
+setwd("/Volumes/hurlbertlab/DiCecco/nlcd_frag_proj_shapefiles/")
+bufferRoutes <- readOGR("bbsroutes_5km_buffer.shp")
+
 library(SDMTools)
 
 setwd("\\\\Bioark.bio.unc.edu\\hurlbertlab\\GIS\\LandCoverData\\")
-nlcd2001 <- raster("nlcd_2001_landcover_2011_edition_2014_10_10\\nlcd_2001_landcover_2011_edition_2014_10_10.img")
+setwd("/Volumes/hurlbertlab/GIS/LandCoverData/")
+nlcd2001 <- raster("nlcd_2001_landcover_2011_edition_2014_10_10/nlcd_2001_landcover_2011_edition_2014_10_10.img")
 
 bufferRoutes_transf <- spTransform(bufferRoutes, crs(nlcd2001))
 bufferRoutes_tBCR <- subset(bufferRoutes_transf, rteno %in% routes_subs$stateroute)
@@ -40,3 +44,5 @@ writeOGR(bufferRoutes_tBCR, ".", "bbsroutes_5km_buffer_bcrsub", driver = "ESRI S
 route1 <- subset(bufferRoutes_transf, rteno == 2001)
 
 route_nlcd <- mask(nlcd2001, route1)
+
+plot(route_nlcd)
