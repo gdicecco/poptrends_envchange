@@ -439,37 +439,49 @@ wilcox.test(tmax$volume, null_traits$volume) # significant
 
 ### Number of species responding positively/negatively to different drivers
 
-dir_trends <- model_coefs_sig %>%
-  mutate(sign = ifelse(Estimate < 0, "negative", "positive")) %>%
-  group_by(param, sign) %>%
+dir_trends <- model_coefs %>%
+  filter(param != "(Intercept)") %>%
+  mutate(confint = Std..Error*1.96) %>%
+  mutate(significance = ifelse(Pr...z.. < 0.05, "sig", "nonsig")) %>%
+  mutate(sign = ifelse(significance == "sig",ifelse(Estimate < 0, "negative", "positive"), "na")) %>%
+  group_by(param, significance, sign) %>%
   count()
 
 theme_set(theme_classic())
-pos <- ggplot(filter(dir_trends, sign == "positive"), aes(x = param, y = n)) +
-  geom_bar(stat = "identity", fill = "firebrick") +
-  labs(x = "Parameter estimate", y = "Number of species") +
-  ylim(0, 18) + 
+ggplot(dir_trends, aes(x = param, y = n, fill = sign)) +
+  geom_bar(stat = "identity", position = "dodge") +
+  labs(x = "Parameter", y = "Number of species") +
   theme(axis.text.y = element_text(size = 12)) +
   theme(axis.text.x = element_text(size = 12)) +
   theme(axis.title.x = element_text(size = 12, face = "bold")) +
   theme(axis.title.y = element_text(size = 12, face = "bold")) +
-  scale_x_discrete(labels = c("dEDz" = "Edge density", "ppt" = "Ppt", "tmax" = "Tmax", "tmin" = "Tmin"))
-
-neg <- ggplot(filter(dir_trends, sign == "negative"), aes(x = param, y = n)) + 
-  geom_bar(stat = "identity", fill = "dodgerblue4") + 
-  labs(x = "Parameter estimate", y = "Number of species") +
-  ylim(0, 18) +
-  theme(axis.text.y = element_text(size = 12)) +
-  theme(axis.text.x = element_text(size = 12)) +
-  theme(axis.title.x = element_text(size = 12, face = "bold")) +
-  theme(axis.title.y = element_text(size = 12, face = "bold")) +
-  scale_x_discrete(labels = c("dEDz" = "Edge density", "ppt" = "Ppt", "tmax" = "Tmax", "tmin" = "Tmin"))
-
-plot_grid(pos, neg, nrow = 1, labels = c("Estimate > 0", "Estimate < 0"))
+  scale_x_discrete(labels = c("dEDz" = "Edge density", "ppt" = "Ppt", "tmax" = "Tmax", "tmin" = "Tmin")) +
+  scale_fill_manual(name = c("Estimate sign"),labels = c("na" = "Zero", "negative" = "Negative", "positive" = "Positive"), values = c("gray", "#0072B2", "#CC79A7"))
 
 setwd("C:/Users/gdicecco/Desktop/git/NLCD_fragmentation/figures/")
-ggsave("allspp_parameter_estimates.pdf", width = 8, height = 4)
-ggsave("allspp_parameter_estimates.tiff", width = 8, height = 4, units = "in")
+ggsave("allspp_parameter_estimates.pdf", width = 6, height = 4)
+ggsave("allspp_parameter_estimates.tiff", width = 6, height = 4, units = "in")
+
+## Number of drivers species responding to
+
+n_trends <- model_coefs %>%
+  filter(param != "(Intercept)") %>%
+  mutate(significance = ifelse(Pr...z.. < 0.05, 1, 0)) %>%
+  group_by(aou) %>%
+  summarize(ndrivers = sum(significance)) %>%
+  group_by(ndrivers) %>%
+  count()
+
+ggplot(n_trends, aes(x = ndrivers, y = n, fill = ndrivers)) +
+  geom_bar(stat = "identity") + 
+  theme(legend.position = "none") + 
+  theme(axis.text.y = element_text(size = 12)) +
+  theme(axis.text.x = element_text(size = 12)) +
+  theme(axis.title.x = element_text(size = 12, face = "bold")) +
+  theme(axis.title.y = element_text(size = 12, face = "bold")) +
+  labs(x = "Number of strong predictors", y = "Number of species")
+ggsave("allspp_number_predictors.pdf", width = 5, height = 4)
+ggsave("allspp_number_predictors.tiff", width = 5, height = 4, units = "in")
 
 ### Species that are responding strongly to temperature change and land use change
 twodrivers <- model_coefs_sig %>%
