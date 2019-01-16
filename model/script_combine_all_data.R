@@ -33,6 +33,7 @@ us_subs <- us_routes_short[!(us_routes_short@data$rteno < 4000 & us_routes_short
 # plot of routes
 
 setwd("/Volumes/hurlbertlab/DiCecco/nlcd_frag_proj_shapefiles/BCRs_contiguous_us/")
+setwd("\\\\BioArk/hurlbertlab/DiCecco/nlcd_frag_proj_shapefiles/BCRs_contiguous_us/")
 us.proj <- readOGR("BCRs_contiguous_us.shp")
 
 us_subs_transf <- spTransform(us_subs, crs(us.proj))
@@ -43,23 +44,25 @@ tm_shape() + tm_borders(us.proj) + tm_lines(us_subs_transf)
 plot(us.proj, col = "gray73", border = "gray73")
 plot(us_subs_transf, add = T)
 
-routes.short <- routes %>% # subset stateroutes that were filtered by criteria above
+routes.short <- RT1.routes %>% # subset stateroutes that were filtered by criteria above
   filter(stateroute %in% us_subs@data$rteno)
-## ADD this filter(stateroute %in% RT1.routes)
+# 2161 routes
 
-# Subset species
+# Subset species: diurnal land birds
 landbirds <- species %>%
   filter(aou > 2880) %>%
   filter(aou < 3650 | aou > 3810) %>%
   filter(aou < 3900 | aou > 3910) %>%
   filter(aou < 4160 | aou > 4210) %>%
-  filter(aou != 7010)
+  filter(aou != 7010) %>%
+  filter(aou != 22860) # Eurasian collared dove
 
 ## Population trends
 counts.subs <- counts %>%
   filter(aou %in% landbirds$aou) %>%
-  filter(stateroute %in% routes.short$stateroute) %>%
+  merge(routes.short, by = c("stateroute", "year")) %>%
   filter(year > 1990, year < 2017)
+# 2031 routes
 
 library(purrr)
 library(broom)
@@ -159,6 +162,7 @@ abund_spp <- counts.subs %>%
   slice(1:20) %>%
   left_join(species)
 
+setwd("\\\\BioArk\\hurlbertlab\\DiCecco\\data\\")
 ebird_hab <- read.csv("ebird_habitat_association.csv", stringsAsFactors = F)
 
 spp_hab <- ebird_hab %>%
@@ -245,11 +249,14 @@ abundant_spp <- abund_trend %>%
   group_by(aou) %>% 
   summarize(nRoutes = n()) %>%
   filter(nRoutes > 40)
+# 198 spp
 
 route_env <- abund_trend %>%
   filter(aou %in% abundant_spp$aou) %>%
   left_join(climate_wide) %>%
-  left_join(route_ed)
+  left_join(route_ed) %>%
+  na.omit() # remove species/routes with no data
+# 198 spp, 1690 routes
 
 # For each species:
 ## Make four models - abund_trend ~ dED, abund_trend ~ climate trends, abund_trend ~ dED + climate trends, abund_trend ~ dED:climate trends
@@ -327,7 +334,7 @@ ggplot(coefs_indv_sig, aes(x = SPEC, y = Estimate, color = param)) +
   geom_hline(yintercept = 0, color = "black", lty = 2) +
   theme(legend.position = c(0.15, 0.9), legend.title = element_blank()) +
   xlab("")
-ggsave("ninespp_params.pdf")
+ggsave("spp_params.pdf")
 
 importance_indv <- model_importance_indv %>%
   left_join(spp_hab) %>%
@@ -358,7 +365,7 @@ tmin <- ggplot(filter(importance_indv, param == "tmin"), aes(x = fct_reorder(SPE
 plot_grid(tmax, dedz, tmin, ppt, nrow = 2,
           labels = c("Tmax", "Edge density", "Tmin", "Ppt"),
           label_x = c(0.065, 0, 0.065, 0.085))
-ggsave("ninespp_relimport.pdf", width = 9, height = 6)
+ggsave("spp_relimport.pdf", width = 9, height = 6)
 
 ## All species, landscape edge density
 model_coefs_sig <- model_coefs %>%
@@ -368,74 +375,100 @@ model_coefs_sig <- model_coefs %>%
   left_join(spp_codes, by = c("english_common_name" = "COMMONNAME")) %>%
   left_join(traits.short)
 
-null_traits <- traits.short %>%
-  filter(aou %in% unique(route_env$aou))
+setwd("//BioArk/HurlbertLab/DiCecco/Data/")
+correlates <- read.csv("Master_RO_Correlates_20110610.csv", stringsAsFactors = F)
 
-# Species that respond well to increases in habitat fragment 
+null_traits <- traits.short %>%
+  filter(aou %in% unique(route_env$aou)) %>%
+  left_join(correlates, by = c("aou" = "AOU"))
+
+# Species that respond well to increases in habitat fragmentation 
 dEDz <- model_coefs_sig %>%
   left_join(species) %>%
   left_join(spp_codes, by = c("english_common_name" = "COMMONNAME")) %>%
   left_join(traits.short) %>%
-  filter(param == "dEDz", Estimate < 0)
+  left_join(correlates, by = c("aou" = "AOU")) %>%
+  filter(param == "dEDz", Estimate > 0)
 
 shapiro.test(dEDz$Estimate)
-wilcox.test(dEDz$nHabitats1, null_traits$nHabitats1)
-wilcox.test(dEDz$volume, null_traits$volume)
+t.test(dEDz$nHabitats1, null_traits$nHabitats1)
+t.test(dEDz$volume, null_traits$volume)
+t.test(dEDz$Brange_Area_km2, null_traits$Brange_Area_km2)
+t.test(dEDz$NumBiomes, null_traits$NumBiomes)
 
 # Species that respond poorly to increases in habitat fragmentation
 dEDz <- model_coefs_sig %>%
   left_join(species) %>%
   left_join(spp_codes, by = c("english_common_name" = "COMMONNAME")) %>%
   left_join(traits.short) %>%
+  left_join(correlates, by = c("aou" = "AOU")) %>%
   filter(param == "dEDz", Estimate < 0)
 
 shapiro.test(dEDz$Estimate)
-wilcox.test(dEDz$nHabitats1, null_traits$nHabitats1) # marginal
-wilcox.test(dEDz$volume, null_traits$volume)
+t.test(dEDz$nHabitats1, null_traits$nHabitats1)
+t.test(dEDz$volume, null_traits$volume)
+t.test(dEDz$Brange_Area_km2, null_traits$Brange_Area_km2)
+t.test(dEDz$NumBiomes, null_traits$NumBiomes)
+
 
 # Species that respond well to decreases in ppt
 ppt <- model_coefs_sig %>%
   left_join(species) %>%
   left_join(spp_codes, by = c("english_common_name" = "COMMONNAME")) %>%
   left_join(traits.short) %>%
+  left_join(correlates, by = c("aou" = "AOU")) %>%
   filter(param == "ppt", Estimate < 0)
 
+shapiro.test(ppt$Estimate)
 wilcox.test(ppt$nHabitats1, null_traits$nHabitats1) # significant
-wilcox.test(ppt$volume, null_traits$volume)
+wilcox.test(ppt$volume, null_traits$volume) # marginal
+wilcox.test(ppt$Brange_Area_km2, null_traits$Brange_Area_km2)
+wilcox.test(ppt$NumBiomes, null_traits$NumBiomes)
 
 # Species that respond well to increases in ppt
 ppt <- model_coefs_sig %>%
   left_join(species) %>%
   left_join(spp_codes, by = c("english_common_name" = "COMMONNAME")) %>%
   left_join(traits.short) %>%
+  left_join(correlates, by = c("aou" = "AOU")) %>%
   filter(param == "ppt", Estimate > 0)
 
-wilcox.test(ppt$nHabitats1, null_traits$nHabitats1)
-wilcox.test(ppt$volume, null_traits$volume)
+shapiro.test(ppt$Estimate)
+t.test(ppt$nHabitats1, null_traits$nHabitats1) # marginal
+t.test(ppt$volume, null_traits$volume)
+t.test(ppt$Brange_Area_km2, null_traits$Brange_Area_km2)
+t.test(ppt$NumBiomes, null_traits$NumBiomes)
+
 
 # Species that respond well to increases in tmin
 tmin <- model_coefs_sig %>%
   left_join(species) %>%
   left_join(spp_codes, by = c("english_common_name" = "COMMONNAME")) %>%
   left_join(traits.short) %>%
+  left_join(correlates, by = c("aou" = "AOU")) %>%
   filter(param == "tmin", Estimate > 0)
 
 shapiro.test(tmin$Estimate)
 
-wilcox.test(tmin$nHabitats1, null_traits$nHabitats1) # significant
-wilcox.test(tmin$volume, null_traits$volume) # significant
+wilcox.test(tmin$nHabitats1, null_traits$nHabitats1) 
+wilcox.test(tmin$volume, null_traits$volume) # marginal
+wilcox.test(tmin$Brange_Area_km2, null_traits$Brange_Area_km2)
+wilcox.test(tmin$NumBiomes, null_traits$NumBiomes)
 
 # Species that respond well to increases in tmax
 tmax <- model_coefs_sig %>%
   left_join(species) %>%
   left_join(spp_codes, by = c("english_common_name" = "COMMONNAME")) %>%
   left_join(traits.short) %>%
+  left_join(correlates, by = c("aou" = "AOU")) %>%
   filter(param == "tmax", Estimate > 0)
 
 shapiro.test(tmax$Estimate)
 
-wilcox.test(tmax$nHabitats1, null_traits$nHabitats1)
-wilcox.test(tmax$volume, null_traits$volume) # significant
+t.test(tmax$nHabitats1, null_traits$nHabitats1)
+t.test(tmax$volume, null_traits$volume)
+t.test(tmin$Brange_Area_km2, null_traits$Brange_Area_km2)
+t.test(tmin$NumBiomes, null_traits$NumBiomes)
 
 ### Number of species responding positively/negatively to different drivers
 
@@ -488,16 +521,16 @@ twodrivers <- model_coefs_sig %>%
   group_by(aou) %>%
   count() %>%
   filter(n > 1)
-# 13 species
+# 11 species
 
 twodrivers_coefs <- model_coefs_sig %>%
-  filter(aou %in% twodrivers$aou) %>%
-  filter(aou != 4440, aou != 5010, aou != 6810, aou != 7310, aou != 5190, aou != 6730, aou != 5960, aou != 3250)
+  filter(aou %in% twodrivers$aou)
 
-pospos <- ggplot(filter(twodrivers_coefs, aou == 4060 | aou == 22860), aes(x = english_common_name, y = Estimate, color = param)) +
+viridis_palette <- c("#440154FF", "#33638DFF", "#3CBB75FF", "#FDE725FF")
+pospos <- ggplot(filter(twodrivers_coefs, aou == 4400 | aou == 4060 | aou == 5010), aes(x = english_common_name, y = Estimate, color = param)) +
   geom_point(size = 3, position = position_dodge(0.5)) + 
   geom_errorbar(aes(ymin = Estimate - confint, ymax = Estimate + confint), width = 0.2, position = position_dodge(0.5), cex = 1) +
-  scale_color_viridis_d(labels = c("Edge density","Tmax", "Tmin")) +
+  scale_color_manual(values = viridis_palette, labels = c("dEDz" = "Edge density", "ppt" = "Ppt", "tmax" = "Tmax", "tmin" = "Tmin")) +
   geom_hline(yintercept = 0, color = "black", lty = 2) +
   theme(legend.position = c(0.1, 0.9), legend.title = element_blank()) +
   theme(axis.text.y = element_text(size = 12)) +
@@ -505,13 +538,14 @@ pospos <- ggplot(filter(twodrivers_coefs, aou == 4060 | aou == 22860), aes(x = e
   theme(axis.title.x = element_blank()) +
   theme(axis.title.y = element_text(size = 12, face = "bold")) +
   theme(legend.text = element_text(size = 12)) +
-  ylim(c(-6.3, 28))
+  ylim(c(-9.5, 28))
 pospos
 
-negneg <- ggplot(filter(twodrivers_coefs, aou == 6870), aes(x = english_common_name, y = Estimate, color = param)) +
+negneg <- ggplot(filter(twodrivers_coefs, aou == 6250 | aou == 5190 | aou == 5810 | aou == 6870 | aou == 6730),
+                 aes(x = english_common_name, y = Estimate, color = param)) +
   geom_point(size = 3, position = position_dodge(0.5)) + 
   geom_errorbar(aes(ymin = Estimate - confint, ymax = Estimate + confint), width = 0.2, position = position_dodge(0.5), cex = 1) +
-  scale_color_viridis_d(labels = c("Edge density","Tmax", "Tmin")) +
+  scale_color_manual(values = viridis_palette, labels = c("dEDz" = "Edge density", "ppt" = "Ppt", "tmax" = "Tmax", "tmin" = "Tmin")) +
   geom_hline(yintercept = 0, color = "black", lty = 2) +
   theme(legend.position = c(0.1, 0.9), legend.title = element_blank()) +
   theme(axis.text.y = element_text(size = 12)) +
@@ -519,13 +553,13 @@ negneg <- ggplot(filter(twodrivers_coefs, aou == 6870), aes(x = english_common_n
   theme(axis.title.x = element_blank()) +
   theme(axis.title.y = element_blank()) +
   theme(legend.text = element_text(size = 12)) +
-  ylim(c(-6.3, 28))
+  ylim(c(-9.5, 28))
 negneg
 
-negpos <- ggplot(filter(twodrivers_coefs, aou != 6870, aou != 4060, aou != 22860), aes(x = english_common_name, y = Estimate, color = param)) +
+negpos <- ggplot(filter(twodrivers_coefs, aou == 7310), aes(x = english_common_name, y = Estimate, color = param)) +
   geom_point(size = 3, position = position_dodge(0.5)) + 
   geom_errorbar(aes(ymin = Estimate - confint, ymax = Estimate + confint), width = 0.2, position = position_dodge(0.5), cex = 1) +
-  scale_color_viridis_d(labels = c("Edge density","Tmax", "Tmin")) +
+  scale_color_manual(values = viridis_palette, labels = c("dEDz" = "Edge density", "ppt" = "Ppt", "tmax" = "Tmax", "tmin" = "Tmin")) +
   geom_hline(yintercept = 0, color = "black", lty = 2) +
   theme(legend.position = c(0.1, 0.9), legend.title = element_blank()) +
   theme(axis.text.y = element_text(size = 12)) +
@@ -533,10 +567,10 @@ negpos <- ggplot(filter(twodrivers_coefs, aou != 6870, aou != 4060, aou != 22860
   theme(axis.title.x = element_blank()) +
   theme(axis.title.y = element_blank()) +
   theme(legend.text = element_text(size = 12)) +
-  ylim(c(-6.3, 28))
+  ylim(c(-9.5, 28))
 negpos
 
-legend <- get_legend(pospos)
+legend <- get_legend(negneg)
 
 plot_grid(pospos + theme(legend.position = "none"),
           negneg + theme(legend.position = "none"),
@@ -560,8 +594,8 @@ tmin <- model_coefs_sig %>%
 
 shapiro.test(tmin$Estimate)
 
-wilcox.test(tmin$nHabitats1, null_traits$nHabitats1) # significant
-wilcox.test(tmin$volume, null_traits$volume) # significant
+wilcox.test(tmin$nHabitats1, null_traits$nHabitats1) 
+wilcox.test(tmin$volume, null_traits$volume) # marginal
 
 boxplot <- null_traits %>%
   mutate(group = ifelse(null_traits$aou %in% tmin$aou, "tolerant", "allspp"))
@@ -592,7 +626,7 @@ vol <- ggplot(boxplot, aes(x = group, y = volume)) +
   
 
 plot_grid(nhab, vol, 
-          labels = c("*", "*"),
+          labels = c("", "*"),
           label_x = 0.725,
           label_y = c(1, 0.94))
 
@@ -608,8 +642,8 @@ tmax <- model_coefs_sig %>%
 
 shapiro.test(tmax$Estimate)
 
-wilcox.test(tmax$nHabitats1, null_traits$nHabitats1)
-wilcox.test(tmax$volume, null_traits$volume) # significant
+t.test(tmax$nHabitats1, null_traits$nHabitats1)
+t.test(tmax$volume, null_traits$volume)
 
 boxplot2 <- null_traits %>%
   mutate(group = ifelse(null_traits$aou %in% tmax$aou, "tolerant", "allspp"))
@@ -639,10 +673,7 @@ vol2 <- ggplot(boxplot2, aes(x = group, y = volume)) +
   scale_x_discrete(labels = c("allspp" = "All species", "tolerant" = "Species benefitted by inc. Tmax"))
 
 
-plot_grid(nhab2, vol2, 
-          labels = c("", "*"),
-          label_x = 0.725,
-          label_y = 1)
+plot_grid(nhab2, vol2)
 
 ggsave("allspp_tmax_box.pdf")
 ggsave("allspp_tmax_box.tiff", units = "in")
