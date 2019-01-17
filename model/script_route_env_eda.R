@@ -74,10 +74,37 @@ route_trends <- climate_wide %>%
 
 ####### Route level trends in environmental change
 
+setwd("C:/Users/gdicecco/Desktop/git/NLCD_fragmentation/figures/")
 ggplot(route_trends, aes(x = tmax, y = dEDz)) + geom_point(alpha = 0.3) + 
   geom_hline(yintercept = 0, cex = 1, color = "red", lty = 2) +
   geom_vline(xintercept = 0, cex = 1, color = "blue", lty = 2) +
   labs(x = "Trend in Tmax", y = "Trend in deltaED")
+ggsave("route_tmax_ded.tiff", units = "in")
+
+ggplot(route_trends, aes(x = tmin, y = dEDz)) + geom_point(alpha = 0.3) + 
+  geom_hline(yintercept = 0, cex = 1, color = "red", lty = 2) +
+  geom_vline(xintercept = 0, cex = 1, color = "blue", lty = 2) +
+  labs(x = "Trend in Tmin", y = "Trend in deltaED")
+ggsave("route_tmin_ded.tiff", units = "in")
+
+ggplot(route_trends, aes(x = tmin, y = ppt)) + geom_point(alpha = 0.3) + 
+  geom_hline(yintercept = 0, cex = 1, color = "red", lty = 2) +
+  geom_vline(xintercept = 0, cex = 1, color = "blue", lty = 2) +
+  labs(x = "Trend in Tmin", y = "Trend in ppt")
+ggsave("route_tmin_ppt.tiff", units = "in")
+
+ggplot(route_trends, aes(x = tmax, y = ppt)) + geom_point(alpha = 0.3) + 
+  geom_hline(yintercept = 0, cex = 1, color = "red", lty = 2) +
+  geom_vline(xintercept = 0, cex = 1, color = "blue", lty = 2) +
+  labs(x = "Trend in Tmax", y = "Trend in ppt")
+ggsave("route_tmax_ppt.tiff", units = "in")
+
+ggplot(route_trends, aes(x = tmax, y = tmin)) + geom_point(alpha = 0.3) + 
+  geom_hline(yintercept = 0, cex = 1, color = "red", lty = 2) +
+  geom_vline(xintercept = 0, cex = 1, color = "blue", lty = 2) +
+  labs(x = "Trend in Tmax", y = "Trend in Tmin")
+ggsave("route_tmax_tmin.tiff", units = "in")
+
 
 # Map of route changes
 
@@ -87,20 +114,72 @@ us_sf <- read_sf("BCRs_contiguous_us.shp")
 
 routes_sf <- st_as_sf(route_trends, coords = c("longitude", "latitude"))
 
+setwd("C:/Users/gdicecco/Desktop/git/NLCD_fragmentation/figures/")
 us <- tm_shape(us_sf) + tm_borders() + tm_fill(col = "gray")
-us + tm_shape(routes_sf) + 
+tmax_map <- us + tm_shape(routes_sf) + 
   tm_dots(col = "tmax", palette = "RdBu", midpoint = NA, size = 0.2, style = "cont", title = "Tmax")
+tmap_save(tmax_map, "routes_tmax_map.tiff", units = "in")
 
-us + tm_shape(routes_sf) + 
+tmin_map <- us + tm_shape(routes_sf) + 
   tm_dots(col = "tmin", palette = "RdBu", midpoint = NA, size = 0.2, style = "cont", title = "Tmin")
+tmap_save(tmin_map, "routes_tmin_map.tiff", units = "in")
 
-us + tm_shape(routes_sf) + 
+ppt_map <- us + tm_shape(routes_sf) + 
   tm_dots(col = "ppt", palette = "PRGn", midpoint = NA, size = 0.2, style = "cont", title = "Ppt")
+tmap_save(ppt_map, "routes_ppt_map.tiff", units = "in")
 
-us + tm_shape(routes_sf) + 
+ded_map <- us + tm_shape(routes_sf) + 
   tm_dots(col = "dEDz", palette = "PiYG", midpoint = NA, size = 0.2, style = "cont", title = "deltaED")
+tmap_save(ded_map, "routes_dED_map.tiff", units = "in")
 
-## Make plots like this for forest fragmentation and urbanization (?)
+## Make plots like this for forest fragmentation
+head(frags)
+
+classlegend00s <- data.frame(class = c(11:12, 21:24, 31, 41:43, 51, 52, 71, 81:82, 90, 95), 
+                             legend = c("Open water", "Perennial ice/snow", "Developed, open space", "Developed, low intensity", "Developed, medium intensity", "Developed, high intensity", "Barren land", "Deciduous forest", "Evergreen forest", "Mixed forest", "Dwarf scrub", "Shrub/scrub", "Grassland/herbaceous", "Pasture/hay", "Cultivated crops", "Woody wetlands", "Emergent herbaceous wetlands"))
+classlegend92 <- data.frame(class = c(11:12, 85, 21:23, 31:33, 41:43, 51, 61, 71, 81:84, 91:92),
+                            legend = c("Open water", "Perennial ice/snow", "Developed, open space", "Developed, low intensity", "Developed, medium intensity", "Developed, high intensity", "Barren land", "Barren land", "Barren land", "Deciduous forest", "Evergreen forest", "Mixed forest", "Shrub/scrub", "Cultivated crops", "Grassland/herbaceous", "Pasture/hay",  "Cultivated crops",  "Cultivated crops",  "Cultivated crops", "Woody wetlands", "Emergent herbaceous wetlands"))
+
+frags.92 <- frags %>%
+  filter(year == 1992) %>%
+  left_join(classlegend92)
+frags.00s <- frags %>%
+  filter(year > 1992) %>%
+  left_join(classlegend00s)
+
+forest_ed <- bind_rows(frags.92, frags.00s) %>%
+  filter(grepl("forest", legend)) %>%
+  group_by(stateroute, year) %>%
+  summarize(ED = sum(total.edge)/sum(total.area)) %>%
+  spread(key = "year", value = "ED") %>%
+  mutate(deltaED = `2011` - `1992`) %>%
+  filter(stateroute %in% routes.short$stateroute) %>%
+  left_join(dplyr::select(routes, stateroute, latitude, longitude)) %>%
+  st_as_sf(coords = c("longitude", "latitude"))
+
+forest_ed$dEDz <- (forest_ed$deltaED - mean(na.omit(forest_ed$deltaED)))/sd(na.omit(forest_ed$deltaED))
+
+forest_map <- us + tm_shape(forest_ed) + 
+  tm_dots(col = "dEDz", palette = "RdYlGn", midpoint = NA, size = 0.2, style = "cont", title = "deltaED Forest")
+forest_map
+tmap_save(forest_map, "routes_dED_forest_map.tiff", units = "in")
+
+# Urbanization
+urban <- bind_rows(frags.92, frags.00s) %>%
+  filter(grepl("Developed", legend)) %>%
+  group_by(stateroute, year) %>%
+  summarize(urban.prop = sum(prop.landscape)) %>%
+  spread(key = "year", value = "urban.prop") %>%
+  mutate(deltaUP = `2011` - `1992`) %>%
+  filter(stateroute %in% routes.short$stateroute) %>%
+  left_join(dplyr::select(routes, stateroute, latitude, longitude)) %>%
+  st_as_sf(coords = c("longitude", "latitude"))
+urban$dUPz <- (urban$deltaUP - mean(na.omit(urban$deltaUP)))/sd(na.omit(urban$deltaUP))
+
+urban_map <- us + tm_shape(urban) + 
+  tm_dots(col = "dUPz", palette = "YlOrRd", midpoint = NA, size = 0.2, style = "cont", title = "dUrban (proportion of landscape)")
+urban_map
+tmap_save(urban_map, "routes_urban_map.tiff", units = "in")
 
 # PCA of env. change on routes
 head(route_trends)
