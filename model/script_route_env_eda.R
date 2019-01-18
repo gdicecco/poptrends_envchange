@@ -186,6 +186,63 @@ urban_map <- us + tm_shape(urban) +
 urban_map
 tmap_save(urban_map, "routes_urban_map.tiff", units = "in")
 
+# Map of route-level abundance trends
+# Subset species: diurnal land birds
+landbirds <- species %>%
+  filter(aou > 2880) %>%
+  filter(aou < 3650 | aou > 3810) %>%
+  filter(aou < 3900 | aou > 3910) %>%
+  filter(aou < 4160 | aou > 4210) %>%
+  filter(aou != 7010) %>%
+  filter(aou != 22860) # Eurasian collared dove
+
+## Population trends
+counts.subs <- counts %>%
+  filter(aou %in% landbirds$aou) %>%
+  merge(routes.short, by = c("stateroute", "year")) %>%
+  filter(year > 1990, year < 2017)
+# 2031 routes
+
+library(purrr)
+library(broom)
+abund_trend <- counts.subs %>%
+  group_by(stateroute) %>%
+  nest() %>%
+  mutate(lmFit = map(data, ~{
+    df <- .
+    df.short <- df %>%
+      group_by(year) %>%
+      summarize(abund = sum(speciestotal)) %>%
+      dplyr::select(year, abund) %>%
+      unique()
+    lm(abund ~ year, df.short)
+  })) %>%
+  mutate(nObs = map_dbl(data, ~{
+    df <- .
+    length(unique(df$year))
+  })) %>%
+  mutate(lm_broom = map(lmFit, tidy)) %>%
+  mutate(abundTrend = map_dbl(lm_broom, ~{
+    df <- .
+    df$estimate[2]
+  })) %>%
+  mutate(trendPval = map_dbl(lm_broom, ~{
+    df <- .
+    df$p.value[2]
+  })) 
+
+abund_sf <- abund_trend %>%
+  filter(nObs > 9) %>%
+  dplyr::select(-data, -lmFit, -lm_broom) %>%
+  left_join(dplyr::select(routes, stateroute, latitude, longitude)) %>% 
+  filter(abundTrend < 200) %>% # a couple outliers in LA
+  st_as_sf(coords = c("longitude", "latitude"))
+
+bird_map <- us + tm_shape(abund_sf) + 
+  tm_dots(col = "abundTrend", palette = "-RdBu", size = 0.2, style = "cont", title = "Abundance trend")
+bird_map
+tmap_save(bird_map, "routes_birdAbund_map.tiff", units = "in")
+
 # PCA of env. change on routes
 head(route_trends)
 
