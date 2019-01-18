@@ -182,7 +182,7 @@ urban <- bind_rows(frags.92, frags.00s) %>%
 urban$dUPz <- (urban$deltaUP - mean(na.omit(urban$deltaUP)))/sd(na.omit(urban$deltaUP))
 
 urban_map <- us + tm_shape(urban) + 
-  tm_dots(col = "dUPz", palette = "YlOrRd", midpoint = NA, size = 0.2, style = "cont", title = "dUrban (proportion of landscape)")
+  tm_dots(col = "deltaUP", palette = "YlOrRd", midpoint = NA, size = 0.2, style = "cont", title = "dUrban (proportion of landscape)")
 urban_map
 tmap_save(urban_map, "routes_urban_map.tiff", units = "in")
 
