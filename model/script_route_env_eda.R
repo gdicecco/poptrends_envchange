@@ -117,19 +117,24 @@ routes_sf <- st_as_sf(route_trends, coords = c("longitude", "latitude"))
 setwd("C:/Users/gdicecco/Desktop/git/NLCD_fragmentation/figures/")
 us <- tm_shape(us_sf) + tm_borders() + tm_fill(col = "gray")
 tmax_map <- us + tm_shape(routes_sf) + 
-  tm_dots(col = "tmax", palette = "RdBu", midpoint = NA, size = 0.2, style = "cont", title = "Tmax")
+  tm_dots(col = "tmax", palette = "-RdBu", midpoint = NA, size = 0.2, style = "cont", title = "Tmax")
+tmax_map
 tmap_save(tmax_map, "routes_tmax_map.tiff", units = "in")
 
 tmin_map <- us + tm_shape(routes_sf) + 
-  tm_dots(col = "tmin", palette = "RdBu", midpoint = NA, size = 0.2, style = "cont", title = "Tmin")
+  tm_dots(col = "tmin", palette = "-RdBu", midpoint = NA, size = 0.2, style = "cont", title = "Tmin")
+tmin_map
 tmap_save(tmin_map, "routes_tmin_map.tiff", units = "in")
+# flip palette direction
 
 ppt_map <- us + tm_shape(routes_sf) + 
   tm_dots(col = "ppt", palette = "PRGn", midpoint = NA, size = 0.2, style = "cont", title = "Ppt")
+ppt_map
 tmap_save(ppt_map, "routes_ppt_map.tiff", units = "in")
 
 ded_map <- us + tm_shape(routes_sf) + 
-  tm_dots(col = "dEDz", palette = "PiYG", midpoint = NA, size = 0.2, style = "cont", title = "deltaED")
+  tm_dots(col = "dEDz", palette = "-PiYG", midpoint = NA, size = 0.2, style = "cont", title = "deltaED")
+ded_map
 tmap_save(ded_map, "routes_dED_map.tiff", units = "in")
 
 ## Make plots like this for forest fragmentation
@@ -160,8 +165,8 @@ forest_ed <- bind_rows(frags.92, frags.00s) %>%
 forest_ed$dEDz <- (forest_ed$deltaED - mean(na.omit(forest_ed$deltaED)))/sd(na.omit(forest_ed$deltaED))
 
 forest_map <- us + tm_shape(forest_ed) + 
-  tm_dots(col = "dEDz", palette = "RdYlGn", midpoint = NA, size = 0.2, style = "cont", title = "deltaED Forest")
-forest_map
+  tm_dots(col = "dEDz", palette = "-RdYlGn", midpoint = NA, size = 0.2, style = "cont", title = "deltaED Forest")
+forest_map 
 tmap_save(forest_map, "routes_dED_forest_map.tiff", units = "in")
 
 # Urbanization
