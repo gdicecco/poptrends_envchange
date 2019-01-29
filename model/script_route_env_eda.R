@@ -50,6 +50,7 @@ routes.short <- RT1.routes %>% # subset stateroutes that were filtered by criter
 
 # Habitat fragmentation data
 frags <- read.csv("\\\\BioArk\\hurlbertlab\\DiCecco\\data\\fragmentation_indices_nlcd.csv", stringsAsFactors = F)
+frags <- read.csv("/Volumes/hurlbertlab/DiCecco/data/fragmentation_indices_nlcd.csv", stringsAsFactors = F)
 
 route_ed <- frags %>%
   group_by(stateroute, year) %>%
@@ -61,6 +62,7 @@ route_ed <- frags %>%
 
 # Climate data
 setwd("C:/Users/gdicecco/Desktop/git/NLCD_fragmentation/climate/")
+setwd("/Users/gracedicecco/Desktop/git/NLCD_fragmentation/climate/")
 climate_trends <- read.csv("bbs_routes_climate_trends.csv", stringsAsFactors = F)
 
 climate_wide <- climate_trends %>%
@@ -75,13 +77,13 @@ route_trends <- climate_wide %>%
 ####### Route level trends in environmental change
 
 setwd("C:/Users/gdicecco/Desktop/git/NLCD_fragmentation/figures/")
-ggplot(route_trends, aes(x = tmax, y = dEDz)) + geom_point(alpha = 0.3) + 
+ggplot(route_trends, aes(x = tmax, y = deltaED)) + geom_point(alpha = 0.3) + 
   geom_hline(yintercept = 0, cex = 1, color = "red", lty = 2) +
   geom_vline(xintercept = 0, cex = 1, color = "blue", lty = 2) +
   labs(x = "Trend in Tmax", y = "Trend in deltaED")
 ggsave("route_tmax_ded.tiff", units = "in")
 
-ggplot(route_trends, aes(x = tmin, y = dEDz)) + geom_point(alpha = 0.3) + 
+ggplot(route_trends, aes(x = tmin, y = deltaED)) + geom_point(alpha = 0.3) + 
   geom_hline(yintercept = 0, cex = 1, color = "red", lty = 2) +
   geom_vline(xintercept = 0, cex = 1, color = "blue", lty = 2) +
   labs(x = "Trend in Tmin", y = "Trend in deltaED")
@@ -110,6 +112,7 @@ ggsave("route_tmax_tmin.tiff", units = "in")
 
 library(sf)
 setwd("\\\\BioArk/hurlbertlab/DiCecco/nlcd_frag_proj_shapefiles/BCRs_contiguous_us/")
+setwd("/Volumes/hurlbertlab/DiCecco/nlcd_frag_proj_shapefiles/BCRs_contiguous_us/")
 us_sf <- read_sf("BCRs_contiguous_us.shp")
 
 routes_sf <- st_as_sf(route_trends, coords = c("longitude", "latitude"))
@@ -133,7 +136,7 @@ ppt_map
 tmap_save(ppt_map, "routes_ppt_map.tiff", units = "in")
 
 ded_map <- us + tm_shape(routes_sf) + 
-  tm_dots(col = "dEDz", palette = "-PiYG", midpoint = NA, size = 0.2, style = "cont", title = "deltaED")
+  tm_dots(col = "deltaED", palette = "-PiYG", midpoint = NA, size = 0.2, style = "cont", title = "deltaED")
 ded_map
 tmap_save(ded_map, "routes_dED_map.tiff", units = "in")
 
@@ -165,7 +168,7 @@ forest_ed <- bind_rows(frags.92, frags.00s) %>%
 forest_ed$dEDz <- (forest_ed$deltaED - mean(na.omit(forest_ed$deltaED)))/sd(na.omit(forest_ed$deltaED))
 
 forest_map <- us + tm_shape(forest_ed) + 
-  tm_dots(col = "dEDz", palette = "-RdYlGn", midpoint = NA, size = 0.2, style = "cont", title = "deltaED Forest")
+  tm_dots(col = "deltaED", palette = "-RdYlGn", midpoint = NA, size = 0.2, style = "cont", title = "deltaED Forest")
 forest_map 
 tmap_save(forest_map, "routes_dED_forest_map.tiff", units = "in")
 
@@ -248,6 +251,6 @@ head(route_trends)
 
 pca <- prcomp(route_trends[,c(2:4, 6)], scale = T)
 summary(pca)
-biplot(pca)
+biplot(pca, cex = 0.5)
 
               
