@@ -10,16 +10,6 @@ nlcd2006 <- raster("nlcd_2006_landcover_2011_edition_2014_10_10\\nlcd_2006_landc
 
 nlcd2011 <- raster("nlcd_2011_landcover_2011_edition_2014_10_10\\nlcd_2011_landcover_2011_edition_2014_10_10.img")
 
-# Reclassify 1992 to match 2001-2011 NLCD categories
-reclass <- matrix(nrow = 5, ncol = 2)
-reclass[, 1] <- c(32, 33, 61, 83, 84)
-reclass[, 2] <- c(31, 31, 82, 82, 82)
-colnames(reclass) <- c("is", "becomes")
-
-nlcd1992_reclass <- reclassify(nlcd1992, rcl = reclass, right = NA)
-
-writeRaster(nlcd1992_reclass, "nlcd_1992_landcover_2018_08_31\\nlcd_1992_whole_reclassified.tif", overwrite = T)
-
 ## Reclassify to Urban, Forest, Shrubland, Grassland, Agriculture, Wetlands
 newcode <- data.frame(code = seq(1,9), 
                       legend = c("Open water", "Urban", "Barren", "Forest", "Shrubland", "Agricultural", "Grasslands", "Wetlands", "Perennial ice, snow"))
