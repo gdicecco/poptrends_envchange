@@ -4,6 +4,7 @@ library(tidyverse)
 library(raster)
 library(rgdal)
 library(tmap)
+library(sf)
 library(ggplot2)
 library(cowplot)
 
@@ -49,16 +50,15 @@ routes.short <- RT1.routes %>% # subset stateroutes that were filtered by criter
 # 2161 routes
 
 # Habitat fragmentation data
-frags <- read.csv("\\\\BioArk\\hurlbertlab\\DiCecco\\data\\fragmentation_indices_nlcd.csv", stringsAsFactors = F)
-frags <- read.csv("/Volumes/hurlbertlab/DiCecco/data/fragmentation_indices_nlcd.csv", stringsAsFactors = F)
+frags <- read.csv("\\\\BioArk\\hurlbertlab\\DiCecco\\data\\fragmentation_indices_nlcd_simplified.csv", stringsAsFactors = F)
+frags <- read.csv("/Volumes/hurlbertlab/DiCecco/data/fragmentation_indices_nlcd_simplified.csv", stringsAsFactors = F)
 
 route_ed <- frags %>%
   group_by(stateroute, year) %>%
   summarize(ED = sum(total.edge)/sum(total.area)) %>%
   spread(key = "year", value = "ED") %>%
   group_by(stateroute) %>%
-  summarize(deltaED = `2011` - `1992`) %>%
-  mutate(dEDz = (deltaED - mean(deltaED))/sd(deltaED))
+  summarize(deltaED = `2011` - `1992`)
 
 # Climate data
 setwd("C:/Users/gdicecco/Desktop/git/NLCD_fragmentation/climate/")
@@ -74,7 +74,7 @@ route_trends <- climate_wide %>%
   left_join(route_ed) %>%
   left_join(dplyr::select(routes, stateroute, latitude, longitude))
 
-####### Route level trends in environmental change
+####### Route level trends in environmental change #########
 
 setwd("C:/Users/gdicecco/Desktop/git/NLCD_fragmentation/figures/")
 ggplot(route_trends, aes(x = tmax, y = deltaED)) + geom_point(alpha = 0.3) + 
@@ -108,9 +108,10 @@ ggplot(route_trends, aes(x = tmax, y = tmin)) + geom_point(alpha = 0.3) +
 ggsave("route_tmax_tmin.tiff", units = "in")
 
 
-# Map of route changes
+######### Univariate route maps #######
+# Map of route changes - univariate
+## Climate trends are not z scores (see climate/script_prism_climate_trend.R)
 
-library(sf)
 setwd("\\\\BioArk/hurlbertlab/DiCecco/nlcd_frag_proj_shapefiles/BCRs_contiguous_us/")
 setwd("/Volumes/hurlbertlab/DiCecco/nlcd_frag_proj_shapefiles/BCRs_contiguous_us/")
 us_sf <- read_sf("BCRs_contiguous_us.shp")
@@ -119,6 +120,7 @@ routes_sf <- st_as_sf(route_trends, coords = c("longitude", "latitude"))
 
 setwd("C:/Users/gdicecco/Desktop/git/NLCD_fragmentation/figures/")
 us <- tm_shape(us_sf) + tm_borders() + tm_fill(col = "gray")
+
 tmax_map <- us + tm_shape(routes_sf) + 
   tm_dots(col = "tmax", palette = "-RdBu", midpoint = NA, size = 0.2, style = "cont", title = "Tmax")
 tmax_map
@@ -128,7 +130,6 @@ tmin_map <- us + tm_shape(routes_sf) +
   tm_dots(col = "tmin", palette = "-RdBu", midpoint = NA, size = 0.2, style = "cont", title = "Tmin")
 tmin_map
 tmap_save(tmin_map, "routes_tmin_map.tiff", units = "in")
-# flip palette direction
 
 ppt_map <- us + tm_shape(routes_sf) + 
   tm_dots(col = "ppt", palette = "PRGn", midpoint = NA, size = 0.2, style = "cont", title = "Ppt")
@@ -140,56 +141,223 @@ ded_map <- us + tm_shape(routes_sf) +
 ded_map
 tmap_save(ded_map, "routes_dED_map.tiff", units = "in")
 
-## Make plots like this for forest fragmentation
-head(frags)
+######## Bivariate plots ######
 
-classlegend00s <- data.frame(class = c(11:12, 21:24, 31, 41:43, 51, 52, 71, 81:82, 90, 95), 
-                             legend = c("Open water", "Perennial ice/snow", "Developed, open space", "Developed, low intensity", "Developed, medium intensity", "Developed, high intensity", "Barren land", "Deciduous forest", "Evergreen forest", "Mixed forest", "Dwarf scrub", "Shrub/scrub", "Grassland/herbaceous", "Pasture/hay", "Cultivated crops", "Woody wetlands", "Emergent herbaceous wetlands"))
-classlegend92 <- data.frame(class = c(11:12, 85, 21:23, 31:33, 41:43, 51, 61, 71, 81:84, 91:92),
-                            legend = c("Open water", "Perennial ice/snow", "Developed, open space", "Developed, low intensity", "Developed, medium intensity", "Developed, high intensity", "Barren land", "Barren land", "Barren land", "Deciduous forest", "Evergreen forest", "Mixed forest", "Shrub/scrub", "Cultivated crops", "Grassland/herbaceous", "Pasture/hay",  "Cultivated crops",  "Cultivated crops",  "Cultivated crops", "Woody wetlands", "Emergent herbaceous wetlands"))
+# Landcover legend
+newcode <- data.frame(code = seq(1,9), 
+                      legend = c("Open water", "Urban", "Barren", "Forest", "Shrubland", 
+                                 "Agricultural", "Grasslands", "Wetlands", "Perennial ice, snow"))
 
-frags.92 <- frags %>%
-  filter(year == 1992) %>%
-  left_join(classlegend92)
-frags.00s <- frags %>%
-  filter(year > 1992) %>%
-  left_join(classlegend00s)
+# Bivariate color labels
+d<-expand.grid(x=1:3,y=1:3)
+d<-merge(d,data.frame(x=1:3,xlabel=c("Δ Prop.landscape low", "Δ Prop.landscape middle","Δ Prop.landscape high")),by="x")
+d<-merge(d,data.frame(y=1:3,ylabel=c("Δ Edge density low", "Δ Edge density middle","Δ Edge density high")),by="y")
+d$xy <- paste0(d$x, d$y)
+hex <- c("#EBF4F3", "#DFF2C4", "#FEF286", "#C2BFD4", "#8BC2BD", "#84CC8C", "#9675A0", "#6880A6", "#2C8F8A")
+d$hex <- hex   
 
-forest_ed <- bind_rows(frags.92, frags.00s) %>%
-  filter(grepl("forest", legend)) %>%
-  group_by(stateroute, year) %>%
-  summarize(ED = sum(total.edge)/sum(total.area)) %>%
-  spread(key = "year", value = "ED") %>%
+# Legend for bivariate map
+g.legend<-
+  ggplot(d, aes(x,y,fill=atan(y/x),alpha=x+y))+
+  geom_tile()+
+  scale_fill_viridis_c()+
+  theme_void()+
+  theme(legend.position="none",
+        panel.background=element_blank(),
+        plot.margin=margin(t=10,b=10,l=10))+
+  labs(x="Δ Prop.landscape",y="Δ Edge density")+
+  theme(axis.title=element_text(color="black", size = 12), 
+        axis.title.y = element_text(angle = 90))+
+  # Draw some arrows:
+  geom_segment(aes(x=1, xend = 3 , y=0, yend = 0), size=1.5,
+               arrow = arrow(length = unit(0.6,"cm"))) +
+  geom_segment(aes(x=0, xend = 0 , y=1, yend = 3), size=1.5,
+               arrow = arrow(length = unit(0.6,"cm"))) 
+
+#### Change in forest: fragmentation and loss
+
+forest_ed <- frags %>%
+  left_join(newcode, by = c("class" = "code")) %>%
+  filter(legend == "Forest") %>%
+  dplyr::select(stateroute, year, edge.density) %>%
+  spread(key = "year", value = "edge.density") %>%
   mutate(deltaED = `2011` - `1992`) %>%
   filter(stateroute %in% routes.short$stateroute) %>%
   left_join(dplyr::select(routes, stateroute, latitude, longitude)) %>%
   st_as_sf(coords = c("longitude", "latitude"))
-
-forest_ed$dEDz <- (forest_ed$deltaED - mean(na.omit(forest_ed$deltaED)))/sd(na.omit(forest_ed$deltaED))
 
 forest_map <- us + tm_shape(forest_ed) + 
   tm_dots(col = "deltaED", palette = "-RdYlGn", midpoint = NA, size = 0.2, style = "cont", title = "deltaED Forest")
 forest_map 
 tmap_save(forest_map, "routes_dED_forest_map.tiff", units = "in")
 
-# Urbanization
-urban <- bind_rows(frags.92, frags.00s) %>%
-  filter(grepl("Developed", legend)) %>%
-  group_by(stateroute, year) %>%
-  summarize(urban.prop = sum(prop.landscape)) %>%
-  spread(key = "year", value = "urban.prop") %>%
-  mutate(deltaUP = `2011` - `1992`) %>%
+forest_prop <- frags %>%
+  left_join(newcode, by = c("class" = "code")) %>%
+  filter(legend == "Forest") %>%
+  dplyr::select(stateroute, year, prop.landscape) %>%
+  spread(key = "year", value = "prop.landscape") %>%
+  mutate(deltaPL = `2011` - `1992`) %>%
   filter(stateroute %in% routes.short$stateroute) %>%
   left_join(dplyr::select(routes, stateroute, latitude, longitude)) %>%
   st_as_sf(coords = c("longitude", "latitude"))
-urban$dUPz <- (urban$deltaUP - mean(na.omit(urban$deltaUP)))/sd(na.omit(urban$deltaUP))
 
-urban_map <- us + tm_shape(urban) + 
-  tm_dots(col = "deltaUP", palette = "YlOrRd", midpoint = NA, size = 0.2, style = "cont", title = "dUrban (proportion of landscape)")
-urban_map
-tmap_save(urban_map, "routes_urban_map.tiff", units = "in")
+forest_change <- forest_ed %>%
+  dplyr::select(stateroute, deltaED, geometry) %>%
+  st_join(dplyr::select(forest_prop, stateroute, deltaPL, geometry))
 
-# Map of route-level abundance trends
+ggplot(forest_change, aes(x = deltaPL, y = deltaED)) + geom_point(alpha = 0.75) + 
+  geom_hline(yintercept = 0, col = "red", lty = 2, cex = 1) +
+  geom_vline(xintercept = 0, col = "blue", lty = 2, cex = 1) +
+  labs(x = "Change in proportion of landscape", y = "Change in edge density", title = "Forest cover")
+ggsave("forest_cover.pdf", units = "in")
+
+x.q <- quantile(forest_change$deltaPL, c(0.33, 0.66, 1), na.rm = T)
+y.q <- quantile(forest_change$deltaED, c(0.33, 0.66, 1), na.rm = T)
+
+forest_change_biv <- forest_change %>%
+  mutate(y = ifelse(deltaED < y.q[1], 1, ifelse(deltaED < y.q[2], 2, 3)), 
+         x = ifelse(deltaPL < x.q[1], 1, ifelse(deltaPL < x.q[2], 2, 3))) %>%
+  mutate(xy = paste0(x, y)) %>%
+  left_join(dplyr::select(d, xy, hex))
+
+ggplot(forest_change_biv, aes(x = deltaPL, y = deltaED, color = atan(y/x), alpha = x + y)) +
+  geom_point(size = 1) + guides(alpha = F, color = F) +
+  geom_hline(yintercept = y.q, color = "gray20", lty = 2) +
+  geom_vline(xintercept = x.q, color = "gray20", lty = 2) +
+  scale_color_viridis_c(name = "Color path") +
+  labs(x = "Change in proportion of landscape", y = "Change in edge density", title = "Forest cover")
+ggsave("forest_cover_bivariate.pdf", units = "in")
+
+# Bivariate forest fragmentation and loss map
+us <- tm_shape(us_sf) + tm_borders(col = "black") + tm_fill(col = "gray40")
+forest_map <- us + tm_shape(forest_change_biv) + 
+  tm_dots(col = "hex", size = 0.2)
+forest_map 
+print(g.legend, vp = viewport(0.22, 0.15, width = 0.25, height = 0.25))
+
+## Change in urbanization: fragmentation and gain
+forest_ed <- frags %>%
+  left_join(newcode, by = c("class" = "code")) %>%
+  filter(legend == "Forest") %>%
+  dplyr::select(stateroute, year, edge.density) %>%
+  spread(key = "year", value = "edge.density") %>%
+  mutate(deltaED = `2011` - `1992`) %>%
+  filter(stateroute %in% routes.short$stateroute) %>%
+  left_join(dplyr::select(routes, stateroute, latitude, longitude)) %>%
+  st_as_sf(coords = c("longitude", "latitude"))
+
+forest_map <- us + tm_shape(forest_ed) + 
+  tm_dots(col = "deltaED", palette = "-RdYlGn", midpoint = NA, size = 0.2, style = "cont", title = "deltaED Forest")
+forest_map 
+tmap_save(forest_map, "routes_dED_forest_map.tiff", units = "in")
+
+forest_prop <- frags %>%
+  left_join(newcode, by = c("class" = "code")) %>%
+  filter(legend == "Forest") %>%
+  dplyr::select(stateroute, year, prop.landscape) %>%
+  spread(key = "year", value = "prop.landscape") %>%
+  mutate(deltaPL = `2011` - `1992`) %>%
+  filter(stateroute %in% routes.short$stateroute) %>%
+  left_join(dplyr::select(routes, stateroute, latitude, longitude)) %>%
+  st_as_sf(coords = c("longitude", "latitude"))
+
+forest_change <- forest_ed %>%
+  dplyr::select(stateroute, deltaED, geometry) %>%
+  st_join(dplyr::select(forest_prop, stateroute, deltaPL, geometry))
+
+ggplot(forest_change, aes(x = deltaPL, y = deltaED)) + geom_point(alpha = 0.75) + 
+  geom_hline(yintercept = 0, col = "red", lty = 2, cex = 1) +
+  geom_vline(xintercept = 0, col = "blue", lty = 2, cex = 1) +
+  labs(x = "Change in proportion of landscape", y = "Change in edge density", title = "Forest cover")
+ggsave("forest_cover.pdf", units = "in")
+
+x.q <- quantile(forest_change$deltaPL, c(0.33, 0.66, 1), na.rm = T)
+y.q <- quantile(forest_change$deltaED, c(0.33, 0.66, 1), na.rm = T)
+
+forest_change_biv <- forest_change %>%
+  mutate(y = ifelse(deltaED < y.q[1], 1, ifelse(deltaED < y.q[2], 2, 3)), 
+         x = ifelse(deltaPL < x.q[1], 1, ifelse(deltaPL < x.q[2], 2, 3))) %>%
+  mutate(xy = paste0(x, y)) %>%
+  left_join(dplyr::select(d, xy, hex))
+
+ggplot(forest_change_biv, aes(x = deltaPL, y = deltaED, color = atan(y/x), alpha = x + y)) +
+  geom_point(size = 1) + guides(alpha = F, color = F) +
+  geom_hline(yintercept = y.q, color = "gray20", lty = 2) +
+  geom_vline(xintercept = x.q, color = "gray20", lty = 2) +
+  scale_color_viridis_c(name = "Color path") +
+  labs(x = "Change in proportion of landscape", y = "Change in edge density", title = "Forest cover")
+ggsave("forest_cover_bivariate.pdf", units = "in")
+
+# Bivariate forest fragmentation and loss map
+us <- tm_shape(us_sf) + tm_borders(col = "black") + tm_fill(col = "gray40")
+forest_map <- us + tm_shape(forest_change_biv) + 
+  tm_dots(col = "hex", size = 0.2)
+forest_map 
+print(g.legend, vp = viewport(0.22, 0.15, width = 0.25, height = 0.25))
+
+###### Grassland change
+
+
+##### Urban change
+urban_ed <- frags %>%
+  left_join(newcode, by = c("class" = "code")) %>%
+  filter(legend == "Urban") %>%
+  dplyr::select(stateroute, year, edge.density) %>%
+  spread(key = "year", value = "edge.density") %>%
+  mutate(deltaED = `2011` - `1992`) %>%
+  filter(stateroute %in% routes.short$stateroute) %>%
+  left_join(dplyr::select(routes, stateroute, latitude, longitude)) %>%
+  st_as_sf(coords = c("longitude", "latitude"))
+
+urban_prop <- frags %>%
+  left_join(newcode, by = c("class" = "code")) %>%
+  filter(legend == "Urban") %>%
+  dplyr::select(stateroute, year, prop.landscape) %>%
+  spread(key = "year", value = "prop.landscape") %>%
+  mutate(deltaPL = `2011` - `1992`) %>%
+  filter(stateroute %in% routes.short$stateroute) %>%
+  left_join(dplyr::select(routes, stateroute, latitude, longitude)) %>%
+  st_as_sf(coords = c("longitude", "latitude"))
+
+urban_change <- urban_ed %>%
+  dplyr::select(stateroute, deltaED, geometry) %>%
+  st_join(dplyr::select(urban_prop, stateroute, deltaPL, geometry))
+
+ggplot(urban_change, aes(x = deltaPL, y = deltaED)) + geom_point(alpha = 0.75) + 
+  geom_hline(yintercept = 0, col = "red", lty = 2, cex = 1) +
+  geom_vline(xintercept = 0, col = "blue", lty = 2, cex = 1) +
+  labs(x = "Change in proportion of landscape", y = "Change in edge density", title = "Urban cover")
+ggsave("urban_cover.pdf", units = "in")
+
+x.q <- quantile(urban_change$deltaPL, c(0.33, 0.66, 1), na.rm = T)
+y.q <- quantile(urban_change$deltaED, c(0.33, 0.66, 1), na.rm = T)
+
+urban_change_biv <- urban_change %>%
+  mutate(y = ifelse(deltaED < y.q[1], 1, ifelse(deltaED < y.q[2], 2, 3)), 
+         x = ifelse(deltaPL < x.q[1], 1, ifelse(deltaPL < x.q[2], 2, 3))) %>%
+  mutate(xy = paste0(x, y)) %>%
+  left_join(dplyr::select(d, xy, hex))
+
+ggplot(urban_change_biv, aes(x = deltaPL, y = deltaED, color = atan(y/x), alpha = x + y)) +
+  geom_point(size = 1) + guides(alpha = F, color = F) +
+  geom_hline(yintercept = y.q, color = "gray20", lty = 2) +
+  geom_vline(xintercept = x.q, color = "gray20", lty = 2) +
+  scale_color_viridis_c(name = "Color path") +
+  labs(x = "Change in proportion of landscape", y = "Change in edge density", title = "Urban cover")
+ggsave("urban_cover_bivariate.pdf", units = "in")
+
+# Bivariate urban fragmentation and loss map
+us <- tm_shape(us_sf) + tm_borders(col = "black") + tm_fill(col = "gray40")
+urban_map <- us + tm_shape(na.omit(urban_change_biv)) + 
+  tm_dots(col = "hex", size = 0.2)
+urban_map 
+print(g.legend, vp = viewport(0.22, 0.15, width = 0.25, height = 0.25))
+
+#### Land cover plus climate maps
+
+##### Moran's I for env variables ########
+
+##### Map of route-level abundance trends #######
 # Subset species: diurnal land birds
 landbirds <- species %>%
   filter(aou > 2880) %>%
@@ -245,12 +413,5 @@ bird_map <- us + tm_shape(abund_sf) +
   tm_dots(col = "abundTrend", palette = "-RdBu", size = 0.2, style = "cont", title = "Abundance trend")
 bird_map
 tmap_save(bird_map, "routes_birdAbund_map.tiff", units = "in")
-
-# PCA of env. change on routes
-head(route_trends)
-
-pca <- prcomp(route_trends[,c(2:4, 6)], scale = T)
-summary(pca)
-biplot(pca, cex = 0.5)
 
               
