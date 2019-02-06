@@ -42,4 +42,4 @@ writeRaster(nlcd2006_simp, "nlcd_2006_landcover_2011_edition_2014_10_10\\nlcd_20
 
 nlcd2011_simp <- reclassify(nlcd2011, rcl = reclass_simp_00s, right = NA)
 
-writeRaster(nlcd2001_simp, "nlcd_2011_landcover_2011_edition_2014_10_10\\nlcd_2011_whole_simplified.tif", overwrite = T)
+writeRaster(nlcd2011_simp, "nlcd_2011_landcover_2011_edition_2014_10_10\\nlcd_2011_whole_simplified.tif", overwrite = T)
