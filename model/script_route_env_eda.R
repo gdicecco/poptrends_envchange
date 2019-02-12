@@ -8,6 +8,7 @@ library(sf)
 library(ggplot2)
 library(cowplot)
 library(grid)
+library(ncf)
 
 ######## Reading in and subsetting data ##########
 # Population data
@@ -419,15 +420,59 @@ print(g.legend, vp = viewport(0.22, 0.15, width = 0.25, height = 0.25))
 
 ##### Moran's I for env variables ########
 
+route_trends_forest
+
+setwd("C:/Users/gdicecco/Desktop/git/NLCD_fragmentation/figures/")
+
 # ED
+
+land.cor <- correlog(route_trends_forest$longitude, route_trends_forest$latitude, route_trends_forest$deltaED_landscape,
+                    increment = 250, latlon = T, na.rm = T)
+
+pdf("landscapeED_correlogram.pdf")
+plot(land.cor, main = "Landscape edge density", xlab = "Distance (mean-of-class) km", ylab = "Moran's I")
+abline(h = 0, lty = 2)
+dev.off()
 
 # Forest fragmentation
 
+for.cor <- correlog(route_trends_forest$longitude, route_trends_forest$latitude, route_trends_forest$deltaED_forest,
+                    increment = 250, latlon = T, na.rm = T)
+
+pdf("forED_correlogram.pdf")
+plot(for.cor, main = "Forest edge density", xlab = "Distance (mean-of-class) km", ylab = "Moran's I")
+abline(h = 0, lty = 2)
+dev.off()
+
 # Trend in tmax
+
+tmax.cor <- correlog(route_trends_forest$longitude, route_trends_forest$latitude, route_trends_forest$tmax,
+                    increment = 250, latlon = T, na.rm = T)
+
+pdf("tmax_correlogram.pdf")
+plot(tmax.cor, main = "Tmax", xlab = "Distance (mean-of-class) km", ylab = "Moran's I")
+abline(h = 0, lty = 2)
+dev.off()
 
 # Trend in tmin
 
+tmin.cor <- correlog(route_trends_forest$longitude, route_trends_forest$latitude, route_trends_forest$tmin,
+                    increment = 250, latlon = T, na.rm = T)
+
+pdf("tmin_correlogram.pdf")
+plot(tmin.cor, main = "Tmin", xlab = "Distance (mean-of-class) km", ylab = "Moran's I")
+abline(h = 0, lty = 2)
+dev.off()
+
 # Trend in ppt
+
+ppt.cor <- correlog(route_trends_forest$longitude, route_trends_forest$latitude, route_trends_forest$ppt,
+                    increment = 250, latlon = T, na.rm = T)
+
+pdf("ppt_correlogram.pdf")
+plot(ppt.cor, main = "PPT", xlab = "Distance (mean-of-class) km")
+abline(h = 0, lty = 2)
+dev.off()
 
 ##### Map of route-level abundance trends #######
 # Subset species: diurnal land birds
