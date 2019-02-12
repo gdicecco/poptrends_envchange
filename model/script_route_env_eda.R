@@ -432,6 +432,7 @@ land.cor <- correlog(route_trends_forest$longitude, route_trends_forest$latitude
 pdf("landscapeED_correlogram.pdf")
 plot(land.cor, main = "Landscape edge density", xlab = "Distance (mean-of-class) km", ylab = "Moran's I")
 abline(h = 0, lty = 2)
+plot(tmax.cor, add = T, col = "red")
 dev.off()
 
 # Forest fragmentation
@@ -473,6 +474,33 @@ pdf("ppt_correlogram.pdf")
 plot(ppt.cor, main = "PPT", xlab = "Distance (mean-of-class) km")
 abline(h = 0, lty = 2)
 dev.off()
+
+## Combine on one plot
+
+env.cor <- data.frame(mean.of.class = land.cor$mean.of.class, 
+                      landscapeED = land.cor$correlation,
+                      forestED = for.cor$correlation,
+                      tmin = tmin.cor$correlation,
+                      tmax = tmax.cor$correlation,
+                      ppt = ppt.cor$correlation) %>%
+  filter(mean.of.class > 0, mean.of.class < 4000)
+
+env.long <- tidyr::gather(env.cor[, 1:6], key = variable, value = correlation, 2:6)
+
+theme_set(theme_classic())
+ggplot(env.long, aes(x = mean.of.class, y = correlation, col = variable)) + 
+  geom_point(size = 2) + geom_line(cex = 1) + geom_hline(yintercept = 0, lty = 2) +
+  labs(x = "Mean of distance class (km)", y = "Moran's I", col = "Trend") +
+  scale_color_viridis_d()
+ggsave("moransI_allenv.pdf", units = "in")
+
+## Package spdep method
+# Distance-based neighbors
+
+head(route_trends_forest)
+
+nb_4 <- knn2nb(knearneigh(as.matrix(route_trends_forest[, c("longitude", "latitude")]), k = 4, longlat = T))
+sp.cor <- sp.correlogram(nb_2, route_trends_forest$tmax, order = 100, method = "I", randomisation = F)
 
 ##### Map of route-level abundance trends #######
 # Subset species: diurnal land birds
