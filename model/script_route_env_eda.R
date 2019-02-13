@@ -424,6 +424,7 @@ route_trends_forest
 
 setwd("C:/Users/gdicecco/Desktop/git/NLCD_fragmentation/figures/")
 
+## Package ncf: distance-band spatial weights
 # ED
 
 land.cor <- correlog(route_trends_forest$longitude, route_trends_forest$latitude, route_trends_forest$deltaED_landscape,
@@ -483,24 +484,63 @@ env.cor <- data.frame(mean.of.class = land.cor$mean.of.class,
                       tmin = tmin.cor$correlation,
                       tmax = tmax.cor$correlation,
                       ppt = ppt.cor$correlation) %>%
-  filter(mean.of.class > 0, mean.of.class < 4000)
+  filter(mean.of.class > 0, mean.of.class < 4100)
 
 env.long <- tidyr::gather(env.cor[, 1:6], key = variable, value = correlation, 2:6)
 
 theme_set(theme_classic())
 ggplot(env.long, aes(x = mean.of.class, y = correlation, col = variable)) + 
   geom_point(size = 2) + geom_line(cex = 1) + geom_hline(yintercept = 0, lty = 2) +
-  labs(x = "Mean of distance class (km)", y = "Moran's I", col = "Trend") +
+  labs(x = "Mean of distance class (km)", y = "Moran's I", col = "Trend", title = "Distance band") +
   scale_color_viridis_d()
 ggsave("moransI_allenv.pdf", units = "in")
 
 ## Package spdep method
-# Distance-based neighbors
+# K nearest neighbors
 
 head(route_trends_forest)
 
-nb_4 <- knn2nb(knearneigh(as.matrix(route_trends_forest[, c("longitude", "latitude")]), k = 4, longlat = T))
-sp.cor <- sp.correlogram(nb_2, route_trends_forest$tmax, order = 100, method = "I", randomisation = F)
+nb_15 <- knn2nb(knearneigh(as.matrix(route_trends_forest[, c("longitude", "latitude")]), k = 15, longlat = T))
+
+sp.tmax <- sp.correlogram(nb_15, route_trends_forest$tmax, order = 16, method = "I", randomisation = F)
+
+sp.tmin <- sp.correlogram(nb_15, route_trends_forest$tmin, order = 16, method = "I", randomisation = F)
+
+sp.ppt <- sp.correlogram(nb_15, route_trends_forest$ppt, order = 16, method = "I", randomisation = F)
+
+sp.landED <- sp.correlogram(nb_15, route_trends_forest$deltaED_landscape, order = 16, method = "I", randomisation = F)
+
+# filter forest sites:
+
+coords_forest <- route_trends_forest %>%
+  filter(!is.na(deltaED_forest)) %>%
+  dplyr::select(longitude, latitude) %>%
+  as.matrix()
+
+var_forest <- route_trends_forest %>%
+  dplyr::select(deltaED_forest) %>%
+  filter(!is.na(deltaED_forest))
+
+nb_15_na <- knn2nb(knearneigh(coords_forest, k = 15, longlat = T))
+
+sp.forED <- sp.correlogram(nb_15_na, var_forest$deltaED_forest, order = 16, method = "I", randomisation = F, zero.policy = T)
+
+sp.cor <- data.frame(lag = c(1:16),
+                     forestED = sp.forED$res[, 1],
+                     landscapeED = sp.landED$res[, 1],
+                     ppt = sp.ppt$res[, 1],
+                     tmax = sp.tmax$res[, 1],
+                     tmin = sp.tmin$res[, 1])
+
+sp.long <- tidyr::gather(sp.cor[, 1:6], key = variable, value = correlation, 2:6)
+
+theme_set(theme_classic())
+ggplot(sp.long, aes(x = lag, y = correlation, col = variable)) + 
+  geom_point(size = 2) + geom_line(cex = 1) + geom_hline(yintercept = 0, lty = 2) +
+  labs(x = "Lag", y = "Moran's I", col = "Trend", title = "K nearest neighbor") +
+  scale_color_viridis_d()
+ggsave("moransI_allenv_spdep.pdf", units = "in")
+
 
 ##### Map of route-level abundance trends #######
 # Subset species: diurnal land birds
