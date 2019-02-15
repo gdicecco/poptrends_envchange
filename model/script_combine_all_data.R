@@ -3,6 +3,8 @@
 library(tidyverse)
 library(raster)
 library(rgdal)
+library(purrr)
+library(broom)
 
 ######## Reading in and subsetting data ##########
 # Population data
@@ -64,8 +66,6 @@ counts.subs <- counts %>%
   filter(year > 1990, year < 2017)
 # 2031 routes
 
-library(purrr)
-library(broom)
 abund_trend <- counts.subs %>%
   group_by(aou, stateroute) %>%
   nest() %>%
@@ -84,6 +84,10 @@ abund_trend <- counts.subs %>%
   mutate(abundTrend = map_dbl(lm_broom, ~{
     df <- .
     df$estimate[2]
+  })) %>%
+  mutate(trendInt = map_dbl(lm_broom, ~{
+    df <- .
+    df$estimate[1]
   })) %>%
   mutate(trendPval = map_dbl(lm_broom, ~{
     df <- .
@@ -111,49 +115,44 @@ climate_wide <- climate_trends %>%
   spread(key = "env", value = "climateTrend")
 
 # Habitat fragmentation data
-frags <- read.csv("\\\\BioArk\\hurlbertlab\\DiCecco\\data\\fragmentation_indices_nlcd.csv", stringsAsFactors = F)
+frags <- read.csv("\\\\BioArk\\hurlbertlab\\DiCecco\\data\\fragmentation_indices_nlcd_simplified.csv", stringsAsFactors = F)
 
-classlegend00s <- data.frame(class = c(11:12, 21:24, 31, 41:43, 51, 52, 71, 81:82, 90, 95), 
-                             legend = c("Open water", "Perennial ice/snow", "Developed, open space", "Developed, low intensity", "Developed, medium intensity", "Developed, high intensity", "Barren land", "Deciduous forest", "Evergreen forest", "Mixed forest", "Dwarf scrub", "Shrub/scrub", "Grassland/herbaceous", "Pasture/hay", "Cultivated crops", "Woody wetlands", "Emergent herbaceous wetlands"))
-classlegend92 <- data.frame(class = c(11:12, 85, 21:23, 31:33, 41:43, 51, 61, 71, 81:84, 91:92),
-                            legend = c("Open water", "Perennial ice/snow", "Developed, open space", "Developed, low intensity", "Developed, medium intensity", "Developed, high intensity", "Barren land", "Barren land", "Barren land", "Deciduous forest", "Evergreen forest", "Mixed forest", "Shrub/scrub", "Cultivated crops", "Grassland/herbaceous", "Pasture/hay",  "Cultivated crops",  "Cultivated crops",  "Cultivated crops", "Woody wetlands", "Emergent herbaceous wetlands"))
-
-frags.92 <- frags %>%
-  filter(year == 1992) %>%
-  left_join(classlegend92)
-frags.00s <- frags %>%
-  filter(year > 1992) %>%
-  left_join(classlegend00s)
+# Landcover legend
+newcode <- data.frame(code = seq(1,9), 
+                      legend = c("Open water", "Urban", "Barren", "Forest", "Shrubland", 
+                                 "Agricultural", "Grasslands", "Wetlands", "Perennial ice, snow"))
 
 # Filter out land cover classes of interest only
 # Proportion of landscape deltas
 # long to wide
-frags.legend <- bind_rows(frags.92, frags.00s) %>%
-  dplyr::select(year, stateroute, edge.density, legend)  %>%
-  spread(key = "year", value = "edge.density")
-colnames(frags.legend) <-  c("stateroute", "legend", "ED1992", "ED2001", "ED2006", "ED2011")
 
-frag_trends <- frags.legend %>%
-  replace_na(list(ED1992 = 0, ED2001 = 0, ED2006 = 0, ED2011 = 0)) %>%
-  mutate(deltaED = ED2011 - ED1992)
+route_ed <- frags %>%
+  left_join(newcode, by = c("class" = "code")) %>%
+  group_by(stateroute, year) %>%
+  summarize(ED = sum(total.edge)/sum(total.area)) %>%
+  spread(key = "year", value = "ED") %>%
+  group_by(stateroute) %>%
+  summarize(deltaED = `2011` - `1992`)
 
 # Trait data
 traits <- read.csv("C:/Users/gdicecco/Desktop/git/NLCD_fragmentation/traits/spp_traits.csv", stringsAsFactors = F)
 
-############ Build models #########
-  
 traits.short <- traits %>%
   dplyr::select(Common_name, aou, nHabitats1, nHabitats2, volume)
 
 # master data table
 clim_hab_poptrend <- abund_trend %>%
   left_join(traits.short) %>%
-  left_join(frag_trends, by = "stateroute") %>%
+  left_join(route_ed, by = "stateroute") %>%
   left_join(climate_wide, by = "stateroute")
+
 setwd("\\\\BioArk\\hurlbertlab\\DiCecco\\data\\")
 write.csv(clim_hab_poptrend, "climate_fragmentation_traits_by_species.csv", row.names = F)
+
 clim_hab_poptrend <- read.csv("climate_fragmentation_traits_by_species.csv", stringsAsFactors = F)
 
+############ Build species-specific models #########
+  
 ## Start with 10 most abundant species
 abund_spp <- counts.subs %>% 
   group_by(aou) %>%
@@ -308,7 +307,7 @@ write.csv(model_importance, "weighted_model_coefficient_importance.csv", row.nam
 model_coefs <- read.csv("weighted_model_coefficients.csv", stringsAsFactors = F)
 model_importance <- read.csv("weighted_model_coefficient_importance.csv", stringsAsFactors = F)
 
-############ Plots/Results ##############
+############ Species-specific plots/results ##############
 
 setwd("\\\\BioArk\\hurlbertlab\\DiCecco\\data\\")
 
@@ -678,3 +677,147 @@ plot_grid(nhab2, vol2)
 ggsave("allspp_tmax_box.pdf")
 ggsave("allspp_tmax_box.tiff", units = "in")
 
+##### Community-level responses #####
+
+traits.short
+clim_hab_poptrend
+climate_trends
+
+route_frag <- frags %>%
+  left_join(newcode, by = c("class" = "code")) %>%
+  group_by(stateroute, year) %>%
+  summarize(ED = sum(total.edge)/sum(total.area)) %>%
+  spread(key = "year", value = "ED")
+
+# Are there community differences between fragmented and unfragmented routes?
+## Group routes as fragmented or intact
+
+landEDQ <- quantile(route_ed$deltaED, c(0.33, 0.66, 1))
+
+routes_noEDchange <- route_ed %>%
+  filter(deltaED > landEDQ[1] & deltaED < landEDQ[2])
+
+routes_frag_noChange <- route_frag %>%
+  filter(stateroute %in% routes_noEDchange$stateroute)
+
+## Determine intact vs. fragmented landscapes 
+
+med <- median(routes_frag_noChange$`2011`) # Median landscape edge density - group intact vs. fragmented
+
+routelist_frag <- routes_frag_noChange %>%
+  mutate(status = ifelse(`2011` > med, "fragmented", "intact")) %>%
+  dplyr::select(stateroute, status)
+
+routelist_frag %>% group_by(status) %>% count() # 300+ routes in each category
+
+## Plot: Trait distribution comparisons between routes in fragmented and intact landscapes - binary
+
+route_traits <- clim_hab_popZ %>%
+  filter(stateroute %in% routelist_frag$stateroute) %>%
+  left_join(routelist_frag) %>%
+  group_by(status, stateroute) %>%
+  summarize(avgHab = mean(nHabitats2, na.rm = T), avgVol = mean(volume, na.rm = T))
+
+theme_set(theme_classic())
+
+ggplot(route_traits, aes(x = status, y = avgHab, fill = status)) + 
+  geom_violin(trim = F, draw_quantiles = c(0.5), alpha = 0.5, cex = 1) +
+  scale_fill_viridis_d(begin = 0.5) +
+  geom_jitter(height = 0, width = 0.1, alpha = 0.5)
+
+t.test(route_traits$avgHab[route_traits$status == "intact"], route_traits$avgHab[route_traits$status == "fragmented"])
+
+ggplot(route_traits, aes(x = status, y = avgVol, fill = status)) + 
+  geom_violin(trim = F, draw_quantiles = c(0.5), alpha = 0.5, cex = 1) +
+  scale_fill_viridis_d(begin = 0.5) +
+  geom_jitter(height = 0, width = 0.1, alpha = 0.5)
+
+t.test(route_traits$avgVol[route_traits$status == "intact"], route_traits$avgVol[route_traits$status == "fragmented"])
+
+## Plot: Trait distribution comparisons between routes in fragmented and intact landscapes - continuous
+
+route_traits_cont <- clim_hab_popZ %>%
+  filter(stateroute %in% routelist_frag$stateroute) %>%
+  left_join(routes_frag_noChange) %>%
+  group_by(stateroute) %>%
+  summarize(avgHab = mean(nHabitats2, na.rm = T), 
+            avgVol = mean(volume, na.rm = T), 
+            varHab = var(nHabitats2, na.rm = T),
+            varVol = var(volume, na.rm = T),
+            landED = mean(`2011`, na.rm = T),
+            sppRich = n())
+
+ggplot(route_traits_cont, aes(x = landED, y = avgHab)) + geom_point() + geom_smooth(method = "lm")
+
+ggplot(route_traits_cont, aes(x = landED, y = avgVol)) + geom_point() + geom_smooth(method = "lm")
+
+ggplot(route_traits_cont, aes(x = landED, y = varHab)) + geom_point() + geom_smooth(method = "lm")
+summary(lm(route_traits_cont$varHab ~ route_traits_cont$landED))
+
+ggplot(route_traits_cont, aes(x = landED, y = varVol)) + geom_point() + geom_smooth(method = "lm")
+summary(lm(route_traits_cont$varVol ~ route_traits_cont$landED))
+
+ggplot(route_traits_cont, aes(x = landED, y = sppRich)) + geom_point() + geom_smooth(method = "lm")
+summary(lm(route_traits_cont$sppRich ~ route_traits_cont$landED))
+
+## Plot: map of these routes and their distribution in US
+
+
+# Routes with no change in fragmentation but climate change
+
+## Normalize species abundance trends
+
+clim_hab_popZ <- clim_hab_poptrend %>%
+  group_by(aou) %>%
+  mutate(abundTrend_z = (abundTrend - mean(abundTrend))/sd(abundTrend))
+
+## Routes with significant climate change
+
+clim_sig_trends <- climate_trends %>%
+  filter(trendPval < 0.05) %>%
+  distinct(stateroute)
+# 1453 routes with nonzero climate trends
+
+routes_climchange <- clim_hab_popZ %>%
+  filter(stateroute %in% clim_sig_trends$stateroute) %>%
+  filter(stateroute %in% routelist_frag$stateroute) %>%
+  left_join(route_frag) %>%
+  group_by(stateroute) %>%
+  summarize(meanAT = mean(abundTrend_z, na.rm = T), varAT = var(abundTrend_z, na.rm = T),
+            landED = mean(`2011`, na.rm = T))
+
+routes_climchange_n <- clim_hab_popZ %>%
+  filter(stateroute %in% clim_sig_trends$stateroute) %>%
+  filter(stateroute %in% routelist_frag$stateroute) %>%
+  left_join(route_frag) %>%
+  mutate(abundDir = ifelse(abundTrend_z > 0, "inc", "dec")) %>%
+  group_by(stateroute, abundDir) %>%
+  summarize(n = n(),
+            landED = mean(`2011`, na.rm = T))
+
+## Plot: Abundance trends at routes with no change in fragmentation but climate change
+
+ggplot(routes_climchange, aes(x = landED, y = meanAT)) + geom_point() + geom_smooth(method = "lm")
+
+ggplot(routes_climchange, aes(x = landED, y = varAT)) + geom_point() + geom_smooth(method = "lm")
+
+summary(lm(routes_climchange$meanAT ~ routes_climchange$landED))
+summary(lm(routes_climchange$varAT ~ routes_climchange$landED))
+
+ggplot(routes_climchange_n, aes(x = landED, y = n, col = abundDir)) + geom_point() + geom_smooth(method = "lm")
+summary(lm(routes_climchange_n$n[routes_climchange_n$abundDir == "dec"] ~ routes_climchange_n$landED[routes_climchange_n$abundDir == "dec"]))
+
+## Plot: change in number of species with stable abundance
+
+# Change in % generalists on routes with increases in fragmentation
+
+## Routes with increase in fragmentation
+
+inc_frag_routes <- route_ed %>%
+  filter(deltaED > landEDQ[2]) %>% # 787 routes with increasing fragmentation
+  filter(stateroute %in% clim_sig_trends$stateroute)
+# 492 routes with climate change and increase in fragmentation
+
+# Change in trait space (direction) on routes with increases in fragmentation
+
+# Change in species with stable abundance
