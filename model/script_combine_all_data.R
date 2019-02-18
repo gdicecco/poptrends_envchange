@@ -5,6 +5,9 @@ library(raster)
 library(rgdal)
 library(purrr)
 library(broom)
+library(tmap)
+library(cowplot)
+library(sf)
 
 ######## Reading in and subsetting data ##########
 # Population data
@@ -40,7 +43,6 @@ us.proj <- readOGR("BCRs_contiguous_us.shp")
 
 us_subs_transf <- spTransform(us_subs, crs(us.proj))
 
-library(tmap)
 tm_shape() + tm_borders(us.proj) + tm_lines(us_subs_transf)
 
 plot(us.proj, col = "gray73", border = "gray73")
@@ -104,6 +106,7 @@ abund_trend <- abund_trend %>%
 setwd("\\\\BioArk\\hurlbertlab\\DiCecco\\data\\")
 write.csv(abund_trend, "BBS_abundance_trends.csv", row.names = F)
 
+setwd("\\\\BioArk\\hurlbertlab\\DiCecco\\data\\")
 abund_trend <- read.csv("BBS_abundance_trends.csv", stringsAsFactors = F)
 
 # Climate data
@@ -689,6 +692,12 @@ route_frag <- frags %>%
   summarize(ED = sum(total.edge)/sum(total.area)) %>%
   spread(key = "year", value = "ED")
 
+## Normalize species abundance trends
+
+clim_hab_popZ <- clim_hab_poptrend %>%
+  group_by(aou) %>%
+  mutate(abundTrend_z = (abundTrend - mean(abundTrend, na.rm = T))/sd(abundTrend, na.rm = T))
+
 # Are there community differences between fragmented and unfragmented routes?
 ## Group routes as fragmented or intact
 
@@ -720,21 +729,28 @@ route_traits <- clim_hab_popZ %>%
 
 theme_set(theme_classic())
 
+setwd("C:/Users/gdicecco/Desktop/git/NLCD_fragmentation/figures/community_comparisons/")
+
 ggplot(route_traits, aes(x = status, y = avgHab, fill = status)) + 
   geom_violin(trim = F, draw_quantiles = c(0.5), alpha = 0.5, cex = 1) +
   scale_fill_viridis_d(begin = 0.5) +
   geom_jitter(height = 0, width = 0.1, alpha = 0.5)
+ggsave("habitat_frag_intact_violin.pdf", units = "in")
 
-t.test(route_traits$avgHab[route_traits$status == "intact"], route_traits$avgHab[route_traits$status == "fragmented"])
+wilcox.test(route_traits$avgHab[route_traits$status == "intact"], route_traits$avgHab[route_traits$status == "fragmented"])
 
 ggplot(route_traits, aes(x = status, y = avgVol, fill = status)) + 
   geom_violin(trim = F, draw_quantiles = c(0.5), alpha = 0.5, cex = 1) +
   scale_fill_viridis_d(begin = 0.5) +
   geom_jitter(height = 0, width = 0.1, alpha = 0.5)
+ggsave("volume_frag_intact_violin.pdf", units = "in")
 
-t.test(route_traits$avgVol[route_traits$status == "intact"], route_traits$avgVol[route_traits$status == "fragmented"])
+wilcox.test(route_traits$avgVol[route_traits$status == "intact"], route_traits$avgVol[route_traits$status == "fragmented"])
 
 ## Plot: Trait distribution comparisons between routes in fragmented and intact landscapes - continuous
+
+medianHab <- median(traits.short$nHabitats2, na.rm = T)
+medianVol <- median(traits.short$volume, na.rm =T)
 
 route_traits_cont <- clim_hab_popZ %>%
   filter(stateroute %in% routelist_frag$stateroute) %>%
@@ -745,31 +761,70 @@ route_traits_cont <- clim_hab_popZ %>%
             varHab = var(nHabitats2, na.rm = T),
             varVol = var(volume, na.rm = T),
             landED = mean(`2011`, na.rm = T),
-            sppRich = n())
+            sppRich = n(),
+            nHabSpec = sum(nHabitats2 < 4, na.rm = T),
+            nHabGen = sum(nHabitats2 > 4, na.rm = T),
+            nVolSpec = sum(volume < medianVol, na.rm = T),
+            nVolGen = sum(volume > medianVol, na.rm = T))
 
-ggplot(route_traits_cont, aes(x = landED, y = avgHab)) + geom_point() + geom_smooth(method = "lm")
+hab <- ggplot(route_traits_cont, aes(x = landED, y = avgHab)) + geom_point() + geom_smooth(method = "lm")
 
-ggplot(route_traits_cont, aes(x = landED, y = avgVol)) + geom_point() + geom_smooth(method = "lm")
+vol <- ggplot(route_traits_cont, aes(x = landED, y = avgVol)) + geom_point() + geom_smooth(method = "lm")
 
-ggplot(route_traits_cont, aes(x = landED, y = varHab)) + geom_point() + geom_smooth(method = "lm")
+hab_var <- ggplot(route_traits_cont, aes(x = landED, y = varHab)) + geom_point() + geom_smooth(method = "lm")
 summary(lm(route_traits_cont$varHab ~ route_traits_cont$landED))
 
-ggplot(route_traits_cont, aes(x = landED, y = varVol)) + geom_point() + geom_smooth(method = "lm")
+vol_var <- ggplot(route_traits_cont, aes(x = landED, y = varVol)) + geom_point() + geom_smooth(method = "lm")
 summary(lm(route_traits_cont$varVol ~ route_traits_cont$landED))
+
+plot_grid(hab, vol, hab_var, vol_var, nrow = 2)
+ggsave("traits_fragmentation_continuous.pdf", units = "in")
 
 ggplot(route_traits_cont, aes(x = landED, y = sppRich)) + geom_point() + geom_smooth(method = "lm")
 summary(lm(route_traits_cont$sppRich ~ route_traits_cont$landED))
+ggsave("sppRich_fragmentation_continuous.pdf", units = "in")
+
+habGrp <- ggplot(route_traits_cont, aes(x = landED, y = nHabSpec)) + geom_point() + geom_smooth(method = "lm") + ylab("Number of habitat specialists")
+habGrp2 <- ggplot(route_traits_cont, aes(x = landED, y = nHabGen)) + geom_point() + geom_smooth(method = "lm") + ylab("Number of habitat generalists")
+volGrp <- ggplot(route_traits_cont, aes(x = landED, y = nVolSpec)) + geom_point() + geom_smooth(method = "lm") + ylab("Number of environmental niche specialists")
+volGrp2 <- ggplot(route_traits_cont, aes(x = landED, y = nVolGen)) + geom_point() + geom_smooth(method = "lm") + ylab("Number of environmental niche generalists")
+
+plot_grid(habGrp, habGrp2, volGrp, volGrp2, nrow = 2)
+ggsave("number_specialists_generalists_fragmentation.pdf", height = 8, width = 10, units = "in")
+
+
+route_traits_pctGen <- route_traits_cont %>%
+  group_by(stateroute, landED) %>%
+  summarize(pctHabGen = nHabGen/sppRich,
+            pctVolGen = nVolGen/sppRich)
+
+habPctGen <- ggplot(route_traits_pctGen, aes(x = landED, y = pctHabGen)) + geom_point() + geom_smooth(method = "lm", se = F) +
+  ylab("Percent habitat generalists")
+
+volPctGen <- ggplot(route_traits_pctGen, aes(x = landED, y = pctVolGen)) + geom_point() + geom_smooth(method = "lm", se = F) +
+  ylab("Percent environmental niche generalists")
+
+plot_grid(habPctGen, volPctGen, nrow = 1)
 
 ## Plot: map of these routes and their distribution in US
 
+routelist_frag_coords <- routelist_frag %>%
+  left_join(routes)
 
-# Routes with no change in fragmentation but climate change
+setwd("\\\\BioArk/hurlbertlab/DiCecco/nlcd_frag_proj_shapefiles/BCRs_contiguous_us/")
+us_sf <- read_sf("BCRs_contiguous_us.shp")
 
-## Normalize species abundance trends
+routes_sf <- st_as_sf(routelist_frag_coords, coords = c("longitude", "latitude"))
 
-clim_hab_popZ <- clim_hab_poptrend %>%
-  group_by(aou) %>%
-  mutate(abundTrend_z = (abundTrend - mean(abundTrend))/sd(abundTrend))
+us <- tm_shape(us_sf) + tm_borders() + tm_fill(col = "gray")
+
+setwd("C:/Users/gdicecco/Desktop/git/NLCD_fragmentation/figures/community_comparisons/")
+route_map <- us + tm_shape(routes_sf) + 
+  tm_dots(col = "status", size = 1)
+route_map
+tmap_save(route_map, "routes_fragmentation_noChange_map.pdf", units = "in")
+
+# Routes with no change in fragmentation but climate change - 341 routes total
 
 ## Routes with significant climate change
 
@@ -797,27 +852,197 @@ routes_climchange_n <- clim_hab_popZ %>%
 
 ## Plot: Abundance trends at routes with no change in fragmentation but climate change
 
-ggplot(routes_climchange, aes(x = landED, y = meanAT)) + geom_point() + geom_smooth(method = "lm")
+meanAT <- ggplot(routes_climchange, aes(x = landED, y = meanAT)) + geom_point() + geom_smooth(method = "lm") +
+  ylab("Mean abundance trend")
 
-ggplot(routes_climchange, aes(x = landED, y = varAT)) + geom_point() + geom_smooth(method = "lm")
+varAT <- ggplot(routes_climchange, aes(x = landED, y = varAT)) + geom_point() + geom_smooth(method = "lm") +
+  ylab("Variance in abundance trend")
+
+plot_grid(meanAT, varAT, nrow = 1)
+ggplot2::ggsave("abundance_trends_fragmentation_continuous", units = "in")
 
 summary(lm(routes_climchange$meanAT ~ routes_climchange$landED))
 summary(lm(routes_climchange$varAT ~ routes_climchange$landED))
 
-ggplot(routes_climchange_n, aes(x = landED, y = n, col = abundDir)) + geom_point() + geom_smooth(method = "lm")
+ggplot(filter(routes_climchange_n, !is.na(abundDir)), aes(x = landED, y = n, col = abundDir)) + geom_point() + geom_smooth(method = "lm")
+ggsave("abund_trend_inc_dec_fragmentation.pdf", units = "in")
+
 summary(lm(routes_climchange_n$n[routes_climchange_n$abundDir == "dec"] ~ routes_climchange_n$landED[routes_climchange_n$abundDir == "dec"]))
 
 ## Plot: change in number of species with stable abundance
 
-# Change in % generalists on routes with increases in fragmentation
+routes_climchange_n_stable <- clim_hab_popZ %>%
+  filter(stateroute %in% clim_sig_trends$stateroute) %>%
+  filter(stateroute %in% routelist_frag$stateroute) %>%
+  left_join(route_frag) %>%
+  mutate(abundDir = ifelse(trendPval < 0.05, "unstable", "stable")) %>%
+  group_by(stateroute, abundDir) %>%
+  summarize(n = n(),
+            landED = mean(`2011`, na.rm = T)) %>%
+  filter(abundDir == "stable")
+
+ggplot(routes_climchange_n_stable, aes(x = landED, y = n)) + geom_point() + geom_smooth(method = "lm")
+ggsave("abund_trend_stable_fragmentation.pdf", units = "in")
+
+## Group species into specialists/generalists
+medianHab
+medianVol
+
+spp_trends_habgrps <- clim_hab_popZ %>%
+  filter(stateroute %in% clim_sig_trends$stateroute) %>%
+  filter(stateroute %in% routelist_frag$stateroute) %>%
+  left_join(route_frag) %>%
+  mutate(habitat = ifelse(nHabitats2 > medianHab, "generalist", "specialist"),
+         envniche = ifelse(volume > medianVol, "generalist", "specialist")) %>%
+  mutate(abundDir = ifelse(trendPval > 0.05, "stable", ifelse(abundTrend_z > 0, "increasing", "decreasing"))) %>%
+  group_by(stateroute, habitat, abundDir) %>%
+  summarize(n = n(),
+            landED = mean(`2011`, na.rm = T))
+
+ggplot(filter(spp_trends_habgrps, !is.na(abundDir), !is.na(habitat)), aes(x = landED, y = n, col = abundDir)) + 
+  geom_point() + geom_smooth(method = "lm", se = F) + facet_grid(~habitat)
+ggsave("habitat_groups_abundTrends_nochangeFrag_CC.pdf", units = "in", height = 8, width = 12)
+
+## Map of these routes
+
+routes_climchange_nochangeF <- clim_hab_popZ %>%
+  filter(stateroute %in% clim_sig_trends$stateroute) %>%
+  filter(stateroute %in% routelist_frag$stateroute) %>%
+  left_join(route_frag) %>%
+  left_join(routes) %>%
+  dplyr::select(stateroute, latitude, longitude, deltaED, ppt, tmax, tmin, `2011`, -aou)
+
+hist(routes_climchange_nochangeF$`2011`)
+hist(routes_climchange_nochangeF$tmin)
+hist(routes_climchange_nochangeF$ppt)
+hist(routes_climchange_nochangeF$tmax)
+
+routes_CC_sf <- st_as_sf(routes_climchange_nochangeF, coords = c("longitude", "latitude")) %>%
+  dplyr::rename(landED = `2011`)
+
+us <- tm_shape(us_sf) + tm_borders() + tm_fill(col = "gray")
+
+setwd("C:/Users/gdicecco/Desktop/git/NLCD_fragmentation/figures/community_comparisons/")
+route_map <- us + tm_shape(routes_CC_sf) + 
+  tm_dots(size = 0.5, col = "landED")
+route_map
+tmap_save(route_map, "routes_fragmentation_ClimChange_map.pdf", units = "in")
+
+# Change in trait space (direction) on routes with increases in fragmentation
 
 ## Routes with increase in fragmentation
 
 inc_frag_routes <- route_ed %>%
+  filter(deltaED > landEDQ[2]) %>%
+  left_join(routes)
+
+hist(inc_frag_sf$deltaED)
+
+## Map of these routes:
+
+inc_frag_sf <- st_as_sf(inc_frag_routes, coords = c("longitude", "latitude"))
+
+us <- tm_shape(us_sf) + tm_borders() + tm_fill(col = "gray")
+
+setwd("C:/Users/gdicecco/Desktop/git/NLCD_fragmentation/figures/community_comparisons/")
+route_map <- us + tm_shape(inc_frag_sf) + 
+  tm_dots(size = 0.5, alpha = 0.5)
+route_map
+tmap_save(route_map, "routes_inc_fragmentation_map.pdf", units = "in")
+
+## Need communities in 1990-1995 and communities in 2011-2016
+
+traits.short$habitat <- ifelse(traits.short$nHabitats2 > medianHab, "generalist", "specialist")
+traits.short$envniche <- ifelse(traits.short$volume > medianVol, "generalist", "specialist")
+
+route_communities <- counts.subs %>%
+  filter(stateroute %in% inc_frag_routes$stateroute) %>%
+  filter(year %in% c(1990:1995, 2011:2016)) %>%
+  mutate(time_window = ifelse(year < 1996, "t1", "t2")) %>%
+  group_by(stateroute, time_window) %>%
+  distinct(aou) %>%
+  left_join(traits.short) %>%
+  left_join(dplyr::select(inc_frag_routes, stateroute, deltaED, latitude, longitude))
+
+bothT <- route_communities %>% 
+  group_by(stateroute) %>% 
+  distinct(time_window) %>% 
+  count() %>% 
+  filter(n == 2)
+
+route_communities_both <- route_communities %>%
+  filter(stateroute %in% bothT$stateroute)
+
+ggplot(filter(route_communities_both, stateroute == 14016), aes(x = nHabitats2, y = volume, color = time_window)) + geom_point(alpha = 0.5)
+
+ggplot(route_communities_both, aes(x = nHabitats2, y = volume, color = time_window)) + geom_point(alpha = 0.5)
+
+trait_means <- route_communities_both %>%
+  group_by(stateroute, time_window) %>%
+  summarize(mean_hab = mean(nHabitats2, na.rm = T), mean_vol = mean(volume, na.rm = T))
+
+trait_deltas <- trait_means %>%
+  group_by(stateroute) %>%
+  summarize(dHab = mean_hab[time_window == "t2"] - mean_hab[time_window == "t1"], 
+            dVol = mean_vol[time_window == "t2"] - mean_vol[time_window == "t1"]) %>%
+  left_join(inc_frag_routes)
+
+dhab <- ggplot(trait_deltas, aes(x = deltaED, y = dHab)) + geom_point() + geom_smooth(method = "lm")
+
+dvol <- ggplot(trait_deltas, aes(x = deltaED, y = dVol)) + geom_point() + geom_smooth(method = "lm")
+
+plot_grid(dhab, dvol, nrow = 1)
+ggsave("dHabitat_dVolume_inc_fragmentation.pdf", height = 6, width = 12, units = "in")
+
+trait_distances <- trait_deltas %>%
+  group_by(stateroute, deltaED) %>%
+  summarize(dist = dVol/dHab)
+
+ggplot(trait_distances, aes(x = deltaED, y = dist)) + geom_point() + geom_smooth(method = "lm")
+ggsave("trait_distances_inc_fragmentation.pdf", units = "in")
+
+## Change in % generalists on routes with increases in fragmentation
+
+route_percent_change <- route_communities_both %>%
+  group_by(stateroute, deltaED, time_window) %>%
+  summarize(sppRich = n(),
+            pctHabGen = sum(habitat == "generalist", na.rm = T)/n(),
+            pctVolGen = sum(envniche == "generalist", na.rm = T)/n()) %>%
+  group_by(stateroute, deltaED) %>%
+  summarize(dSpRich = sppRich[time_window == "t2"] - sppRich[time_window == "t1"],
+            dPctHab = pctHabGen[time_window == "t2"] - pctHabGen[time_window == "t1"],
+            dPctVol = pctVolGen[time_window == "t2"] - pctVolGen[time_window == "t1"]) %>%
+  left_join(climate_wide)
+
+pcthab <- ggplot(route_percent_change, aes(x = deltaED, y = dPctHab)) + geom_point() + geom_smooth(method = "lm", se = F) +
+  ylab("Change in % habitat generalists")
+pctvol <- ggplot(route_percent_change, aes(x = deltaED, y = dPctVol)) + geom_point() + geom_smooth(method = "lm", se = F) +
+  ylab("Change in % environmental niche generalists")
+plot_grid(pcthab, pctvol, nrow = 1)
+ggsave("deltaPercentGeneralists_inc_fragmentation.pdf", height = 8, width = 12, units = "in")
+
+ggplot(route_percent_change, aes(x = deltaED, y = dSpRich)) + geom_point() + geom_smooth(method = "lm", se = F) +
+  ylab("Change in species richness")
+ggsave("inc_fragmentation_deltaSppRichness.pdf", units = "in")
+
+sppRichMod <- glm(dSpRich ~ deltaED + ppt + tmax + tmin + deltaED:tmax + deltaED:tmin, data = route_percent_change)
+habGenMod <- glm(dPctHab ~ deltaED + ppt + tmax + tmin, data = route_percent_change)
+volGenMod <- glm(dPctVol ~ deltaED + ppt + tmax + tmin, data = route_percent_change) # dec. in deltaED predicts inc. in dPctVol
+
+## Routes with increase in fragmentation and climate change
+
+inc_fragCC_routes <- route_ed %>%
   filter(deltaED > landEDQ[2]) %>% # 787 routes with increasing fragmentation
   filter(stateroute %in% clim_sig_trends$stateroute)
-# 492 routes with climate change and increase in fragmentation
 
-# Change in trait space (direction) on routes with increases in fragmentation
+## ID species: trait distribution of species that are stable, increasing, and decreasing in abundance
 
-# Change in species with stable abundance
+routes_spp_trends <- clim_hab_popZ %>%
+  filter(stateroute %in% inc_fragCC_routes$stateroute) %>%
+  left_join(route_frag) %>%
+  mutate(abundDir = ifelse(trendPval > 0.05, "stable", ifelse(abundTrend_z > 0, "increasing", "decreasing"))) %>%
+  group_by(stateroute, abundDir) %>%
+  summarize(n = n(),
+            landED = mean(`2011`, na.rm = T))
+
+ggplot(filter(routes_spp_trends, landED < 2, !is.na(abundDir)), aes(x = landED, y = n, col = abundDir)) + geom_point() + geom_smooth(method = "lm", se = F)
