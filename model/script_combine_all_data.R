@@ -165,6 +165,10 @@ traits <- read.csv("traits/spp_traits.csv", stringsAsFactors = F)
 traits.short <- traits %>%
   dplyr::select(Common_name, aou, nHabitats1, nHabitats2, volume)
 
+ggplot(traits.short, aes(x = nHabitats1, y = volume)) + geom_point() + geom_smooth(method = "lm")
+ggsave("nhabitats_volume.pdf", units = "in")
+summary(lm(traits.short$volume ~ traits.short$nHabitats1))
+
 # master data table
 clim_hab_poptrend <- abund_trend %>%
   left_join(traits.short) %>%
@@ -285,6 +289,7 @@ route_env <- abund_trend %>%
 ## Make four models - abund_trend ~ dED, abund_trend ~ climate trends, abund_trend ~ dED + climate trends, abund_trend ~ dED:climate trends
 ## For each keep AIC, R^2, effect sizes & p vals
 
+## Model averaging
 model_avgs <- route_env %>%
   group_by(aou) %>%
   nest() %>%
@@ -333,7 +338,165 @@ setwd("/Users/gracedicecco/Desktop/git/NLCD_fragmentation/model/")
 model_coefs <- read.csv("weighted_model_coefficients.csv", stringsAsFactors = F)
 model_importance <- read.csv("weighted_model_coefficient_importance.csv", stringsAsFactors = F)
 
-############ Species-specific plots/results ##############
+##### Simple models
+model_fits <- route_env %>%
+  group_by(aou) %>%
+  nest() %>%
+  mutate(lmFit = map(data, ~{
+  df <- .
+  lm(abundTrend_z ~ tmax + tmin + ppt + dEDz, df, na.action = na.fail)
+  })) %>%
+  mutate(nObs = map_dbl(data, ~{
+    df <- .
+    nrow(df)
+  })) %>%
+  mutate(lm_broom = map(lmFit, tidy)) %>%
+  dplyr::select(aou, nObs, lm_broom) %>%
+  unnest()
+
+species_estimates <- model_fits %>%
+  group_by(aou) %>%
+  filter(term != "(Intercept)", p.value < 0.05) %>%
+  count()
+
+env_estimates <- model_fits %>%
+  filter(term != "(Intercept)", p.value < 0.05) %>%
+  group_by(term) %>%
+  count()
+
+### Number of species responding positively/negatively to different drivers (simple linear models)
+
+dir_trends_lms <- model_fits %>%
+  filter(term != "(Intercept)") %>%
+  mutate(significance = ifelse(p.value < 0.05, "sig", "nonsig")) %>%
+  mutate(sign = ifelse(significance == "sig",ifelse(estimate < 0, "negative", "positive"), "na")) %>%
+  group_by(term, significance, sign) %>%
+  count()
+
+theme_set(theme_classic())
+ggplot(dir_trends_lms, aes(x = term, y = n, fill = sign)) +
+  geom_bar(stat = "identity", position = "dodge") +
+  labs(x = "Parameter", y = "Number of species") +
+  theme(axis.text.y = element_text(size = 12)) +
+  theme(axis.text.x = element_text(size = 12)) +
+  theme(axis.title.x = element_text(size = 12, face = "bold")) +
+  theme(axis.title.y = element_text(size = 12, face = "bold")) +
+  scale_x_discrete(labels = c("dEDz" = "Edge density", "ppt" = "Ppt", "tmax" = "Tmax", "tmin" = "Tmin")) +
+  scale_fill_manual(name = c("Estimate sign"),labels = c("na" = "Zero", "negative" = "Negative", "positive" = "Positive"), values = c("gray", "#0072B2", "#CC79A7"))
+
+setwd("C:/Users/gdicecco/Desktop/git/NLCD_fragmentation/figures/species_models_figs/")
+ggsave("allspp_parameter_estimates_simpleLM.pdf", width = 6, height = 4)
+ggsave("allspp_parameter_estimates_simpleLM.tiff", width = 6, height = 4, units = "in")
+
+## Number of drivers species responding to (simple linear models)
+
+n_trends_lm <- model_fits %>%
+  filter(term!= "(Intercept)") %>%
+  mutate(significance = ifelse(p.value < 0.05, 1, 0)) %>%
+  group_by(aou) %>%
+  summarize(ndrivers = sum(significance)) %>%
+  group_by(ndrivers) %>%
+  count()
+
+ggplot(n_trends, aes(x = ndrivers, y = n, fill = ndrivers)) +
+  geom_bar(stat = "identity") + 
+  theme(legend.position = "none") + 
+  theme(axis.text.y = element_text(size = 12)) +
+  theme(axis.text.x = element_text(size = 12)) +
+  theme(axis.title.x = element_text(size = 12, face = "bold")) +
+  theme(axis.title.y = element_text(size = 12, face = "bold")) +
+  labs(x = "Number of strong predictors", y = "Number of species")
+ggsave("allspp_number_predictors_simpleLM.pdf", width = 5, height = 4)
+ggsave("allspp_number_predictors_simpleLM.tiff", width = 5, height = 4, units = "in")
+
+mixedresponse <- c(4950, 7610, 2890,7310,5930) # species with opposite abundance responses to inc tmax and tmin
+spp_warming <- model_fits %>%
+  filter(aou %in% species_estimates$aou, p.value < 0.05, term == "tmax" | term == "tmin", 
+         !(aou %in% mixedresponse)) %>%
+  mutate(abundDir = ifelse(estimate > 0, "increasing", "decreasing")) # 32 decreasing, 21 increasing
+
+# Species that respond well to increases in warming temps, simple linear models
+
+setwd("//BioArk/HurlbertLab/DiCecco/Data/")
+correlates <- read.csv("Master_RO_Correlates_20110610.csv", stringsAsFactors = F)
+
+null_traits <- traits.short %>%
+  filter(aou %in% unique(route_env$aou), !(aou %in% spp_warming$aou), !(aou %in% mixedresponse)) %>%
+  left_join(correlates, by = c("aou" = "AOU")) %>% # 141 species
+  dplyr::select(aou, Common_name, nHabitats1, volume, habitat, envniche) %>%
+  left_join(dplyr::select(correlates, AOU, Brange_Area_km2), by = c("aou" = "AOU")) %>%
+  rename(english_common_name = Common_name) %>%
+  mutate(group = "null")
+
+spp_warming_pos <- spp_warming %>%
+  left_join(species) %>%
+  left_join(spp_codes, by = c("english_common_name" = "COMMONNAME")) %>%
+  left_join(traits.short) %>%
+  left_join(dplyr::select(correlates, AOU, Brange_Area_km2), by = c("aou" = "AOU")) %>%
+  filter(term == "tmax" | term == "tmin", estimate > 0) %>%
+  distinct(aou, Brange_Area_km2, english_common_name, nHabitats1, volume, habitat, envniche) %>%
+  mutate(group = "warming_positive")
+
+spp_warming_neg <- spp_warming %>%
+  left_join(species) %>%
+  left_join(spp_codes, by = c("english_common_name" = "COMMONNAME")) %>%
+  left_join(traits.short) %>%
+  left_join(dplyr::select(correlates, AOU, Brange_Area_km2), by = c("aou" = "AOU")) %>%
+  filter(term == "tmax" | term == "tmin", estimate < 0) %>%
+  distinct(aou, english_common_name, nHabitats1, volume, habitat, envniche, Brange_Area_km2) %>%
+  mutate(group = "warming_negative")
+
+warming_traits <- bind_rows(null_traits, spp_warming_pos, spp_warming_neg)
+
+warming_traits$group <- as.factor(warming_traits$group)
+
+shapiro.test(warming_traits$nHabitats1)
+
+wilcox.test(spp_warming_pos$nHabitats1, null_traits$nHabitats1)
+wilcox.test(spp_warming_pos$volume, null_traits$volume)
+wilcox.test(spp_warming_pos$Brange_Area_km2, null_traits$Brange_Area_km2) # not 
+
+
+kruskal.test(nHabitats1 ~ group, data = warming_traits, na.action = na.omit)
+
+boxplot_lm <- warming_traits %>%
+  filter(group == "null" | group == "warming_positive")
+
+nhab_lm <- ggplot(boxplot_lm, aes(x = group, y = nHabitats1)) + 
+  geom_violin(aes(fill = group), bw = 0.75, trim = F, draw_quantiles = c(0.5), alpha = 0.5, cex = 1) +
+  scale_fill_viridis_d(begin = 0.5) +
+  geom_jitter(height = 0, width = 0.1, alpha = 0.5) +
+  theme(legend.position = "none") + 
+  theme(axis.text.y = element_text(size = 12)) +
+  theme(axis.text.x = element_text(size = 12)) +
+  theme(axis.title.x = element_blank()) +
+  theme(axis.title.y = element_text(size = 12)) +
+  labs(y = "Number of habitats") + 
+  scale_x_discrete(labels = c("null" = "All other species", "warming_positive" = "Species increasing with Temp"))
+
+vol_lm <- ggplot(boxplot_lm, aes(x = group, y = volume)) + 
+  geom_violin(aes(fill = group), trim = F, draw_quantiles = c(0.5), alpha = 0.5, cex = 1) +
+  scale_fill_viridis_d(begin = 0.5) +
+  geom_jitter(height = 0, width = 0.1, alpha = 0.5) +
+  theme(legend.position = "none") + 
+  theme(axis.text.y = element_text(size = 12)) +
+  theme(axis.text.x = element_text(size = 12)) +
+  theme(axis.title.x = element_blank()) +
+  theme(axis.title.y = element_text(size = 12)) +
+  labs(y = "Environmental niche breadth") +
+  scale_x_discrete(labels = c("null" = "All other species", "warming_positive" = "Species increasing with Temp"))
+
+plot_grid(nhab_lm, vol_lm, 
+          labels = c("*", "*"),
+          label_x = 0.72,
+          label_y = c(1, 1),
+          label_size = 24)
+
+setwd("C:/Users/gdicecco/Desktop/git/NLCD_fragmentation/figures/species_models_figs/")
+ggsave("allspp_warming_simpleLM_box.pdf")
+ggsave("allspp_warming_simple_LM_box.tiff", units = "in")
+
+############ Species-specific plots/results for model averaging ##############
 
 setwd("\\\\BioArk\\hurlbertlab\\DiCecco\\data\\")
 setwd("/Volumes/hurlbertlab/DiCecco/data/")
@@ -726,7 +889,11 @@ route_traits_cont <- clim_hab_poptrend %>%
             nHabSpec = sum(nHabitats2 < 4, na.rm = T),
             nHabGen = sum(nHabitats2 > 4, na.rm = T),
             nVolSpec = sum(volume < medianVol, na.rm = T),
-            nVolGen = sum(volume > medianVol, na.rm = T))
+            nVolGen = sum(volume > medianVol, na.rm = T),
+            pHabSpec = nHabSpec/sppRich,
+            pHabGen = nHabGen/sppRich,
+            pVolSpec = nVolSpec/sppRich,
+            pVolGen = nVolGen/sppRich)
 
 theme_set(theme_classic())
 
@@ -743,6 +910,25 @@ volGrp2 <- ggplot(route_traits_cont, aes(x = landED, y = nVolGen)) + geom_point(
 
 plot_grid(habGrp, habGrp2, volGrp, volGrp2, nrow = 2)
 ggsave("number_specialists_generalists_fragmentation.pdf", height = 8, width = 10, units = "in")
+
+summary(lm(route_traits_cont$nHabSpec ~ route_traits_cont$landED))
+summary(lm(route_traits_cont$nHabGen ~ route_traits_cont$landED))
+summary(lm(route_traits_cont$nVolSpec ~ route_traits_cont$landED))
+summary(lm(route_traits_cont$nVolGen ~ route_traits_cont$landED))
+
+habGrpP <- ggplot(route_traits_cont, aes(x = landED, y = pHabSpec)) + geom_point() + geom_smooth(method = "lm") + ylab("Proportion habitat specialists") + xlab("Landscape edge density")
+habGrp2P <- ggplot(route_traits_cont, aes(x = landED, y = pHabGen)) + geom_point() + ylab("Proportion habitat generalists") + xlab("Landscape edge density")
+volGrpP <- ggplot(route_traits_cont, aes(x = landED, y = pVolSpec)) + geom_point() + ylab("Proportion environmental niche specialists") + xlab("Landscape edge density")
+volGrp2P <- ggplot(route_traits_cont, aes(x = landED, y = pVolGen)) + geom_point() + ylab("Proportion environmental niche generalists") + xlab("Landscape edge density")
+
+plot_grid(habGrpP, habGrp2P, volGrpP, volGrp2P, nrow = 2)
+ggsave("prop_specialists_generalists_fragmentation.pdf", height = 8, width = 10, units = "in")
+
+summary(lm(route_traits_cont$pHabSpec ~ route_traits_cont$landED))
+summary(lm(route_traits_cont$pHabGen ~ route_traits_cont$landED))
+summary(lm(route_traits_cont$pVolSpec ~ route_traits_cont$landED))
+summary(lm(route_traits_cont$pVolGen ~ route_traits_cont$landED))
+
 
 ## Plot: map of these routes and their distribution in US
 
@@ -799,6 +985,24 @@ spp_trends_volgrps <- clim_hab_poptrend %>%
 ggplot(filter(spp_trends_volgrps, !is.na(abundDir), !is.na(envniche)), aes(x = landED, y = pctN, col = abundDir)) + 
   geom_point() + geom_smooth(method = "lm", se = F) + facet_grid(~envniche) + labs(y = "Proportion of species")
 ggsave("envniche_groups_abundTrends_nochangeFrag_CC.pdf", units = "in", height = 6, width = 12)
+
+summary(lm(filter(spp_trends_habgrps, habitat == "generalist", abundDir == "decreasing")$pctN ~ filter(spp_trends_habgrps, habitat == "generalist", abundDir == "decreasing")$landED))
+summary(lm(filter(spp_trends_habgrps, habitat == "generalist", abundDir == "increasing")$pctN ~ filter(spp_trends_habgrps, habitat == "generalist", abundDir == "increasing")$landED))
+summary(lm(filter(spp_trends_habgrps, habitat == "generalist", abundDir == "stable")$pctN ~ filter(spp_trends_habgrps, habitat == "generalist", abundDir == "stable")$landED))
+
+summary(lm(filter(spp_trends_habgrps, habitat == "specialist", abundDir == "decreasing")$pctN ~ filter(spp_trends_habgrps, habitat == "specialist", abundDir == "decreasing")$landED))
+summary(lm(filter(spp_trends_habgrps, habitat == "specialist", abundDir == "increasing")$pctN ~ filter(spp_trends_habgrps, habitat == "specialist", abundDir == "increasing")$landED))
+summary(lm(filter(spp_trends_habgrps, habitat == "specialist", abundDir == "stable")$pctN ~ filter(spp_trends_habgrps, habitat == "specialist", abundDir == "stable")$landED))
+
+summary(lm(filter(spp_trends_volgrps, envniche == "generalist", abundDir == "decreasing")$pctN ~ filter(spp_trends_volgrps, envniche == "generalist", abundDir == "decreasing")$landED))
+summary(lm(filter(spp_trends_volgrps, envniche == "generalist", abundDir == "increasing")$pctN ~ filter(spp_trends_volgrps, envniche == "generalist", abundDir == "increasing")$landED))
+summary(lm(filter(spp_trends_volgrps, envniche == "generalist", abundDir == "stable")$pctN ~ filter(spp_trends_volgrps, envniche == "generalist", abundDir == "stable")$landED))
+
+summary(lm(filter(spp_trends_volgrps, envniche == "specialist", abundDir == "decreasing")$pctN ~ filter(spp_trends_volgrps, envniche == "specialist", abundDir == "decreasing")$landED))
+summary(lm(filter(spp_trends_volgrps, envniche == "specialist", abundDir == "increasing")$pctN ~ filter(spp_trends_volgrps, envniche == "specialist", abundDir == "increasing")$landED))
+summary(lm(filter(spp_trends_volgrps, envniche == "specialist", abundDir == "stable")$pctN ~ filter(spp_trends_volgrps, envniche == "specialist", abundDir == "stable")$landED))
+
+
 
 # Routes with no change in fragmentation but climate change - 289 routes total
 
@@ -917,5 +1121,5 @@ ggplot(route_percent_change, aes(x = deltaED, y = dSpRich)) + geom_point() + geo
 ggsave("inc_fragmentation_deltaSppRichness.pdf", units = "in")
 
 sppRichMod <- glm(dSpRich ~ deltaED + ppt + tmax + tmin + deltaED:tmax + deltaED:tmin, data = route_percent_change)
-habGenMod <- glm(dPctHab ~ deltaED + ppt + tmax + tmin, data = route_percent_change)
-volGenMod <- glm(dPctVol ~ deltaED + ppt + tmax + tmin, data = route_percent_change) # dec. in deltaED predicts inc. in dPctVol
+habGenMod <- summary(lm(dPctHab ~ deltaED, data = route_percent_change))
+volGenMod <- summary(lm(dPctVol ~ deltaED, data = route_percent_change)) # dec. in deltaED predicts inc. in dPctVol
