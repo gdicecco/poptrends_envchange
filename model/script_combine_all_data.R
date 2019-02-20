@@ -22,6 +22,8 @@ weather <- read.csv("\\\\BioArk\\hurlbertlab\\Databases\\BBS\\2017\\bbs_weather_
 
 routes <- read.csv("/Volumes/hurlbertlab/Databases/BBS/2017/bbs_routes_20170712.csv")
 weather <- read.csv("/Volumes/hurlbertlab/Databases/BBS/2017/bbs_weather_20170712.csv")
+counts <- read.csv("/Volumes/hurlbertlab/Databases/BBS/2017/bbs_counts_20170712.csv")
+species <- read.csv("/Volumes/hurlbertlab/Databases/BBS/2017/bbs_species_20170712.csv")
 
 routes$stateroute <- routes$statenum*1000 + routes$route
 weather$stateroute <-weather$statenum*1000 + weather$route
@@ -116,10 +118,12 @@ setwd("\\\\BioArk\\hurlbertlab\\DiCecco\\data\\")
 write.csv(abund_trend, "BBS_abundance_trends.csv", row.names = F)
 
 setwd("\\\\BioArk\\hurlbertlab\\DiCecco\\data\\")
+setwd("/Volumes/hurlbertlab/DiCecco/data/")
 abund_trend <- read.csv("BBS_abundance_trends.csv", stringsAsFactors = F)
 
 # Climate data
 setwd("C:/Users/gdicecco/Desktop/git/NLCD_fragmentation/climate/")
+setwd("/Users/gracedicecco/Desktop/git/NLCD_fragmentation/climate/")
 climate_trends <- read.csv("bbs_routes_climate_trends.csv", stringsAsFactors = F)
 
 climate_wide <- climate_trends %>%
@@ -127,7 +131,9 @@ climate_wide <- climate_trends %>%
   spread(key = "env", value = "climateTrend")
 
 # Habitat fragmentation data
-frags <- read.csv("\\\\BioArk\\hurlbertlab\\DiCecco\\data\\fragmentation_indices_nlcd_simplified.csv", stringsAsFactors = F)
+setwd("/Volumes/hurlbertlab/DiCecco/data/")
+setwd("\\\\BioArk\\hurlbertlab\\DiCecco\\data\\")
+frags <- read.csv("fragmentation_indices_nlcd_simplified.csv", stringsAsFactors = F)
 
 # Landcover legend
 newcode <- data.frame(code = seq(1,9), 
@@ -152,7 +158,9 @@ route_ed <- frags %>% # 2314 routes
   filter(stateroute %in% routes.short$stateroute) # 1497 routes
 
 # Trait data
-traits <- read.csv("C:/Users/gdicecco/Desktop/git/NLCD_fragmentation/traits/spp_traits.csv", stringsAsFactors = F)
+setwd("C:/Users/gdicecco/Desktop/git/NLCD_fragmentation/")
+setwd("/Users/gracedicecco/Desktop/git/NLCD_fragmentation/")
+traits <- read.csv("traits/spp_traits.csv", stringsAsFactors = F)
 
 traits.short <- traits %>%
   dplyr::select(Common_name, aou, nHabitats1, nHabitats2, volume)
@@ -320,13 +328,15 @@ setwd("C:/Users/gdicecco/Desktop/git/NLCD_fragmentation/model/")
 write.csv(model_coefs, "weighted_model_coefficients.csv", row.names = F)
 write.csv(model_importance, "weighted_model_coefficient_importance.csv", row.names = F)
 
+setwd("C:/Users/gdicecco/Desktop/git/NLCD_fragmentation/model/")
+setwd("/Users/gracedicecco/Desktop/git/NLCD_fragmentation/model/")
 model_coefs <- read.csv("weighted_model_coefficients.csv", stringsAsFactors = F)
 model_importance <- read.csv("weighted_model_coefficient_importance.csv", stringsAsFactors = F)
 
 ############ Species-specific plots/results ##############
 
 setwd("\\\\BioArk\\hurlbertlab\\DiCecco\\data\\")
-
+setwd("/Volumes/hurlbertlab/DiCecco/data/")
 spp_codes <- read.csv("four_letter_codes_birdspp.csv", stringsAsFactors = F)
 
 ## 9 species, specific habitat edge density
@@ -378,7 +388,7 @@ plot_grid(tmax, dedz, tmin, ppt, nrow = 2,
           label_x = c(0.065, 0, 0.065, 0.085))
 ggsave("spp_relimport.pdf", width = 9, height = 6)
 
-## All species, landscape edge density
+#### All species, landscape edge density
 model_coefs_sig <- model_coefs %>%
   filter(Pr...z.. < 0.05, param != "(Intercept)") %>%
   mutate(confint = Std..Error*1.96) %>%
@@ -632,6 +642,53 @@ plot_grid(nhab2, vol2)
 ggsave("allspp_tmax_box.pdf")
 ggsave("allspp_tmax_box.tiff", units = "in")
 
+# Species that respond well to increases in warming temps
+temp <- model_coefs_sig %>%
+  left_join(species) %>%
+  left_join(spp_codes, by = c("english_common_name" = "COMMONNAME")) %>%
+  left_join(traits.short) %>%
+  filter(param == "tmax" | param == "tmin", Estimate > 0)
+
+shapiro.test(temp$Estimate)
+
+wilcox.test(temp$nHabitats1, null_traits$nHabitats1) # significant
+wilcox.test(temp$volume, null_traits$volume) # significant
+
+boxplot2 <- null_traits %>%
+  mutate(group = ifelse(null_traits$aou %in% temp$aou, "tolerant", "allspp"))
+
+nhab_temp <- ggplot(boxplot2, aes(x = group, y = nHabitats1)) + 
+  geom_violin(aes(fill = group), bw = 0.75, trim = F, draw_quantiles = c(0.5), alpha = 0.5, cex = 1) +
+  scale_fill_viridis_d(begin = 0.5) +
+  geom_jitter(height = 0, width = 0.1, alpha = 0.5) +
+  theme(legend.position = "none") + 
+  theme(axis.text.y = element_text(size = 12)) +
+  theme(axis.text.x = element_text(size = 12)) +
+  theme(axis.title.x = element_blank()) +
+  theme(axis.title.y = element_text(size = 12)) +
+  labs(y = "Number of habitats") + 
+  scale_x_discrete(labels = c("allspp" = "All species", "tolerant" = "Species increasing with Temp"))
+
+vol_temp <- ggplot(boxplot2, aes(x = group, y = volume)) + 
+  geom_violin(aes(fill = group), trim = F, draw_quantiles = c(0.5), alpha = 0.5, cex = 1) +
+  scale_fill_viridis_d(begin = 0.5) +
+  geom_jitter(height = 0, width = 0.1, alpha = 0.5) +
+  theme(legend.position = "none") + 
+  theme(axis.text.y = element_text(size = 12)) +
+  theme(axis.text.x = element_text(size = 12)) +
+  theme(axis.title.x = element_blank()) +
+  theme(axis.title.y = element_text(size = 12)) +
+  labs(y = "Environmental niche width") +
+  scale_x_discrete(labels = c("allspp" = "All species", "tolerant" = "Species increasing with Temp"))
+
+plot_grid(nhab_temp, vol_temp, 
+          labels = c("*", "*"),
+          label_x = 0.732,
+          label_y = c(1, 1))
+
+ggsave("allspp_warming_box.pdf")
+ggsave("allspp_warming_box.tiff", units = "in")
+
 ##### Community-level responses #####
 
 traits.short
@@ -661,7 +718,7 @@ medianHab <- median(traits.short$nHabitats2, na.rm = T)
 medianVol <- median(traits.short$volume, na.rm =T)
 
 route_traits_cont <- clim_hab_poptrend %>%
-  filter(stateroute %in% routelist_frag$stateroute) %>%
+  filter(stateroute %in% routes_noEDchange$stateroute) %>%
   left_join(routes_frag_noChange) %>%
   group_by(stateroute) %>%
   summarize(landED = mean(`2011`, na.rm = T),
@@ -689,7 +746,7 @@ ggsave("number_specialists_generalists_fragmentation.pdf", height = 8, width = 1
 
 ## Plot: map of these routes and their distribution in US
 
-routelist_frag_coords <- routelist_frag %>%
+routelist_frag_coords <- routes_noEDchange %>%
   left_join(routes)
 
 setwd("\\\\BioArk/hurlbertlab/DiCecco/nlcd_frag_proj_shapefiles/BCRs_contiguous_us/")
@@ -710,12 +767,12 @@ medianHab
 medianVol
 
 spp_trends_habgrps <- clim_hab_poptrend %>%
-  filter(stateroute %in% routelist_frag$stateroute) %>%
+  filter(stateroute %in% routes_noEDchange$stateroute) %>%
   left_join(route_frag) %>%
   mutate(habitat = ifelse(nHabitats2 > medianHab, "generalist", "specialist"),
          envniche = ifelse(volume > medianVol, "generalist", "specialist")) %>%
   mutate(abundDir = ifelse(trendPval > 0.05, "stable", ifelse(abundTrend > 0, "increasing", "decreasing"))) %>%
-  group_by(stateroute) %>%
+  group_by(stateroute, habitat) %>%
   mutate(nSpp = n()) %>%
   group_by(stateroute, habitat, abundDir) %>%
   summarize(n = n(),
@@ -724,7 +781,24 @@ spp_trends_habgrps <- clim_hab_poptrend %>%
 
 ggplot(filter(spp_trends_habgrps, !is.na(abundDir), !is.na(habitat)), aes(x = landED, y = pctN, col = abundDir)) + 
   geom_point() + geom_smooth(method = "lm", se = F) + facet_grid(~habitat) + labs(y = "Proportion of species")
-ggsave("habitat_groups_abundTrends_nochangeFrag_CC.pdf", units = "in", height = 8, width = 12)
+ggsave("habitat_groups_abundTrends_nochangeFrag_CC.pdf", units = "in", height = 6, width = 12)
+
+spp_trends_volgrps <- clim_hab_poptrend %>%
+  filter(stateroute %in% routes_noEDchange$stateroute) %>%
+  left_join(route_frag) %>%
+  mutate(habitat = ifelse(nHabitats2 > medianHab, "generalist", "specialist"),
+         envniche = ifelse(volume > medianVol, "generalist", "specialist")) %>%
+  mutate(abundDir = ifelse(trendPval > 0.05, "stable", ifelse(abundTrend > 0, "increasing", "decreasing"))) %>%
+  group_by(stateroute, envniche) %>%
+  mutate(nSpp = n()) %>%
+  group_by(stateroute, envniche, abundDir) %>%
+  summarize(n = n(),
+            pctN = n/unique(nSpp),
+            landED = mean(`2011`, na.rm = T))
+
+ggplot(filter(spp_trends_volgrps, !is.na(abundDir), !is.na(envniche)), aes(x = landED, y = pctN, col = abundDir)) + 
+  geom_point() + geom_smooth(method = "lm", se = F) + facet_grid(~envniche) + labs(y = "Proportion of species")
+ggsave("envniche_groups_abundTrends_nochangeFrag_CC.pdf", units = "in", height = 6, width = 12)
 
 # Routes with no change in fragmentation but climate change - 289 routes total
 
@@ -836,7 +910,7 @@ pcthab <- ggplot(route_percent_change, aes(x = deltaED, y = dPctHab)) + geom_poi
 pctvol <- ggplot(route_percent_change, aes(x = deltaED, y = dPctVol)) + geom_point() + geom_smooth(method = "lm", se = F) +
   ylab("Change in % environmental niche generalists")
 plot_grid(pcthab, pctvol, nrow = 1)
-ggsave("deltaPercentGeneralists_inc_fragmentation.pdf", height = 8, width = 12, units = "in")
+ggsave("deltaPercentGeneralists_inc_fragmentation.pdf", height = 6, width = 14, units = "in")
 
 ggplot(route_percent_change, aes(x = deltaED, y = dSpRich)) + geom_point() + geom_smooth(method = "lm", se = F) +
   ylab("Change in species richness")
