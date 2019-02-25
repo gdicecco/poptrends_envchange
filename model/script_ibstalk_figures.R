@@ -1,12 +1,15 @@
 ## Make figures for cartoon methods
 
 # Rasters of tmin, tmax, ppt for one route
+# Example routes with ~0 ED, 0.25 ED, 0.5 ED, 1 ED
 
 require(raster)
 require(tidyverse)
 library(prism)
 library(rgdal)
 library(rgeos)
+library(tmap)
+library(cowplot)
 
 options(prism.path = "/Users/gracedicecco/Desktop/prism_2018/")
 
@@ -36,8 +39,6 @@ route1 <- subset(bufferRoutes_transf, rteno == 2001)
 
 list2env(setNames(unstack(prism), names(prism)), .GlobalEnv)
 
-
-library(tmap)
 setwd("/Users/gracedicecco/Desktop/git/NLCD_fragmentation/figures/")
 prism_crop <- crop(PRISM_ppt_stable_4kmM3_2017_bil, route1)
 route_prism <- mask(prism_crop, route1)
@@ -111,3 +112,45 @@ ggplot(counts_onespp, aes(x = year, y = speciestotal)) + geom_point() +
   theme(axis.title.x = element_text(size = 12)) +
   theme(axis.title.y = element_text(size = 12)) +
   labs(x = "Year", y = "Abundance")
+
+### Plot of example routes for edge density
+setwd("//BioArk/hurlbertlab/DiCecco/nlcd_frag_proj_shapefiles/")
+bufferRoutes <- readOGR("bbsroutes_5km_buffer.shp")
+
+nlcd2011 <- raster("//BioArk/hurlbertlab/GIS/LandCoverData/nlcd_2011_landcover_2011_edition_2014_10_10/nlcd_2011_whole_simplified.tif")
+
+frags <- read.csv("\\\\BioArk\\hurlbertlab\\DiCecco\\data\\fragmentation_indices_nlcd_simplified.csv", stringsAsFactors = F)
+
+route_ed <- frags %>%
+  group_by(stateroute, year) %>%
+  summarize(ED = sum(total.edge)/sum(total.area)) %>%
+  filter(year == 2011, ED < 0.1) %>% # use filter to ID routes
+  arrange(ED)
+
+bufferRoutes_transf <- spTransform(bufferRoutes, crs(nlcd2011))
+
+route0.01 <- subset(bufferRoutes_transf, rteno == 55003) #0.014
+nlcd_crop <- crop(nlcd2011, route0.01)
+ED0.01 <- mask(nlcd_crop, route0.01)
+
+route0.251 <- subset(bufferRoutes_transf, rteno == 34305)
+nlcd_crop0.25 <- crop(nlcd2011, route0.251)
+ED0.251 <- mask(nlcd_crop0.25, route0.251)
+
+route0.5 <- subset(bufferRoutes_transf, rteno == 46052)
+nlcd_crop0.5 <- crop(nlcd2011, route0.5)
+ED0.5 <- mask(nlcd_crop0.5, route0.5)
+
+route1 <- subset(bufferRoutes_transf, rteno == 92039)
+nlcd_crop1 <- crop(nlcd2011, route1)
+ED1.0 <- mask(nlcd_crop1, route1)
+
+setwd("C:/Users/gdicecco/Desktop/git/NLCD_fragmentation/")
+pdf("figures/methods_figs/edge_density_scale.pdf", height = 6, width = 8)
+par(mfrow = c(2,2))
+plot(ED0.01, main = "Edge density = 0.014")
+plot(ED0.251, main = "Edge density = 0.251")
+plot(ED0.5, main = "Edge density = 0.500")
+plot(ED1.0, main = "Edge density = 1.000")
+dev.off()
+

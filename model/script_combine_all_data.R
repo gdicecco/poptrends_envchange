@@ -1123,3 +1123,83 @@ ggsave("inc_fragmentation_deltaSppRichness.pdf", units = "in")
 sppRichMod <- glm(dSpRich ~ deltaED + ppt + tmax + tmin + deltaED:tmax + deltaED:tmin, data = route_percent_change)
 habGenMod <- summary(lm(dPctHab ~ deltaED, data = route_percent_change))
 volGenMod <- summary(lm(dPctVol ~ deltaED, data = route_percent_change)) # dec. in deltaED predicts inc. in dPctVol
+
+####### Community-level responses: raster heat maps ########
+
+## Stable fragmentation amt routes
+
+# Plot: number of habitats vs. edge density, color = % of species in each category
+route_traits_habbins <- clim_hab_poptrend %>%
+  filter(stateroute %in% routes_noEDchange$stateroute, !is.na(nHabitats2)) %>%
+  left_join(routes_frag_noChange) %>%
+  group_by(stateroute) %>%
+  mutate(sppRich = n()) %>%
+  group_by(stateroute, nHabitats2) %>%
+  summarize(landED = mean(`2011`, na.rm = T),
+            propS = n()/mean(sppRich))
+
+ggplot(route_traits_habbins, aes(x = landED, y = factor(nHabitats2), z = propS)) +
+  stat_summary_2d(bins = 100) + scale_fill_viridis_c() +
+  labs(fill = "Prop. of species",
+       x = "Landscape edge density",
+       y = "Number of breeding habitats")
+ggsave("figures/community_comparisons/heatplot_nhab_propS.pdf", units = "in", height = 8, width = 10)
+
+# Plot: number of habitats vs. edge density, color = slope of abundance trend
+boxplot(clim_hab_poptrend$abundTrend[clim_hab_poptrend$abundTrend > -30])
+
+route_traits_hab_abund <- clim_hab_poptrend %>%
+  filter(stateroute %in% routes_noEDchange$stateroute, !is.na(nHabitats2)) %>%
+  filter(abundTrend > -30) %>%
+  left_join(routes_frag_noChange) %>%
+  group_by(stateroute, nHabitats2) %>%
+  summarize(landED = mean(`2011`, na.rm = T),
+            meanAT = mean(abundTrend))
+
+ggplot(route_traits_hab_abund, aes(x = landED, y = factor(nHabitats2), z = meanAT)) +
+  stat_summary_2d(bins = 100) + scale_fill_viridis_c() +
+  labs(fill = "Mean abund. trend",
+       x = "Landscape edge density",
+       y = "Number of breeding habitats")
+ggsave("figures/community_comparisons/heatplot_nhab_abundTrend.pdf", units = "in", height = 8, width = 10)
+
+# Plot: env niche breadth vs. edge density, color = % of species in each category
+route_traits_vol <- clim_hab_poptrend %>%
+  filter(stateroute %in% routes_noEDchange$stateroute) %>%
+  left_join(routes_frag_noChange) %>%
+  filter(!is.na(volume)) %>%
+  mutate(vol_bin = 0.2*floor(volume/0.2) + 0.2/2) %>%
+  group_by(stateroute) %>%
+  mutate(sppRich = n()) %>%
+  group_by(stateroute, vol_bin) %>%
+  summarize(landED = mean(`2011`, na.rm = T),
+            propS = n()/mean(sppRich))
+
+ggplot(route_traits_vol, aes(x = landED, y = factor(vol_bin), z = propS)) +
+    stat_summary_2d(bins = 100) + scale_fill_viridis_c() +
+    labs(fill = "Prop. of species",
+         x = "Landscape edge density",
+         y = "Environmental niche breadth")
+ggsave("figures/community_comparisons/heatplot_vol_propS.pdf", units = "in", height = 8, width = 10)
+  
+  
+# Plot: env niche breadth vs. edge density, color = slope of abundance trend
+
+route_traits_vol_abund <- clim_hab_poptrend %>%
+  filter(stateroute %in% routes_noEDchange$stateroute) %>%
+  filter(!is.na(volume)) %>%
+  filter(abundTrend > -30) %>%
+  mutate(vol_bin = 0.2*floor(volume/0.2) + 0.2/2) %>%
+  left_join(routes_frag_noChange) %>%
+  group_by(stateroute, vol_bin) %>%
+  summarize(landED = mean(`2011`, na.rm = T),
+            meanAT = mean(abundTrend))
+
+ggplot(route_traits_vol_abund, aes(x = landED, y = factor(vol_bin), z = meanAT)) +
+  stat_summary_2d(bins = 100) + scale_fill_viridis_c() +
+  labs(fill = "Mean abund. trend",
+       x = "Landscape edge density",
+       y = "Environmental niche breadth")
+ggsave("figures/community_comparisons/heatplot_vol_abundTrend.pdf", units = "in", height = 8, width = 10)
+
+
