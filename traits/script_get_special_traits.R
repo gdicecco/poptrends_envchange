@@ -35,13 +35,13 @@ counts.subs <- counts %>%
 length(unique(counts.subs$aou))
 
 ## Get number of habitats
-setwd("\\\\BioArk\\hurlbertlab\\DiCecco\\LTER_birdabund_seasonal\\")
+setwd("\\\\BioArk\\hurlbertlab\\DiCecco\\data\\")
 
 ## BirdLife checklist (ID numbers)
 checklist <- read.csv("BirdLife_Checklist_V_9.1.csv", header = TRUE, stringsAsFactors = F)
   
 checklist.subs <- checklist %>%
-  select(Common_name, Scientific_name, Synonyms, Alt_common_names, SISRecID) %>%
+  dplyr::select(Common_name, Scientific_name, Synonyms, Alt_common_names, SISRecID) %>%
   mutate(genus = word(Scientific_name, 1),
          species = word(Scientific_name, 2)) %>%
   right_join(landbirds, by = c("genus", "species")) %>% 
@@ -102,6 +102,11 @@ sppHabit <- checklist.subs %>%
 
 sppHabit.missing <- sppHabit %>%
   filter(is.na(nHabitats1))
+
+habitats_detailed <- finescale_habitats %>%
+  filter(occurrence == "breeding" | occurrence == "resident") %>%
+  left_join(checklist.subs, by = c("id" = "SISRecID"))
+write.csv(habitats_detailed, "traits/spp_habitat_detailed.csv", row.names = F)
 
 # Compare level 1 to level 2 habitats
 unique(finescale_habitats$habitat1)

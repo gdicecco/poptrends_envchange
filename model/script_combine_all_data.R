@@ -41,16 +41,16 @@ us_subs <- us_routes_short[!(us_routes_short@data$rteno < 4000 & us_routes_short
 
 # plot of routes
 
-setwd("/Volumes/hurlbertlab/DiCecco/nlcd_frag_proj_shapefiles/BCRs_contiguous_us/")
-setwd("\\\\BioArk/hurlbertlab/DiCecco/nlcd_frag_proj_shapefiles/BCRs_contiguous_us/")
-us.proj <- readOGR("BCRs_contiguous_us.shp")
+#setwd("/Volumes/hurlbertlab/DiCecco/nlcd_frag_proj_shapefiles/BCRs_contiguous_us/")
+#setwd("\\\\BioArk/hurlbertlab/DiCecco/nlcd_frag_proj_shapefiles/BCRs_contiguous_us/")
+#us.proj <- readOGR("BCRs_contiguous_us.shp")
 
-us_subs_transf <- spTransform(us_subs, crs(us.proj))
+#us_subs_transf <- spTransform(us_subs, crs(us.proj))
 
-tm_shape() + tm_borders(us.proj) + tm_lines(us_subs_transf)
+#tm_shape() + tm_borders(us.proj) + tm_lines(us_subs_transf)
 
-plot(us.proj, col = "gray73", border = "gray73")
-plot(us_subs_transf, add = T)
+#plot(us.proj, col = "gray73", border = "gray73")
+#plot(us_subs_transf, add = T)
 
 # Subset stateroutes: runtype = 1, sampled once every 5 years since 1990, between 38 and 42 km in length
 routes.short <- RT1.routes %>%
@@ -79,43 +79,43 @@ counts.subs <- counts %>%
   filter(year >= 1990, year < 2017)
 # 1513 routes
 
-abund_trend <- counts.subs %>%
-  group_by(aou, stateroute) %>%
-  nest() %>%
-  mutate(lmFit = map(data, ~{
-    df <- .
-    df.short <- df %>%
-      dplyr::select(year, speciestotal) %>%
-      unique()
-    lm(speciestotal ~ year, df.short)
-  })) %>%
-  mutate(nObs = map_dbl(data, ~{
-    df <- .
-    nrow(df)
-  })) %>%
-  mutate(lm_broom = map(lmFit, tidy)) %>%
-  mutate(abundTrend = map_dbl(lm_broom, ~{
-    df <- .
-    df$estimate[2]
-  })) %>%
-  mutate(trendInt = map_dbl(lm_broom, ~{
-    df <- .
-    df$estimate[1]
-  })) %>%
-  mutate(trendPval = map_dbl(lm_broom, ~{
-    df <- .
-    df$p.value[2]
-  })) 
+#abund_trend <- counts.subs %>%
+#  group_by(aou, stateroute) %>%
+#  nest() %>%
+#  mutate(lmFit = map(data, ~{
+#    df <- .
+#    df.short <- df %>%
+#      dplyr::select(year, speciestotal) %>%
+#      unique()
+#    lm(speciestotal ~ year, df.short)
+#  })) %>%
+#  mutate(nObs = map_dbl(data, ~{
+#    df <- .
+#    nrow(df)
+#  })) %>%
+#  mutate(lm_broom = map(lmFit, tidy)) %>%
+#  mutate(abundTrend = map_dbl(lm_broom, ~{
+#    df <- .
+#    df$estimate[2]
+#  })) %>%
+#  mutate(trendInt = map_dbl(lm_broom, ~{
+#    df <- .
+#    df$estimate[1]
+#  })) %>%
+#  mutate(trendPval = map_dbl(lm_broom, ~{
+#    df <- .
+#    df$p.value[2]
+#  })) 
 
-hist(abund_trend$abundTrend)
-hist(abund_trend$nObs)
+#hist(abund_trend$abundTrend)
+#hist(abund_trend$nObs)
 
-abund_trend <- abund_trend %>%
-  filter(nObs > 9) %>%
-  dplyr::select(-data, -lmFit, -lm_broom)
+#abund_trend <- abund_trend %>%
+#  filter(nObs > 9) %>%
+#  dplyr::select(-data, -lmFit, -lm_broom)
 
-setwd("\\\\BioArk\\hurlbertlab\\DiCecco\\data\\")
-write.csv(abund_trend, "BBS_abundance_trends.csv", row.names = F)
+#setwd("\\\\BioArk\\hurlbertlab\\DiCecco\\data\\")
+#write.csv(abund_trend, "BBS_abundance_trends.csv", row.names = F)
 
 setwd("\\\\BioArk\\hurlbertlab\\DiCecco\\data\\")
 setwd("/Volumes/hurlbertlab/DiCecco/data/")
@@ -165,20 +165,20 @@ traits <- read.csv("traits/spp_traits.csv", stringsAsFactors = F)
 traits.short <- traits %>%
   dplyr::select(Common_name, aou, nHabitats1, nHabitats2, volume)
 
-ggplot(traits.short, aes(x = nHabitats1, y = volume)) + geom_point() + geom_smooth(method = "lm")
-ggsave("nhabitats_volume.pdf", units = "in")
-summary(lm(traits.short$volume ~ traits.short$nHabitats1))
+#ggplot(traits.short, aes(x = nHabitats1, y = volume)) + geom_point() + geom_smooth(method = "lm")
+#ggsave("nhabitats_volume.pdf", units = "in")
+#summary(lm(traits.short$volume ~ traits.short$nHabitats1))
 
 # master data table
-clim_hab_poptrend <- abund_trend %>%
-  left_join(traits.short) %>%
-  left_join(route_ed, by = "stateroute") %>%
-  left_join(climate_wide, by = "stateroute") %>%
-  group_by(aou) %>%
-  mutate(abundTrend_z = (abundTrend - mean(abundTrend, na.rm = T))/sd(abundTrend, na.rm = T))
+#clim_hab_poptrend <- abund_trend %>%
+#  left_join(traits.short) %>%
+#  left_join(route_ed, by = "stateroute") %>%
+#  left_join(climate_wide, by = "stateroute") %>%
+#  group_by(aou) %>%
+#  mutate(abundTrend_z = (abundTrend - mean(abundTrend, na.rm = T))/sd(abundTrend, na.rm = T))
 
 setwd("\\\\BioArk\\hurlbertlab\\DiCecco\\data\\")
-write.csv(clim_hab_poptrend, "climate_fragmentation_traits_by_species.csv", row.names = F)
+#write.csv(clim_hab_poptrend, "climate_fragmentation_traits_by_species.csv", row.names = F)
 
 clim_hab_poptrend <- read.csv("climate_fragmentation_traits_by_species.csv", stringsAsFactors = F)
 
@@ -1139,7 +1139,7 @@ route_traits_habbins <- clim_hab_poptrend %>%
             propS = n()/mean(sppRich))
 
 ggplot(route_traits_habbins, aes(x = landED, y = factor(nHabitats2), z = propS)) +
-  stat_summary_2d(bins = 100) + scale_fill_viridis_c() +
+  stat_summary_2d(bins = 15) + scale_fill_viridis_c() +
   labs(fill = "Prop. of species",
        x = "Landscape edge density",
        y = "Number of breeding habitats")
@@ -1157,7 +1157,7 @@ route_traits_hab_abund <- clim_hab_poptrend %>%
             meanAT = mean(abundTrend))
 
 ggplot(route_traits_hab_abund, aes(x = landED, y = factor(nHabitats2), z = meanAT)) +
-  stat_summary_2d(bins = 100) + scale_fill_viridis_c() +
+  stat_summary_2d(bins = 15) + scale_fill_viridis_c() +
   labs(fill = "Mean abund. trend",
        x = "Landscape edge density",
        y = "Number of breeding habitats")
@@ -1176,7 +1176,7 @@ route_traits_vol <- clim_hab_poptrend %>%
             propS = n()/mean(sppRich))
 
 ggplot(route_traits_vol, aes(x = landED, y = factor(vol_bin), z = propS)) +
-    stat_summary_2d(bins = 100) + scale_fill_viridis_c() +
+    stat_summary_2d(bins = 15) + scale_fill_viridis_c() +
     labs(fill = "Prop. of species",
          x = "Landscape edge density",
          y = "Environmental niche breadth")
@@ -1196,10 +1196,105 @@ route_traits_vol_abund <- clim_hab_poptrend %>%
             meanAT = mean(abundTrend))
 
 ggplot(route_traits_vol_abund, aes(x = landED, y = factor(vol_bin), z = meanAT)) +
-  stat_summary_2d(bins = 100) + scale_fill_viridis_c() +
+  stat_summary_2d(bins = 15) + scale_fill_viridis_c() +
   labs(fill = "Mean abund. trend",
        x = "Landscape edge density",
        y = "Environmental niche breadth")
 ggsave("figures/community_comparisons/heatplot_vol_abundTrend.pdf", units = "in", height = 8, width = 10)
 
+##### Community-level responses: forest fragmentation #####
 
+## Filter out only species who use forests
+
+habitats <- read.csv("traits/spp_habitat_detailed.csv", stringsAsFactors = F)
+
+forest_spp <- habitats %>%
+  group_by(aou) %>%
+  filter(habitat1 == "Forest") %>%
+  distinct(aou) # 273 species that use forest
+
+forest_traits <- traits.short %>%
+  filter(aou %in% forest_spp$aou) %>% # 234 spp
+  filter(Common_name != "unknown") # 219 spp
+
+counts.forest <- counts.subs %>%
+  filter(aou %in% forest_traits$aou)
+
+poptrend_forest <- clim_hab_poptrend %>%
+  filter(aou %in% forest_traits$aou)
+
+# Forest fragmentation at routes
+
+forest_ed <- frags %>% # 2314 routes
+  left_join(newcode, by = c("class" = "code")) %>%
+  group_by(stateroute, year) %>%
+  summarize(ED = sum(total.edge[legend == "Forest"])/sum(total.area)) %>%
+  spread(key = "year", value = "ED")
+
+forest_deltaED <- frags %>% # 2314 routes
+  left_join(newcode, by = c("class" = "code")) %>%
+  group_by(stateroute, year) %>%
+  summarize(ED = sum(total.edge[legend == "Forest"])/sum(total.area)) %>%
+  spread(key = "year", value = "ED") %>%
+  group_by(stateroute) %>%
+  summarize(deltaED = `2011` - `1992`,
+            deltaED9201 = `2001` - `1992`,
+            deltaED0692 = `2006` - `1992`) %>%
+  mutate(pctT1 = abs(deltaED9201)/abs(deltaED)*100,
+         pctT2 = abs(deltaED0692)/abs(deltaED)*100) %>%
+  filter(pctT1 > 50 | pctT2 > 50) %>%
+  filter(stateroute %in% routes.short$stateroute) # 1483 routes
+
+## ID routes with no change in forest fragmentation 
+
+forestEDQ <- quantile(forest_deltaED$deltaED, c(0.33, 0.66, 1))
+
+forest_noEDchange <- forest_deltaED %>%
+  filter(deltaED > forestEDQ[1] & deltaED < forestEDQ[2])
+
+forest_frag_noChange <- forest_ed %>%
+  filter(stateroute %in% forest_noEDchange$stateroute) %>% # 489 routes
+  rename("forestED" = `2011`) %>%
+  dplyr::select(stateroute, forestED)
+
+## Community composition at routes with no change in forest fragmentation 
+
+forest_communities <- counts.forest %>%
+  left_join(forest_traits) %>%
+  filter(stateroute %in% forest_frag_noChange$stateroute) %>%
+  left_join(forest_frag_noChange) %>%
+  group_by(stateroute) %>%
+  distinct(aou, nHabitats2, volume, forestED) 
+
+# Plot: number of breeding habitats vs. forest edge density, color = proportion of species in each habitat bin
+forest_habitat_bins <- forest_communities %>%
+  group_by(stateroute) %>%
+  mutate(sppRich = n()) %>%
+  group_by(stateroute, nHabitats2) %>%
+  summarize(forestED = mean(forestED, na.rm = T),
+            propS = n()/mean(sppRich))
+
+ggplot(filter(forest_habitat_bins, !is.na(nHabitats2)), aes(x = forestED, y = factor(nHabitats2), z = propS)) +
+  stat_summary_2d(bins = 15) + scale_fill_viridis_c() +
+  labs(fill = "Prop. of species",
+       x = "Forest edge density",
+       y = "Number of breeding habitats")
+ggsave("figures/community_comparisons_forestED/heatplot_nhab_propS.pdf", units = "in", height = 8, width = 10)
+
+# Plot: mean number of breeding habitats of route
+
+forest_habitat_mean <- forest_communities %>%
+  group_by(forestED) %>%
+  summarize(meanHB = mean(nHabitats2, na.rm = T),
+            stdevHB = sd(nHabitats2, na.rm = T))
+
+ggplot(forest_habitat_mean, aes(x = forestED, y = meanHB)) + 
+  geom_errorbar(aes(ymin = meanHB - stdevHB, ymax = meanHB + stdevHB), alpha = 0.4) +
+  geom_point() + geom_smooth(method = "loess") +
+  labs(x = "Forest edge density", y = "Mean number of breeding habitats")
+ggsave("figures/community_comparisons_forestED/forestED_vs_meanhabitatbreadth.pdf", units = "in")
+
+# Things to do:
+## Consider cropping observations geographically (eastern deciduous forests)
+## Create scale bar for forest edge density routes
+## Try analysis for proportion urban as well?
