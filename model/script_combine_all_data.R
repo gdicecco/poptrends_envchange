@@ -929,6 +929,21 @@ summary(lm(route_traits_cont$pHabGen ~ route_traits_cont$landED))
 summary(lm(route_traits_cont$pVolSpec ~ route_traits_cont$landED))
 summary(lm(route_traits_cont$pVolGen ~ route_traits_cont$landED))
 
+# Mean number of habitats with variance
+habitat_mean <- clim_hab_poptrend %>%
+  filter(stateroute %in% routes_noEDchange$stateroute) %>%
+  left_join(routes_frag_noChange) %>%
+  rename(landED = `2011`) %>%
+  group_by(landED) %>%
+  summarize(meanHB = mean(nHabitats2, na.rm = T),
+            stdevHB = sd(nHabitats2, na.rm = T))
+
+ggplot(habitat_mean, aes(x = landED, y = meanHB)) + 
+  geom_errorbar(aes(ymin = meanHB - stdevHB, ymax = meanHB + stdevHB), alpha = 0.4) +
+  geom_point() + geom_smooth(method = "loess") +
+  labs(x = "Landscape edge density", y = "Mean number of breeding habitats")
+ggsave("figures/community_comparisons/landED_vs_meanhabitatbreadth.pdf", units = "in")
+
 
 ## Plot: map of these routes and their distribution in US
 
@@ -1225,11 +1240,16 @@ poptrend_forest <- clim_hab_poptrend %>%
 
 # Forest fragmentation at routes
 
-forest_ed <- frags %>% # 2314 routes
+forest_ed <- frags %>%
   left_join(newcode, by = c("class" = "code")) %>%
   group_by(stateroute, year) %>%
-  summarize(ED = sum(total.edge[legend == "Forest"])/sum(total.area)) %>%
-  spread(key = "year", value = "ED")
+  mutate(sum.area = sum(total.area)) %>%
+  filter(legend == "Forest") %>%
+  group_by(stateroute, year) %>%
+  summarize(ED = total.edge/sum.area,
+            propForest = prop.landscape) %>%
+  filter(year == 2011, propForest > 0.4) %>% # use filter to ID routes
+  arrange(ED)
 
 forest_deltaED <- frags %>% # 2314 routes
   left_join(newcode, by = c("class" = "code")) %>%
@@ -1243,7 +1263,7 @@ forest_deltaED <- frags %>% # 2314 routes
   mutate(pctT1 = abs(deltaED9201)/abs(deltaED)*100,
          pctT2 = abs(deltaED0692)/abs(deltaED)*100) %>%
   filter(pctT1 > 50 | pctT2 > 50) %>%
-  filter(stateroute %in% routes.short$stateroute) # 1483 routes
+  filter(stateroute %in% routes.short$stateroute)
 
 ## ID routes with no change in forest fragmentation 
 
@@ -1253,9 +1273,9 @@ forest_noEDchange <- forest_deltaED %>%
   filter(deltaED > forestEDQ[1] & deltaED < forestEDQ[2])
 
 forest_frag_noChange <- forest_ed %>%
-  filter(stateroute %in% forest_noEDchange$stateroute) %>% # 489 routes
-  rename("forestED" = `2011`) %>%
-  dplyr::select(stateroute, forestED)
+  filter(stateroute %in% forest_noEDchange$stateroute) %>%
+  dplyr::select(stateroute, ED) %>%
+  rename(forestED = ED)
 
 ## Community composition at routes with no change in forest fragmentation 
 
@@ -1294,7 +1314,86 @@ ggplot(forest_habitat_mean, aes(x = forestED, y = meanHB)) +
   labs(x = "Forest edge density", y = "Mean number of breeding habitats")
 ggsave("figures/community_comparisons_forestED/forestED_vs_meanhabitatbreadth.pdf", units = "in")
 
-# Things to do:
-## Consider cropping observations geographically (eastern deciduous forests)
-## Create scale bar for forest edge density routes
-## Try analysis for proportion urban as well?
+## Eastern deciduous forests only
+
+easternRoutes <- routes %>%
+  filter(longitude > -95)
+
+easternForest_habitat_mean <- forest_communities %>%
+  filter(stateroute %in% easternRoutes$stateroute) %>%
+  group_by(forestED) %>%
+  summarize(meanHB = mean(nHabitats2, na.rm = T),
+            stdevHB = sd(nHabitats2, na.rm = T))
+
+ggplot(easternForest_habitat_mean, aes(x = forestED, y = meanHB)) + 
+  geom_errorbar(aes(ymin = meanHB - stdevHB, ymax = meanHB + stdevHB), alpha = 0.4) +
+  geom_point() + geom_smooth(method = "loess") +
+  labs(x = "Forest edge density", y = "Mean number of breeding habitats")
+ggsave("figures/community_comparisons_forestED/easternforestED_vs_meanhabitatbreadth.pdf", units = "in")
+
+#### Community-level responses: proportion urban #####
+
+# Forest fragmentation at routes
+
+urban <- frags %>%
+  left_join(newcode, by = c("class" = "code")) %>%
+  group_by(stateroute, year) %>%
+  filter(legend == "Urban") %>%
+  group_by(stateroute, year) %>%
+  summarize(propUrban = prop.landscape)
+
+change_urban <- urban %>%
+  spread(key = "year", value = "propUrban") %>%
+  group_by(stateroute) %>%
+  summarize(deltaP = `2011` - `1992`,
+            deltaP9201 = `2001` - `1992`,
+            deltaP0692 = `2006` - `1992`) %>%
+  mutate(pctT1 = abs(deltaP9201)/abs(deltaP)*100,
+         pctT2 = abs(deltaP0692)/abs(deltaP)*100) %>%
+  filter(pctT1 > 50 | pctT2 > 50) %>%
+  filter(stateroute %in% routes.short$stateroute)
+
+## ID routes with no change in forest fragmentation 
+
+urbanQ <- quantile(change_urban$deltaP, c(0.33, 0.66, 1))
+
+urban_nochange <- change_urban %>%
+  filter(deltaP < urbanQ[1]) # this tercile closest to zero change
+
+urban_prop_noChange <- urban %>%
+  filter(stateroute %in% urban_nochange$stateroute) %>%
+  filter(year == 2011) %>%
+  dplyr::select(stateroute, propUrban)
+
+urban_communities <- counts.subs %>%
+  left_join(traits.short) %>%
+  filter(stateroute %in% urban_nochange$stateroute) %>%
+  left_join(urban_prop_noChange) %>%
+  group_by(stateroute) %>%
+  distinct(aou, nHabitats2, volume, propUrban) 
+
+# Plot: mean number of breeding habitats of route
+
+urban_habitat_mean <- urban_communities %>%
+  group_by(propUrban) %>%
+  summarize(meanHB = mean(nHabitats2, na.rm = T),
+            stdevHB = sd(nHabitats2, na.rm = T))
+
+ggplot(urban_habitat_mean, aes(x = propUrban, y = meanHB)) + 
+  geom_errorbar(aes(ymin = meanHB - stdevHB, ymax = meanHB + stdevHB), alpha = 0.4) +
+  geom_point() + geom_smooth(method = "loess") +
+  labs(x = "Proportion of landscape: Urban", y = "Mean number of breeding habitats")
+ggsave("figures/community_comparisons/propUrban_vs_meanhabitatbreadth.pdf", units = "in")
+
+# Plot: mean env niche breadth of route
+
+urban_vol_mean <- urban_communities %>%
+  group_by(propUrban) %>%
+  summarize(meanHB = mean(volume, na.rm = T),
+            stdevHB = sd(volume, na.rm = T))
+
+ggplot(urban_vol_mean, aes(x = propUrban, y = meanHB)) + 
+  geom_errorbar(aes(ymin = meanHB - stdevHB, ymax = meanHB + stdevHB), alpha = 0.4) +
+  geom_point() + geom_smooth(method = "loess") +
+  labs(x = "Proportion of landscape: Urban", y = "Mean environmental niche breadth")
+ggsave("figures/community_comparisons/propUrban_vs_meanenvbreadth.pdf", units = "in")

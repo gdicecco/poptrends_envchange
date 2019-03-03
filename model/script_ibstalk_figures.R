@@ -113,13 +113,19 @@ ggplot(counts_onespp, aes(x = year, y = speciestotal)) + geom_point() +
   theme(axis.title.y = element_text(size = 12)) +
   labs(x = "Year", y = "Abundance")
 
-### Plot of example routes for edge density
+### Plot of example routes for edge density scale
 setwd("//BioArk/hurlbertlab/DiCecco/nlcd_frag_proj_shapefiles/")
 bufferRoutes <- readOGR("bbsroutes_5km_buffer.shp")
 
 nlcd2011 <- raster("//BioArk/hurlbertlab/GIS/LandCoverData/nlcd_2011_landcover_2011_edition_2014_10_10/nlcd_2011_whole_simplified.tif")
 
 frags <- read.csv("\\\\BioArk\\hurlbertlab\\DiCecco\\data\\fragmentation_indices_nlcd_simplified.csv", stringsAsFactors = F)
+
+newcode <- data.frame(code = seq(1,9), 
+                      legend = c("Open water", "Urban", "Barren", "Forest", "Shrubland", 
+                                 "Agricultural", "Grasslands", "Wetlands", "Perennial ice, snow"))
+
+## landscape edge density
 
 route_ed <- frags %>%
   group_by(stateroute, year) %>%
@@ -154,3 +160,37 @@ plot(ED0.5, main = "Edge density = 0.500")
 plot(ED1.0, main = "Edge density = 1.000")
 dev.off()
 
+## forest edge density
+
+forest_ed <- frags %>%
+  left_join(newcode, by = c("class" = "code")) %>%
+  group_by(stateroute, year) %>%
+  mutate(sum.area = sum(total.area)) %>%
+  filter(legend == "Forest") %>%
+  group_by(stateroute, year) %>%
+  summarize(ED = total.edge/sum.area,
+            propForest = prop.landscape) %>%
+  filter(year == 2011, propForest> 0.5) %>% # use filter to ID routes
+  arrange(ED)
+
+bufferRoutes_transf <- spTransform(bufferRoutes, crs(nlcd2011))
+
+routeLow <- subset(bufferRoutes_transf, rteno == 63908)
+nlcd_crop <- crop(nlcd2011, routeLow)
+EDlow <- mask(nlcd_crop, routeLow)
+
+routeMed <- subset(bufferRoutes_transf, rteno == 85106)
+nlcd_cropMed <- crop(nlcd2011, routeMed)
+EDmed <- mask(nlcd_cropMed, routeMed)
+
+routeHigh <- subset(bufferRoutes_transf, rteno == 42039)
+nlcd_cropHigh <- crop(nlcd2011, routeHigh)
+EDHigh <- mask(nlcd_cropHigh, routeHigh)
+
+setwd("C:/Users/gdicecco/Desktop/git/NLCD_fragmentation/")
+pdf("figures/methods_figs/forest_edge_density_scale.pdf", height = 6, width = 8)
+par(mfrow = c(1,3))
+plot(EDlow, main = "Forest edge density = 0.056")
+plot(EDmed, main = "Forest edge density = 0.184")
+plot(EDHigh, main = "Forest edge density = 0.321")
+dev.off()
