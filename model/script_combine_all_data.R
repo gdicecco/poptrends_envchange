@@ -1257,20 +1257,15 @@ forest_deltaED <- frags %>% # 2314 routes
   summarize(ED = sum(total.edge[legend == "Forest"])/sum(total.area)) %>%
   spread(key = "year", value = "ED") %>%
   group_by(stateroute) %>%
-  summarize(deltaED = `2011` - `1992`,
-            deltaED9201 = `2001` - `1992`,
-            deltaED0692 = `2006` - `1992`) %>%
-  mutate(pctT1 = abs(deltaED9201)/abs(deltaED)*100,
-         pctT2 = abs(deltaED0692)/abs(deltaED)*100) %>%
-  filter(pctT1 > 50 | pctT2 > 50) %>%
+  summarize(deltaED = `2011` - `1992`) %>%
   filter(stateroute %in% routes.short$stateroute)
 
 ## ID routes with no change in forest fragmentation 
 
-forestEDQ <- quantile(forest_deltaED$deltaED, c(0.33, 0.66, 1))
+forestEDQ <- quantile(forest_deltaED$deltaED)
 
 forest_noEDchange <- forest_deltaED %>%
-  filter(deltaED > forestEDQ[1] & deltaED < forestEDQ[2])
+  filter(deltaED > forestEDQ[3] & deltaED < forestEDQ[4])
 
 forest_frag_noChange <- forest_ed %>%
   filter(stateroute %in% forest_noEDchange$stateroute) %>%
@@ -1345,17 +1340,12 @@ urban <- frags %>%
 change_urban <- urban %>%
   spread(key = "year", value = "propUrban") %>%
   group_by(stateroute) %>%
-  summarize(deltaP = `2011` - `1992`,
-            deltaP9201 = `2001` - `1992`,
-            deltaP0692 = `2006` - `1992`) %>%
-  mutate(pctT1 = abs(deltaP9201)/abs(deltaP)*100,
-         pctT2 = abs(deltaP0692)/abs(deltaP)*100) %>%
-  filter(pctT1 > 50 | pctT2 > 50) %>%
+  summarize(deltaP = `2011` - `1992`) %>%
   filter(stateroute %in% routes.short$stateroute)
 
 ## ID routes with no change in forest fragmentation 
 
-urbanQ <- quantile(change_urban$deltaP, c(0.33, 0.66, 1))
+urbanQ <- quantile(change_urban$deltaP, c(0.33, 0.66, 1), na.rm = T)
 
 urban_nochange <- change_urban %>%
   filter(deltaP < urbanQ[1]) # this tercile closest to zero change
@@ -1371,6 +1361,41 @@ urban_communities <- counts.subs %>%
   left_join(urban_prop_noChange) %>%
   group_by(stateroute) %>%
   distinct(aou, nHabitats2, volume, propUrban) 
+
+
+# Plot: number of breeding habitats vs. forest edge density, color = proportion of species in each habitat bin
+urban_habitat_bins <- urban_communities %>%
+  group_by(stateroute) %>%
+  mutate(sppRich = n()) %>%
+  group_by(stateroute, nHabitats2) %>%
+  summarize(propUrban = mean(propUrban, na.rm = T),
+            propS = n()/mean(sppRich))
+
+ggplot(filter(urban_habitat_bins, !is.na(nHabitats2)), aes(x = propUrban, y = factor(nHabitats2), z = propS)) +
+  stat_summary_2d(bins = 15) + scale_fill_viridis_c() +
+  labs(fill = "Prop. of species",
+       x = "Prop. landscape urban",
+       y = "Number of breeding habitats")
+ggsave("figures/community_comparisons/urban_heatplot_nhab_propS.pdf", units = "in", height = 8, width = 10)
+
+# Plot: env niche breadth vs. forest edge density, color = proportion of species in each habitat bin
+
+urban_vol_bins <- urban_communities %>%
+  group_by(stateroute) %>%
+  filter(!is.na(volume)) %>%
+  mutate(sppRich = n()) %>%
+  mutate(vol_bin = 0.2*floor(volume/0.2) + 0.2/2) %>%
+  group_by(stateroute, vol_bin) %>%
+  summarize(propUrban = mean(propUrban, na.rm = T),
+            propS = n()/mean(sppRich))
+
+ggplot(filter(urban_vol_bins, !is.na(vol_bin)), aes(x = propUrban, y = factor(vol_bin), z = propS)) +
+  stat_summary_2d(bins = 15) + scale_fill_viridis_c() +
+  labs(fill = "Prop. of species",
+       x = "Prop. landscape urban",
+       y = "Environmental niche breadth")
+ggsave("figures/community_comparisons/urban_heatplot_envniche_propS.pdf", units = "in", height = 8, width = 10)
+
 
 # Plot: mean number of breeding habitats of route
 
