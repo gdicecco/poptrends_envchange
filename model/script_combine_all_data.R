@@ -149,13 +149,7 @@ route_ed <- frags %>% # 2314 routes
   summarize(ED = sum(total.edge)/sum(total.area)) %>%
   spread(key = "year", value = "ED") %>%
   group_by(stateroute) %>%
-  summarize(deltaED = `2011` - `1992`,
-            deltaED9201 = `2001` - `1992`,
-            deltaED0692 = `2006` - `1992`) %>%
-  mutate(pctT1 = abs(deltaED9201)/abs(deltaED)*100,
-         pctT2 = abs(deltaED0692)/abs(deltaED)*100) %>%
-  filter(pctT1 > 50 | pctT2 > 50) %>% # 2289 routes
-  filter(stateroute %in% routes.short$stateroute) # 1497 routes
+  summarize(deltaED = `2011` - `1992`)
 
 # Trait data
 setwd("C:/Users/gdicecco/Desktop/git/NLCD_fragmentation/")
@@ -873,7 +867,7 @@ routes_noEDchange <- route_ed %>%
   filter(deltaED > landEDQ[1] & deltaED < landEDQ[2])
 
 routes_frag_noChange <- route_frag %>%
-  filter(stateroute %in% routes_noEDchange$stateroute) # 500 routes
+  filter(stateroute %in% routes_noEDchange$stateroute) # 763 routes
 
 ## Plot: Trait distribution comparisons between routes in fragmented and intact landscapes - continuous
 
@@ -930,7 +924,8 @@ summary(lm(route_traits_cont$pVolSpec ~ route_traits_cont$landED))
 summary(lm(route_traits_cont$pVolGen ~ route_traits_cont$landED))
 
 # Mean number of habitats with variance
-habitat_mean <- clim_hab_poptrend %>%
+habitat_mean <- counts.subs %>%
+  left_join(traits.short) %>%
   filter(stateroute %in% routes_noEDchange$stateroute) %>%
   left_join(routes_frag_noChange) %>%
   rename(landED = `2011`) %>%
@@ -1029,7 +1024,7 @@ clim_sig_trends <- climate_trends %>%
 
 routes_climchange_n <- clim_hab_poptrend %>%
   filter(stateroute %in% clim_sig_trends$stateroute) %>%
-  filter(stateroute %in% routelist_frag$stateroute) %>%
+  filter(stateroute %in% routes_noEDchange$stateroute) %>%
   left_join(route_frag) %>%
   mutate(abundDir = ifelse(trendPval > 0.05, "stable", ifelse(abundTrend > 0, "increasing", "decreasing"))) %>%
   group_by(stateroute, abundDir) %>%
@@ -1045,7 +1040,7 @@ ggsave("abund_trend_inc_dec_fragmentation.pdf", units = "in")
 
 routes_climchange_nochangeF <- clim_hab_poptrend %>%
   filter(stateroute %in% clim_sig_trends$stateroute) %>%
-  filter(stateroute %in% routelist_frag$stateroute) %>%
+  filter(stateroute %in% routes_noEDchange$stateroute) %>%
   left_join(route_frag) %>%
   left_join(routes) %>%
   dplyr::select(stateroute, latitude, longitude, deltaED, ppt, tmax, tmin, `2011`, -aou)
@@ -1070,15 +1065,28 @@ tmap_save(route_map, "routes_nochangeFragmentation_ClimChange_map.pdf", units = 
 
 ## Routes with increase in fragmentation
 
-inc_frag_routes <- route_ed %>%
+route_ed_change <- frags %>% # 2314 routes
+  left_join(newcode, by = c("class" = "code")) %>%
+  group_by(stateroute, year) %>%
+  summarize(ED = sum(total.edge)/sum(total.area)) %>%
+  spread(key = "year", value = "ED") %>%
+  group_by(stateroute) %>%
+  summarize(deltaED = `2011` - `1992`,
+            deltaED9201 = `2001` - `1992`,
+            deltaED0692 = `2006` - `1992`) %>%
+  mutate(pctT1 = abs(deltaED9201)/abs(deltaED)*100,
+         pctT2 = abs(deltaED0692)/abs(deltaED)*100) %>%
+  filter(pctT1 > 50 | pctT2 > 50) %>% # 2289 routes
+  filter(stateroute %in% routes.short$stateroute) # 1497 routes
+
+inc_frag_routes <- route_ed_change %>%
   filter(deltaED > landEDQ[2]) %>%
   left_join(routes)
-
-hist(inc_frag_sf$deltaED)
 
 ## Map of these routes:
 
 inc_frag_sf <- st_as_sf(inc_frag_routes, coords = c("longitude", "latitude"))
+hist(inc_frag_sf$deltaED)
 
 us <- tm_shape(us_sf) + tm_borders() + tm_fill(col = "gray")
 
@@ -1111,33 +1119,44 @@ bothT <- route_communities %>%
 route_communities_both <- route_communities %>%
   filter(stateroute %in% bothT$stateroute)
 
-## Change in % generalists on routes with increases in fragmentation
+## Change in composition on routes with increases in fragmentation
 
 route_percent_change <- route_communities_both %>%
-  group_by(stateroute, deltaED, time_window) %>%
+  group_by(deltaED, time_window) %>%
   summarize(sppRich = n(),
-            pctHabGen = sum(habitat == "generalist", na.rm = T)/n(),
-            pctVolGen = sum(envniche == "generalist", na.rm = T)/n()) %>%
-  group_by(stateroute, deltaED) %>%
+            meanHab = mean(nHabitats2, na.rm = T),
+            sdHab = sd(nHabitats2, na.rm = T),
+            meanVol = mean(volume, na.rm = T),
+            sdVol = sd(volume, na.rm = T)) %>%
+  group_by(deltaED) %>%
   summarize(dSpRich = sppRich[time_window == "t2"] - sppRich[time_window == "t1"],
-            dPctHab = pctHabGen[time_window == "t2"] - pctHabGen[time_window == "t1"],
-            dPctVol = pctVolGen[time_window == "t2"] - pctVolGen[time_window == "t1"]) %>%
-  left_join(climate_wide)
+            dmeanHab = meanHab[time_window == "t2"] - meanHab[time_window == "t1"],
+            dmeanVol = meanVol[time_window == "t2"] - meanVol[time_window == "t1"],
+            dsdHab = sdHab[time_window == "t2"] - sdHab[time_window == "t1"],
+            dsdVol = sdVol[time_window == "t2"] - sdVol[time_window == "t2"])
 
-pcthab <- ggplot(route_percent_change, aes(x = deltaED, y = dPctHab)) + geom_point() + geom_smooth(method = "lm", se = F) +
-  ylab("Change in % habitat generalists")
-pctvol <- ggplot(route_percent_change, aes(x = deltaED, y = dPctVol)) + geom_point() + geom_smooth(method = "lm", se = F) +
-  ylab("Change in % environmental niche generalists")
-plot_grid(pcthab, pctvol, nrow = 1)
-ggsave("deltaPercentGeneralists_inc_fragmentation.pdf", height = 6, width = 14, units = "in")
+meanhab <- ggplot(route_percent_change, aes(x = deltaED, y = dmeanHab)) + geom_point() + geom_smooth(method = "lm") +
+  labs(x = "Change in landscape edge density", y = "Change in mean number of breeding habitats")
+
+sdhab <- ggplot(route_percent_change, aes(x = deltaED, y = dsdHab)) + 
+  geom_point() + geom_smooth(method = "lm") +
+  labs(x = "Change in landscape edge density", y = "Change in std. dev in number of breeding habitats")
+
+meanvol <- ggplot(route_percent_change, aes(x = deltaED, y = dmeanVol)) +
+  geom_point() + geom_smooth(method = "lm") +
+  labs(x = "Change in landscape edge density", y = "Change in mean environmental niche breadth")
+
+sdvol <- ggplot(route_percent_change, aes(x = deltaED, y = dsdVol)) + 
+  geom_point() + geom_smooth(method = "lm")+
+  labs(x = "Change in landscape edge density", y = "Change in std. dev in environmental niche breadth")
+
+
+plot_grid(meanhab, sdhab, meanvol, sdvol, nrow = 2)
+ggsave("inc_fragmentation_change_means_variances.pdf", units = "in", height = 8, width = 10)
 
 ggplot(route_percent_change, aes(x = deltaED, y = dSpRich)) + geom_point() + geom_smooth(method = "lm", se = F) +
   ylab("Change in species richness")
 ggsave("inc_fragmentation_deltaSppRichness.pdf", units = "in")
-
-sppRichMod <- glm(dSpRich ~ deltaED + ppt + tmax + tmin + deltaED:tmax + deltaED:tmin, data = route_percent_change)
-habGenMod <- summary(lm(dPctHab ~ deltaED, data = route_percent_change))
-volGenMod <- summary(lm(dPctVol ~ deltaED, data = route_percent_change)) # dec. in deltaED predicts inc. in dPctVol
 
 ####### Community-level responses: raster heat maps ########
 
@@ -1378,7 +1397,7 @@ ggplot(filter(urban_habitat_bins, !is.na(nHabitats2)), aes(x = propUrban, y = fa
        y = "Number of breeding habitats")
 ggsave("figures/community_comparisons/urban_heatplot_nhab_propS.pdf", units = "in", height = 8, width = 10)
 
-# Plot: env niche breadth vs. forest edge density, color = proportion of species in each habitat bin
+# Plot: env niche breadth vs. urban land cover, color = proportion of species in each habitat bin
 
 urban_vol_bins <- urban_communities %>%
   group_by(stateroute) %>%
@@ -1422,3 +1441,5 @@ ggplot(urban_vol_mean, aes(x = propUrban, y = meanHB)) +
   geom_point() + geom_smooth(method = "loess") +
   labs(x = "Proportion of landscape: Urban", y = "Mean environmental niche breadth")
 ggsave("figures/community_comparisons/propUrban_vs_meanenvbreadth.pdf", units = "in")
+
+## Increases in proportion urban - change in community composition
