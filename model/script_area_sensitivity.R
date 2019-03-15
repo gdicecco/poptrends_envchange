@@ -174,16 +174,24 @@ cor(dplyr::select(clim_hab_poptrend, ppt, tmin, tmax, deltaED, deltaProp, ED, pr
 prop_spp <- clim_hab_poptrend %>%
   group_by(stateroute) %>%
   mutate(nSpp = n_distinct(aou)) %>%
-  group_by(stateroute, propForest, ED, Area_sensitivity) %>%
+  group_by(stateroute, propForest, ED, deltaED, deltaProp, Area_sensitivity) %>%
   summarize(propSpp = n_distinct(aou)/mean(nSpp))
 
-pFor <- ggplot(prop_spp, aes(x = propForest, y = propSpp, color = Area_sensitivity)) + 
+hist(prop_spp$deltaProp)
+stable_cover <- prop_spp %>%
+  filter(deltaProp < 0.05, deltaProp > -0.05)
+
+hist(prop_spp$deltaED)
+stable_ED <- prop_spp %>%
+  filter(deltaED < 0.05, deltaED > -0.05)
+
+pFor <- ggplot(stable_cover, aes(x = propForest, y = propSpp, color = Area_sensitivity)) + 
   geom_point() + geom_smooth(se= F) +
   scale_color_viridis_d(begin = 0.5) +
   theme(legend.position = "none") +
   labs(x = "Proportion forest cover", y = "Proportion of species", color = "Area sensitivity")
 
-edFor <- ggplot(prop_spp, aes(x = ED, y = propSpp, color = Area_sensitivity)) + 
+edFor <- ggplot(stable_ED, aes(x = ED, y = propSpp, color = Area_sensitivity)) + 
   geom_point() + geom_smooth(se= F) +
   scale_color_viridis_d(begin = 0.5) +
   labs(x = "Forest edge density", y = "Proportion of species", color = "Area sensitivity")
@@ -294,9 +302,9 @@ ggplot(filter(model_fits, term == param), aes(x = reorder(aou, estimate), y = es
 ggsave(paste0("figures/area_sensitivity/", param, "_estimates.pdf"), units = "in", height = 6, width = 10)
 }
 
-
+# Use z-score abundance trends, not env. variables
 theme_set(theme_bw())
-ggplot(clim_hab_poptrend_z, aes(x = deltaED, y = abundTrend, color = factor(aou))) +
+ggplot(clim_hab_poptrend, aes(x = deltaED, y = abundTrend_z, color = factor(aou))) +
   geom_point(alpha = 0.15) +
   geom_smooth(method = "lm", se = F) +
   scale_color_viridis_d() + facet_wrap(~Area_sensitivity) +
@@ -304,7 +312,7 @@ ggplot(clim_hab_poptrend_z, aes(x = deltaED, y = abundTrend, color = factor(aou)
   labs(x = "Change in forest edge density", y = "Abundance trend")
 ggsave("figures/area_sensitivity/abundance_trends_deltaED.pdf", units = "in")
 
-ggplot(clim_hab_poptrend_z, aes(x = deltaProp, y = abundTrend, color = factor(aou))) +
+ggplot(clim_hab_poptrend, aes(x = deltaProp, y = abundTrend_z, color = factor(aou))) +
   geom_point(alpha = 0.15) +
   geom_smooth(method = "lm", se = F) +
   scale_color_viridis_d() + facet_wrap(~Area_sensitivity) + 
@@ -312,19 +320,27 @@ ggplot(clim_hab_poptrend_z, aes(x = deltaProp, y = abundTrend, color = factor(ao
   labs(x = "Change in proportion of forest cover", y = "Abundance trend")
 ggsave("figures/area_sensitivity/abundance_trends_deltaProp.pdf", units = "in")
 
-spp_slopes <- clim_hab_poptrend_z %>%
+spp_slopes_both <- clim_hab_poptrend_z %>%
   group_by(Area_sensitivity, aou) %>%
   nest() %>%
   mutate(lm = map(data, ~{
     df <- .
-    tidy(lm(abundTrend ~ deltaED, data = df))
+    tidy(lm(abundTrend_z ~ deltaProp + deltaED, data = df))
   })) %>%
   dplyr::select(Area_sensitivity, aou, lm) %>%
   unnest() %>%
   mutate(upper = estimate + 1.96*std.error, 
          lower = estimate - 1.96*std.error)
 
-ggplot(filter(spp_slopes, term == "deltaED"), 
+ggplot(filter(spp_slopes_both, term == "deltaProp"), 
+       aes(x = reorder(factor(aou), estimate), y = estimate, color = Area_sensitivity)) +
+  geom_point() + geom_errorbar(aes(ymin = lower, ymax = upper)) +
+  geom_hline(yintercept = 0, size = 1, lty = 2) +
+  theme(axis.text.x = element_text(angle = 90, hjust = 1)) +
+  labs(x = "AOU", y = "Parameter estimate: abundance trend ~ change in forest cover")
+ggsave("figures/area_sensitivity/abundance_slopes_deltaProp.pdf", units = "in")
+
+ggplot(filter(spp_slopes_both, term == "deltaED"), 
        aes(x = reorder(factor(aou), estimate), y = estimate, color = Area_sensitivity)) +
   geom_point() + geom_errorbar(aes(ymin = lower, ymax = upper)) +
   geom_hline(yintercept = 0, size = 1, lty = 2) +
@@ -332,26 +348,23 @@ ggplot(filter(spp_slopes, term == "deltaED"),
   labs(x = "AOU", y = "Parameter estimate: abundance trend ~ change in forest ED")
 ggsave("figures/area_sensitivity/abundance_slopes_deltaED.pdf", units = "in")
 
+
 #### Make a joint model: fixed effects[climate + forest + area_sensitivity] + random slopes/intercepts[species]
 # Z-score abundance trends?
 
-modclim <- lm(abundTrend_z ~ tmax + tmin + ppt + Area_sensitivity, data = clim_hab_poptrend_z)
-anova(modclim)
-AIC(modclim)
+clim_hab_poptrend_z$aou <- as.factor(clim_hab_poptrend_z$aou)
 
 modland <- lm(abundTrend_z ~ deltaProp + deltaED*Area_sensitivity, data = clim_hab_poptrend_z)
 anova(modland)
 AIC(modland)
 
-modall <- lm(abundTrend_z ~ tmax + tmin + ppt + deltaProp + deltaED*Area_sensitivity, data = clim_hab_poptrend_z)
-anova(modall)
-AIC(modall)
+remodland <- lme(abundTrend_z ~ deltaProp + deltaED*Area_sensitivity, random = (~0 + aou|aou), data = clim_hab_poptrend_z)
+anova(remodland)
+AIC(remodland)
 
-remod <- lme(abundTrend_z ~ tmax + tmin + ppt, random = ~1|aou, data = clim_hab_poptrend_z, method = "ML")
-reslopemod <- lme(abundTrend_z ~ deltaProp + deltaED + Area_sensitivity, random = ~1|aou, data = clim_hab_poptrend_z, method = "ML")
-
-rimod.pop.pred <- predict(reslopemod, level = 0)
-rimod.cor.pred <- predict(reslopemod, level = 1)
+reintmodland <- lme(abundTrend_z ~ deltaProp + deltaED*Area_sensitivity, random = (~1|aou), data = clim_hab_poptrend_z)
+anova(reintmodland)
+AIC(reintmodland)
 
 ## Categorical comparisons between abundance trends at routes: is tolerance to climate change different betw groups at routes with high and low fragmentation
 
