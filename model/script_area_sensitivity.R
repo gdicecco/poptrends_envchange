@@ -178,20 +178,17 @@ prop_spp <- clim_hab_poptrend %>%
   summarize(propSpp = n_distinct(aou)/mean(nSpp))
 
 hist(prop_spp$deltaProp)
-stable_cover <- prop_spp %>%
-  filter(deltaProp < 0.05, deltaProp > -0.05)
-
 hist(prop_spp$deltaED)
-stable_ED <- prop_spp %>%
-  filter(deltaED < 0.05, deltaED > -0.05)
+stable <- prop_spp %>%
+  filter(deltaProp < 0.05, deltaProp > -0.05, deltaED < 0.05, deltaED > -0.05)
 
-pFor <- ggplot(stable_cover, aes(x = propForest, y = propSpp, color = Area_sensitivity)) + 
+pFor <- ggplot(stable, aes(x = propForest, y = propSpp, color = Area_sensitivity)) + 
   geom_point() + geom_smooth(se= F) +
   scale_color_viridis_d(begin = 0.5) +
   theme(legend.position = "none") +
   labs(x = "Proportion forest cover", y = "Proportion of species", color = "Area sensitivity")
 
-edFor <- ggplot(stable_ED, aes(x = ED, y = propSpp, color = Area_sensitivity)) + 
+edFor <- ggplot(stable, aes(x = ED, y = propSpp, color = Area_sensitivity)) + 
   geom_point() + geom_smooth(se= F) +
   scale_color_viridis_d(begin = 0.5) +
   labs(x = "Forest edge density", y = "Proportion of species", color = "Area sensitivity")
