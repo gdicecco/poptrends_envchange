@@ -12,7 +12,7 @@ library(cowplot)
 library(sf)
 library(forcats)
 library(MuMIn)
-library(lme4)
+library(nlme)
 
 ### Read in data
 
@@ -115,7 +115,8 @@ forest_ed <- frags %>%
   filter(legend == "Forest") %>%
   group_by(stateroute, year) %>%
   summarize(ED = total.edge/sum.area,
-            propForest = prop.landscape) %>%
+            propForest = prop.landscape,
+            meanPatchArea = mean.patch.area) %>%
   filter(year == 2011, propForest > 0.25) %>% # use filter to ID routes
   arrange(ED)
 
@@ -241,6 +242,38 @@ label_x = 0.735,
 label_y = c(1, 1))
 ggsave("figures/area_sensitivity/trait_distribution.pdf", units = "in")
 
+# Breadth of forest ED and forest cover for area and non-area sensitive species
+
+env_breadth <- clim_hab_poptrend %>%
+  dplyr::group_by(Area_sensitivity, aou) %>%
+  summarize(ed = mean(ED),
+            sterr_ed = sd(ED)/sqrt(length(ED)),
+            propFor = mean(propForest),
+            sterr_for = sd(propForest)/sqrt(length(propForest)),
+            patchArea = mean(meanPatchArea),
+            sterr_patch = sd(meanPatchArea)/sqrt(length(meanPatchArea)))
+
+ed_breadth <- ggplot(env_breadth, aes(x = reorder(aou, ed), y = ed, color = Area_sensitivity)) +
+  geom_point() + 
+  geom_errorbar(aes(ymin = ed - 1.96*sterr_ed, ymax = ed + 1.96*sterr_ed)) +
+  theme(axis.text.x = element_text(angle = 90, hjust = 1)) +
+  labs(x = "AOU", y = "Forest edge density")
+
+cover_breadth <- ggplot(env_breadth, aes(x = reorder(aou, propFor), y = propFor, color = Area_sensitivity)) +
+  geom_point() + 
+  geom_errorbar(aes(ymin = propFor - 1.96*sterr_for, ymax = propFor + 1.96*sterr_for)) +
+  theme(axis.text.x = element_text(angle = 90, hjust = 1)) +
+  labs(x = "AOU", y = "Forest cover")
+
+patch_breadth <- ggplot(env_breadth, aes(x = reorder(aou, patchArea), y = patchArea, color = Area_sensitivity)) +
+  geom_point() + 
+  geom_errorbar(aes(ymin = patchArea - 1.96*sterr_for, ymax = patchArea + 1.96*sterr_for)) +
+  theme(axis.text.x = element_text(angle = 90, hjust = 1)) +
+  labs(x = "AOU", y = "Mean patch area")
+
+plot_grid(ed_breadth, cover_breadth, patch_breadth, nrow = 3)
+ggsave("figures/area_sensitivity/forest_breadth.pdf", units = "in", height = 12, width = 15)
+
 ### Individual models of climate + frag + loss + climate:frag + climate:loss for species
 
 z <- function(x) {(x - mean(x, na.rm = T))/sd(x, na.rm = T)}
@@ -301,11 +334,8 @@ ggsave(paste0("figures/area_sensitivity/", param, "_estimates.pdf"), units = "in
 
 # Use z-score abundance trends, not env. variables
 theme_set(theme_bw())
-<<<<<<< HEAD
-ggplot(clim_hab_poptrend, aes(x = deltaED, y = abundTrend_z, color = factor(aou))) +
-=======
+
 ggplot(clim_hab_poptrend_z, aes(x = deltaED, y = abundTrend_z, color = factor(aou))) +
->>>>>>> 5d14da1359d506faf1c29c78fbfadd65c744e0fe
   geom_point(alpha = 0.15) +
   geom_smooth(method = "lm", se = F) +
   scale_color_viridis_d() + facet_wrap(~Area_sensitivity) +
@@ -313,11 +343,7 @@ ggplot(clim_hab_poptrend_z, aes(x = deltaED, y = abundTrend_z, color = factor(ao
   labs(x = "Change in forest edge density", y = "Abundance trend")
 ggsave("figures/area_sensitivity/abundance_trends_deltaED.pdf", units = "in")
 
-<<<<<<< HEAD
-ggplot(clim_hab_poptrend, aes(x = deltaProp, y = abundTrend_z, color = factor(aou))) +
-=======
 ggplot(clim_hab_poptrend_z, aes(x = deltaProp, y = abundTrend_z, color = factor(aou))) +
->>>>>>> 5d14da1359d506faf1c29c78fbfadd65c744e0fe
   geom_point(alpha = 0.15) +
   geom_smooth(method = "lm", se = F) +
   scale_color_viridis_d() + facet_wrap(~Area_sensitivity) + 
@@ -330,11 +356,7 @@ spp_slopes_both <- clim_hab_poptrend_z %>%
   nest() %>%
   mutate(lm = map(data, ~{
     df <- .
-<<<<<<< HEAD
     tidy(lm(abundTrend_z ~ deltaProp + deltaED, data = df))
-=======
-    tidy(lm(abundTrend_z ~ deltaED, data = df))
->>>>>>> 5d14da1359d506faf1c29c78fbfadd65c744e0fe
   })) %>%
   dplyr::select(Area_sensitivity, aou, lm) %>%
   unnest() %>%
@@ -357,29 +379,39 @@ ggplot(filter(spp_slopes_both, term == "deltaED"),
   labs(x = "AOU", y = "Parameter estimate: abundance trend ~ change in forest ED")
 ggsave("figures/area_sensitivity/abundance_slopes_deltaED.pdf", units = "in")
 
-<<<<<<< HEAD
-=======
-spp_slopes_for <- clim_hab_poptrend_z %>%
+# Variance partitioning of change in forest cover and edge density for each species
+
+spp_varpart <- clim_hab_poptrend_z %>%
   group_by(Area_sensitivity, aou) %>%
   nest() %>%
-  mutate(lm = map(data, ~{
+  mutate(both = map(data, ~{
     df <- .
-    tidy(lm(abundTrend_z ~ deltaProp, data = df))
+    summary(lm(abundTrend_z ~ deltaProp + deltaED, data = df))$r.squared
   })) %>%
-  dplyr::select(Area_sensitivity, aou, lm) %>%
+  mutate(propFor = map(data, ~{
+    df <- .
+    summary(lm(abundTrend_z ~ deltaProp, data = df))$r.squared
+  })) %>%
+  mutate(ED = map(data, ~{
+    df <- .
+    summary(lm(abundTrend_z ~ deltaED, data = df))$r.squared
+  })) %>%
+  dplyr::select(Area_sensitivity, aou, both, propFor, ED) %>%
   unnest() %>%
-  mutate(upper = estimate + 1.96*std.error, 
-         lower = estimate - 1.96*std.error)
+  mutate(forest_cover = both - ED,
+         forest_ED = both - propFor,
+         shared = propFor - forest_cover) %>%
+  dplyr::select(Area_sensitivity, aou, forest_cover, forest_ED, shared) %>%
+  gather(key = "variable", value = "variance", c(3:5)) %>%
+  group_by(aou) %>%
+  mutate(total = sum(variance))
 
-ggplot(filter(spp_slopes_for, term == "deltaProp"), 
-       aes(x = reorder(factor(aou), estimate), y = estimate, color = Area_sensitivity)) +
-  geom_point() + geom_errorbar(aes(ymin = lower, ymax = upper)) +
-  geom_hline(yintercept = 0, size = 1, lty = 2) +
-  theme(axis.text.x = element_text(angle = 90, hjust = 1)) +
-  labs(x = "AOU", y = "Parameter estimate: abundance trend ~ change in forest cover")
-ggsave("figures/area_sensitivity/abundance_slopes_deltaProp.pdf", units = "in")
-
->>>>>>> 5d14da1359d506faf1c29c78fbfadd65c744e0fe
+ggplot(spp_varpart, aes(x = reorder(aou, total), y = variance, fill = variable)) +
+  geom_col(position = "stack") +
+  theme(axis.text.x = element_text(angle = 90, hjust = 1)) + 
+  labs(x = "AOU", y = "Variance explained", fill = "") +
+  scale_fill_viridis_d()
+ggsave("figures/area_sensitivity/variance_partition_abundTrend.pdf", units = "in", height = 7, width = 12)  
 
 #### Make a joint model: fixed effects[climate + forest + area_sensitivity] + random slopes/intercepts[species]
 # Z-score abundance trends?
