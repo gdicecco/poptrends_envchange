@@ -4,6 +4,8 @@ library(nlme)
 
 clim_hab_poptrend_mixedmod <- read.csv("clim_hab_poptrend_mixedmod.csv", stringsAsFactors = F)
 
+print(memory.limit())
+
 randomslope_add <- lme(abundTrend ~ tmin + tmax + ppt + deltaED + deltaProp + Wintering_Slimit_general + Area_sensitivity, 
                        random = (~SPEC|SPEC), 
                        data = clim_hab_poptrend_mixedmod, method = "ML")
