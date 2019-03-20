@@ -1,76 +1,76 @@
-Common_name,Scientific_name,Area_sensitivity
-Northern bobwhite,Colinus virginianus,Non-area-sensitive
-Mourning dove,Zenaida macroura,Non-area-sensitive
-Red-tailed hawk,Buteo jamaicensis,Non-area-sensitive
-Barred owl,Strix varia,Non-area-sensitive
-Eastern screech-owl,Otus asio,Non-area-sensitive
-Great horned owl,Bubo virginianus,Non-area-sensitive
-Yellow-billed cuckoo,Coccyzus americanus,Non-area-sensitive
-Black-billed cuckoo,Coccyzus erythropthalmus,Non-area-sensitive
-Downy woodpecker,Picoides pubescens,Non-area-sensitive
-Red-headed woodpecker,Melanerpes erythrocephalus,Non-area-sensitive
-Northern flicker,Colaptes auratus,Non-area-sensitive
-Chuck-will’s-widow,Caprimulgus carolinensis,Non-area-sensitive
-Whip-poor-will,Caprimulgus vociferus,Non-area-sensitive
-Ruby-throated hummingbird,Archilochus colubris,Non-area-sensitive
-Eastern wood-pewee,Contopus virens,Non-area-sensitive
-Blue jay,Cyanocitta cristata,Non-area-sensitive
-Common raven,Corvus corax,Non-area-sensitive
-Fish crow,Corvus ossifragus,Non-area-sensitive
-European starling,Sturnus vulgaris,Non-area-sensitive
-Brown-headed cowbird,Molothrus ater,Non-area-sensitive
-Baltimore oriole,Icterus galbula,Non-area-sensitive
-Common grackle,Quiscalus quiscula,Non-area-sensitive
-American goldfinch,Carduelis tristis,Non-area-sensitive
-Eastern towhee,Pipilo erythrophthalmus,Non-area-sensitive
-Northern cardinal,Cardinalis cardinalis,Non-area-sensitive
-Indigo bunting,Passerina cyanea,Non-area-sensitive
-Cedar waxwing,Bombycilla cedrorum,Non-area-sensitive
-Yellow-throated vireo,Vireo flavifrons,Non-area-sensitive
-Blue-headed vireo,Vireo solitarius,Non-area-sensitive
-White-eyed vireo,Vireo griseus,Non-area-sensitive
-Prothonotary warbler,Protonotaria citrea,Non-area-sensitive
-Magnolia warbler,Dendroica magnolia,Non-area-sensitive
-Chestnut-sided warbler,Dendroica pensylvanica,Non-area-sensitive
-Yellow-throated warbler,Dendroica dominica,Non-area-sensitive
-Black-throated green warbler,Dendroica virens,Non-area-sensitive
-Pine warbler,Dendroica pinus,Non-area-sensitive
-Prairie warbler,Dendroica discolor,Non-area-sensitive
-Common yellowthroat,Geothlypis trichas,Non-area-sensitive
-Yellow-breasted chat,Icteria virens,Non-area-sensitive
-Hooded warbler,Wilsonia citrina,Non-area-sensitive
-American redstart,Setophaga ruticilla,Non-area-sensitive
-Gray catbird,Dumetella carolinensis,Non-area-sensitive
-Carolina wren,Thryothorus ludovicianus,Non-area-sensitive
-House wren,Troglodytes aedon,Non-area-sensitive
-Brown creeper,Certhia americana,Non-area-sensitive
-Brown-headed nuthatch,Sitta pusilla,Non-area-sensitive
-Black-capped chickadee,Poecile atricapillus,Non-area-sensitive
-Carolina chickadee,Poecile carolinensis,Non-area-sensitive
-American robin,Turdus migratorius,Non-area-sensitive
-Red-shouldered hawk,Buteo lineatus,Area-sensitive
-Hairy woodpecker,Picoides villosus,Area-sensitive
-Pileated woodpecker,Dryocopus pileatus,Area-sensitive
-Red-bellied woodpecker,Melanerpes carolinus,Area-sensitive
-Great crested flycatcher,Myiarchus crinitus,Area-sensitive
-Acadian flycatcher,Empidonax virescens,Area-sensitive
-American crow,Corvus brachyrhynchos,Area-sensitive
-Rose-breasted grosbeak,Pheucticus ludovicianus,Area-sensitive
-Scarlet tanager,Piranga olivacea,Area-sensitive
-Summer tanager,Piranga rubra,Area-sensitive
-Red-eyed vireo,Vireo olivaceus,Area-sensitive
-Black-&-white warbler,Mniotilta varia,Area-sensitive
-Worm-eating warbler,Helmitheros vermivorus,Area-sensitive
-Northern parula,Parula americana,Area-sensitive
-Black-throated blue warbler,Dendroica caerulescens,Area-sensitive
-Cerulean warbler,Dendroica cerulea,Area-sensitive
-Ovenbird,Seiurus aurocapillus,Area-sensitive
-Northern waterthrush,Seiurus noveboracensis,Area-sensitive
-Louisiana waterthrush,Seiurus motacilla,Area-sensitive
-Kentucky warbler,Oporornis formosus,Area-sensitive
-Canada warbler,Wilsonia canadensis,Area-sensitive
-White-breasted nuthatch,Sitta carolinensis,Area-sensitive
-Tufted titmouse,Barolophus bicolor,Area-sensitive
-Blue-gray gnatcatcher,Polioptila caerulea,Area-sensitive
-Wood thrush,Hylocichla mustelina,Area-sensitive
-Veery,Catharus fuscescens,Area-sensitive
+Common_name,Scientific_name,Area_sensitivity,,Wintering_Slimit_specific,Wintering_Slimit_general
+Northern bobwhite,Colinus virginianus,Non-area-sensitive,,US,US
+Mourning dove,Zenaida macroura,Non-area-sensitive,,US,US
+Red-tailed hawk,Buteo jamaicensis,Non-area-sensitive,,NA,NA
+Barred owl,Strix varia,Non-area-sensitive,,NA,NA
+Eastern screech-owl,Otus asio,Non-area-sensitive,,NA,NA
+Great horned owl,Bubo virginianus,Non-area-sensitive,,NA,NA
+Yellow-billed cuckoo,Coccyzus americanus,Non-area-sensitive,,Central South America,South America
+Black-billed cuckoo,Coccyzus erythropthalmus,Non-area-sensitive,,Northern South America,South America
+Downy woodpecker,Picoides pubescens,Non-area-sensitive,,US,US
+Red-headed woodpecker,Melanerpes erythrocephalus,Non-area-sensitive,,US,US
+Northern flicker,Colaptes auratus,Non-area-sensitive,,US,US
+Chuck-will’s-widow,Caprimulgus carolinensis,Non-area-sensitive,,NA,NA
+Whip-poor-will,Caprimulgus vociferus,Non-area-sensitive,,NA,NA
+Ruby-throated hummingbird,Archilochus colubris,Non-area-sensitive,,Costa Rica,Central America
+Eastern wood-pewee,Contopus virens,Non-area-sensitive,,Northern South America,South America
+Blue jay,Cyanocitta cristata,Non-area-sensitive,,US,US
+Common raven,Corvus corax,Non-area-sensitive,,US,US
+Fish crow,Corvus ossifragus,Non-area-sensitive,,US,US
+European starling,Sturnus vulgaris,Non-area-sensitive,,US/Mexico,Mexico
+Brown-headed cowbird,Molothrus ater,Non-area-sensitive,,US/Mexico,Mexico
+Baltimore oriole,Icterus galbula,Non-area-sensitive,,Northern South America,South America
+Common grackle,Quiscalus quiscula,Non-area-sensitive,,US,US
+American goldfinch,Carduelis tristis,Non-area-sensitive,,US/Mexico,Mexico
+Eastern towhee,Pipilo erythrophthalmus,Non-area-sensitive,,US,US
+Northern cardinal,Cardinalis cardinalis,Non-area-sensitive,,US,US
+Indigo bunting,Passerina cyanea,Non-area-sensitive,,Panama,Central America
+Cedar waxwing,Bombycilla cedrorum,Non-area-sensitive,,US,US
+Yellow-throated vireo,Vireo flavifrons,Non-area-sensitive,,Northern South America,South America
+Blue-headed vireo,Vireo solitarius,Non-area-sensitive,,Nicaragua,Central America
+White-eyed vireo,Vireo griseus,Non-area-sensitive,,Honduras,Central America
+Prothonotary warbler,Protonotaria citrea,Non-area-sensitive,,Northern South America,South America
+Magnolia warbler,Dendroica magnolia,Non-area-sensitive,,Panama,Central America
+Chestnut-sided warbler,Dendroica pensylvanica,Non-area-sensitive,,Panama,Central America
+Yellow-throated warbler,Dendroica dominica,Non-area-sensitive,,Honduras,Central America
+Black-throated green warbler,Dendroica virens,Non-area-sensitive,,Northern South America,South America
+Pine warbler,Dendroica pinus,Non-area-sensitive,,US,US
+Prairie warbler,Dendroica discolor,Non-area-sensitive,,Honduras/Caribbean,Caribbean
+Common yellowthroat,Geothlypis trichas,Non-area-sensitive,,Panama,Central America
+Yellow-breasted chat,Icteria virens,Non-area-sensitive,,Costa Rica,Central America
+Hooded warbler,Wilsonia citrina,Non-area-sensitive,,Costa Rica,Central America
+American redstart,Setophaga ruticilla,Non-area-sensitive,,Northern South America,South America
+Gray catbird,Dumetella carolinensis,Non-area-sensitive,,Panama,Central America
+Carolina wren,Thryothorus ludovicianus,Non-area-sensitive,,US,US
+House wren,Troglodytes aedon,Non-area-sensitive,,Mexico,Mexico
+Brown creeper,Certhia americana,Non-area-sensitive,,US/Mexico,Mexico
+Brown-headed nuthatch,Sitta pusilla,Non-area-sensitive,,US,US
+Black-capped chickadee,Poecile atricapillus,Non-area-sensitive,,US,US
+Carolina chickadee,Poecile carolinensis,Non-area-sensitive,,US,US
+American robin,Turdus migratorius,Non-area-sensitive,,US/Mexico,Mexico
+Red-shouldered hawk,Buteo lineatus,Area-sensitive,,NA,NA
+Hairy woodpecker,Picoides villosus,Area-sensitive,,US,US
+Pileated woodpecker,Dryocopus pileatus,Area-sensitive,,US,US
+Red-bellied woodpecker,Melanerpes carolinus,Area-sensitive,,US,US
+Great crested flycatcher,Myiarchus crinitus,Area-sensitive,,Northern South America,South America
+Acadian flycatcher,Empidonax virescens,Area-sensitive,,Northern South America,South America
+American crow,Corvus brachyrhynchos,Area-sensitive,,US,US
+Rose-breasted grosbeak,Pheucticus ludovicianus,Area-sensitive,,Northern South America,South America
+Scarlet tanager,Piranga olivacea,Area-sensitive,,Northern South America,South America
+Summer tanager,Piranga rubra,Area-sensitive,,Northern South America,South America
+Red-eyed vireo,Vireo olivaceus,Area-sensitive,,Northern South America,South America
+Black-and-white warbler,Mniotilta varia,Area-sensitive,,Northern South America,South America
+Worm-eating warbler,Helmitheros vermivorus,Area-sensitive,,Panama,Central America
+Northern parula,Parula americana,Area-sensitive,,Honduras,Central America
+Black-throated blue warbler,Dendroica caerulescens,Area-sensitive,,Caribbean,Caribbean
+Cerulean warbler,Dendroica cerulea,Area-sensitive,,Northern South America,South America
+Ovenbird,Seiurus aurocapillus,Area-sensitive,,Panama,Central America
+Northern waterthrush,Seiurus noveboracensis,Area-sensitive,,Northern South America,South America
+Louisiana waterthrush,Seiurus motacilla,Area-sensitive,,Panama,Central America
+Kentucky warbler,Oporornis formosus,Area-sensitive,,Panama,Central America
+Canada warbler,Wilsonia canadensis,Area-sensitive,,Northern South America,South America
+White-breasted nuthatch,Sitta carolinensis,Area-sensitive,,US,US
+Tufted titmouse,Barolophus bicolor,Area-sensitive,,US,US
+Blue-gray gnatcatcher,Polioptila caerulea,Area-sensitive,,Honduras,Central America
+Wood thrush,Hylocichla mustelina,Area-sensitive,,Panama,Central America
+Veery,Catharus fuscescens,Area-sensitive,,Northern South America,South America

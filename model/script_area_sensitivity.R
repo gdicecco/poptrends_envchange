@@ -16,7 +16,7 @@ library(nlme)
 
 ### Read in data
 
-# Population data
+# Bird population data
 ## BBS
 ## List of species observed in BCRs of interest during time window (1990-present)
 routes <- read.csv("\\\\BioArk\\HurlbertLab\\Databases\\BBS\\2017\\bbs_routes_20170712.csv")
@@ -34,6 +34,12 @@ weather$stateroute <-weather$statenum*1000 + weather$route
 RT1 <- subset(weather, runtype == 1, select = c("stateroute", "year"))
 RT1.routes <- merge(RT1, routes[ , c("statenum", "stateroute", "latitude", "longitude","bcr")], by = "stateroute", all.x = TRUE)
 counts$stateroute <- counts$statenum*1000 + counts$route
+
+# species four letter codes
+setwd("\\\\BioArk\\hurlbertlab\\DiCecco\\data\\")
+setwd("/Volumes/hurlbertlab/DiCecco/data/")
+spp_codes <- read.csv("four_letter_codes_birdspp.csv", stringsAsFactors = F)
+spp_codes$common_name_lower <- tolower(spp_codes$COMMONNAME)
 
 # subset routes that are between 38000 and 42000 m, remove Alaska (rteno between 3000 and 4000)
 setwd("\\\\BioArk/hurlbertlab/Databases/BBS/GPS_stoplocations/")
@@ -58,20 +64,22 @@ routes.short <- RT1.routes %>%
 
 setwd("C:/Users/gdicecco/Desktop/git/NLCD_fragmentation/")
 area_sensitive <- read.csv("traits/area-sensitivity-forest-birds-Bouliner1998.csv", stringsAsFactors = F)
+area_sensitive <- area_sensitive[, -c(4)]
 
 species$common_name_lower <- tolower(species$english_common_name)
 area_sensitive$common_name_lower <- tolower(area_sensitive$Common_name)
 
 # Species that don't match: Northern Flicker (4120), Chuck-will's-widow (4160), Whip-poor-will (4171), Black-and-white warbler (6360)
-spp_aous <- data.frame(common_name_lower = c("northern flicker", "chuck-will’s-widow", "whip-poor-will", "black-&-white warbler"),
-                       aou = c(4120, 4160, 4171, 6360)) %>%
+spp_aous <- data.frame(common_name_lower = c("northern flicker", "chuck-will’s-widow", "whip-poor-will"),
+                       aou = c(4120, 4160, 4171)) %>%
   left_join(area_sensitive) %>%
   left_join(dplyr::select(species, -common_name_lower), by = "aou")
 
 area_aous <- area_sensitive %>%
   left_join(species) %>%
   filter(!is.na(aou)) %>%
-  bind_rows(spp_aous)
+  bind_rows(spp_aous) %>%
+  left_join(spp_codes)
 
 ## Population trends
 counts.subs <- counts %>%
@@ -84,8 +92,17 @@ setwd("\\\\BioArk\\hurlbertlab\\DiCecco\\data\\")
 setwd("/Volumes/hurlbertlab/DiCecco/data/")
 abund_trend <- read.csv("BBS_abundance_trends.csv", stringsAsFactors = F) %>%
   filter(aou %in% area_aous$aou) %>% ## Only ones lost from area_aous are nocturnal: owls, nightjars (Caprimulgus)
-  left_join(area_aous)
-  
+  left_join(area_aous) %>%
+  filter(sporder != "Accipitriformes") ## Remove hawks
+
+# Trait data
+setwd("C:/Users/gdicecco/Desktop/git/NLCD_fragmentation/")
+setwd("/Users/gracedicecco/Desktop/git/NLCD_fragmentation/")
+traits <- read.csv("traits/spp_traits.csv", stringsAsFactors = F)
+
+traits.short <- traits %>%
+  dplyr::select(Common_name, aou, nHabitats1, nHabitats2, volume)
+
 # Climate data
 setwd("C:/Users/gdicecco/Desktop/git/NLCD_fragmentation/climate/")
 setwd("/Users/gracedicecco/Desktop/git/NLCD_fragmentation/climate/")
@@ -141,14 +158,6 @@ forest <- forest_ed %>%
   left_join(forest_deltaED) %>%
   left_join(forest_deltaP)
 
-# Trait data
-setwd("C:/Users/gdicecco/Desktop/git/NLCD_fragmentation/")
-setwd("/Users/gracedicecco/Desktop/git/NLCD_fragmentation/")
-traits <- read.csv("traits/spp_traits.csv", stringsAsFactors = F)
-
-traits.short <- traits %>%
-  dplyr::select(Common_name, aou, nHabitats1, nHabitats2, volume)
-
 # Master data table
 clim_hab_poptrend <- abund_trend %>%
   left_join(dplyr::select(traits.short, -Common_name)) %>%
@@ -158,7 +167,7 @@ clim_hab_poptrend <- abund_trend %>%
   group_by(aou) %>% 
   mutate(abundTrend_z = (abundTrend - mean(abundTrend, na.rm = T))/sd(abundTrend, na.rm = T))
 
-##### Analysis:
+##### Analysis #####
 setwd("C:/Users/gdicecco/Desktop/git/NLCD_fragmentation/")
 
 ### Route trends
@@ -178,21 +187,19 @@ prop_spp <- clim_hab_poptrend %>%
   group_by(stateroute, propForest, ED, deltaED, deltaProp, Area_sensitivity) %>%
   summarize(propSpp = n_distinct(aou)/mean(nSpp))
 
-hist(prop_spp$deltaProp)
-hist(prop_spp$deltaED)
 stable <- prop_spp %>%
   filter(deltaProp < 0.05, deltaProp > -0.05, deltaED < 0.05, deltaED > -0.05)
+
+edFor <- ggplot(stable, aes(x = ED, y = propSpp, color = Area_sensitivity)) + 
+  geom_point() + geom_smooth(se= F) +
+  scale_color_viridis_d(begin = 0.5) +
+  labs(x = "Forest edge density", y = "Proportion of species", color = "Area sensitivity")
 
 pFor <- ggplot(stable, aes(x = propForest, y = propSpp, color = Area_sensitivity)) + 
   geom_point() + geom_smooth(se= F) +
   scale_color_viridis_d(begin = 0.5) +
   theme(legend.position = "none") +
   labs(x = "Proportion forest cover", y = "Proportion of species", color = "Area sensitivity")
-
-edFor <- ggplot(stable, aes(x = ED, y = propSpp, color = Area_sensitivity)) + 
-  geom_point() + geom_smooth(se= F) +
-  scale_color_viridis_d(begin = 0.5) +
-  labs(x = "Forest edge density", y = "Proportion of species", color = "Area sensitivity")
 
 plot_grid(pFor, edFor, rel_widths = c(0.42, 0.58))
 ggsave("figures/area_sensitivity/proportion_species.pdf", units = "in", width = 12, height = 5)
@@ -245,7 +252,7 @@ ggsave("figures/area_sensitivity/trait_distribution.pdf", units = "in")
 # Breadth of forest ED and forest cover for area and non-area sensitive species
 
 env_breadth <- clim_hab_poptrend %>%
-  dplyr::group_by(Area_sensitivity, aou) %>%
+  dplyr::group_by(Area_sensitivity, SPEC, aou) %>%
   summarize(ed = mean(ED),
             sterr_ed = sd(ED)/sqrt(length(ED)),
             propFor = mean(propForest),
@@ -253,25 +260,58 @@ env_breadth <- clim_hab_poptrend %>%
             patchArea = mean(meanPatchArea),
             sterr_patch = sd(meanPatchArea)/sqrt(length(meanPatchArea)))
 
-ed_breadth <- ggplot(env_breadth, aes(x = reorder(aou, ed), y = ed, color = Area_sensitivity)) +
+ed_breadth <- ggplot(env_breadth, aes(x = reorder(SPEC, ed), y = ed, color = Area_sensitivity)) +
   geom_point() + 
   geom_errorbar(aes(ymin = ed - 1.96*sterr_ed, ymax = ed + 1.96*sterr_ed)) +
   theme(axis.text.x = element_text(angle = 90, hjust = 1)) +
-  labs(x = "AOU", y = "Forest edge density")
+  labs(x = "Species", y = "Forest edge density")
 
-cover_breadth <- ggplot(env_breadth, aes(x = reorder(aou, propFor), y = propFor, color = Area_sensitivity)) +
+# Use all routes for cover_breadth
+
+## Breadth of forest cover for all routes
+forest_ed_allroutes <- frags %>%
+  left_join(newcode, by = c("class" = "code")) %>%
+  group_by(stateroute, year) %>%
+  mutate(sum.area = sum(total.area)) %>%
+  filter(legend == "Forest") %>%
+  group_by(stateroute, year) %>%
+  summarize(ED = total.edge/sum.area,
+            propForest = prop.landscape,
+            meanPatchArea = mean.patch.area) %>%
+  filter(year == 2011)
+
+forest_deltaP_allroutes <- frags %>% # 2314 routes
+  left_join(newcode, by = c("class" = "code")) %>%
+  filter(legend == "Forest") %>%
+  group_by(stateroute, year) %>%
+  summarize(propForest = prop.landscape) %>%
+  spread(key = "year", value = "propForest") %>%
+  group_by(stateroute) %>%
+  summarize(deltaProp = `2011` - `1992`)
+
+forest_allroutes <- forest_ed_allroutes %>%
+  left_join(forest_deltaP_allroutes)
+
+clim_hab_pop_allroutes <- abund_trend %>%
+  left_join(dplyr::select(traits.short, -Common_name)) %>%
+  left_join(forest_allroutes, by = "stateroute") %>%
+  left_join(climate_wide, by = "stateroute") %>%
+  filter(!is.na(propForest))
+
+env_breadth_allroutes <- clim_hab_pop_allroutes %>%
+  dplyr::group_by(Area_sensitivity, SPEC, aou) %>%
+  summarize(propFor = mean(propForest),
+            sterr_for = sd(propForest)/sqrt(length(propForest)),
+            patchArea = mean(meanPatchArea),
+            sterr_patch = sd(meanPatchArea)/sqrt(length(meanPatchArea)))
+
+cover_breadth <- ggplot(env_breadth_allroutes, aes(x = reorder(SPEC, propFor), y = propFor, color = Area_sensitivity)) +
   geom_point() + 
   geom_errorbar(aes(ymin = propFor - 1.96*sterr_for, ymax = propFor + 1.96*sterr_for)) +
   theme(axis.text.x = element_text(angle = 90, hjust = 1)) +
-  labs(x = "AOU", y = "Forest cover")
+  labs(x = "Species", y = "Forest cover")
 
-patch_breadth <- ggplot(env_breadth, aes(x = reorder(aou, patchArea), y = patchArea, color = Area_sensitivity)) +
-  geom_point() + 
-  geom_errorbar(aes(ymin = patchArea - 1.96*sterr_for, ymax = patchArea + 1.96*sterr_for)) +
-  theme(axis.text.x = element_text(angle = 90, hjust = 1)) +
-  labs(x = "AOU", y = "Mean patch area")
-
-plot_grid(ed_breadth, cover_breadth, patch_breadth, nrow = 3)
+plot_grid(ed_breadth, cover_breadth, nrow = 2)
 ggsave("figures/area_sensitivity/forest_breadth.pdf", units = "in", height = 12, width = 15)
 
 ### Individual models of climate + frag + loss + climate:frag + climate:loss for species
@@ -293,7 +333,7 @@ clim_hab_poptrend_z <- abund_trend %>%
   left_join(forest_z, by = "stateroute") %>%
   left_join(climate_wide_z, by = "stateroute") %>%
   filter(!is.na(propForest)) %>%
-  group_by(aou) %>% 
+  group_by(SPEC, aou) %>% 
   mutate(abundTrend_z = (abundTrend - mean(abundTrend, na.rm = T))/sd(abundTrend, na.rm = T))
 
 # Models by species
@@ -414,23 +454,27 @@ ggplot(spp_varpart, aes(x = reorder(aou, total), y = variance, fill = variable))
 ggsave("figures/area_sensitivity/variance_partition_abundTrend.pdf", units = "in", height = 7, width = 12)  
 
 #### Make a joint model: fixed effects[climate + forest + area_sensitivity] + random slopes/intercepts[species]
-# Z-score abundance trends?
+# No z score abundance trends, use term for southern limit of wintering grounds
 
-clim_hab_poptrend_z$aou <- as.factor(clim_hab_poptrend_z$aou)
+obs_size <- abund_trend %>% 
+  group_by(SPEC) %>% 
+  summarize(nRoutes = n_distinct(stateroute)) %>%
+  arrange(nRoutes) # Smallest = CERW @ 38 routes, next smallest = CAWA @ 48, NOWA @ 54
 
-modland <- lm(abundTrend_z ~ deltaProp + deltaED*Area_sensitivity, data = clim_hab_poptrend_z)
-anova(modland)
-AIC(modland)
+clim_hab_poptrend_mixedmod <- clim_hab_poptrend_z %>%
+  filter(SPEC != "CERW")
+#write.csv(clim_hab_poptrend_mixedmod, "\\\\BioArk\\hurlbertlab\\DiCecco\\data\\clim_hab_poptrend_mixedmod.csv", row.names = F)
 
-remodland <- lme(abundTrend_z ~ deltaProp + deltaED*Area_sensitivity, random = (~0 + aou|aou), data = clim_hab_poptrend_z)
-anova(remodland)
-AIC(remodland)
+randomint_add <- lme(abundTrend ~ tmin + tmax + ppt + deltaED + deltaProp + Wintering_Slimit_general + Area_sensitivity, random = (~1|SPEC), data = clim_hab_poptrend_mixedmod, method = "ML")
 
-reintmodland <- lme(abundTrend_z ~ deltaProp + deltaED*Area_sensitivity, random = (~1|aou), data = clim_hab_poptrend_z)
-anova(reintmodland)
-AIC(reintmodland)
+randomint_inter <- lme(abundTrend ~ ppt + deltaProp + Wintering_Slimit_general + Area_sensitivity + tmin*deltaED + tmax*deltaED, random = (~1|SPEC), data = clim_hab_poptrend_mixedmod, method = "ML")
 
-## Categorical comparisons between abundance trends at routes: is tolerance to climate change different betw groups at routes with high and low fragmentation
+AIC(randomint_add)
 
+AIC(randomint_inter)
 
-
+short_clim <- clim_hab_poptrend_mixedmod %>%
+  filter(SPEC %in% obs_size[20:24, ]$SPEC)
+randomslope_add <- lme(abundTrend ~ tmin + tmax + ppt + deltaED + deltaProp + Wintering_Slimit_general + Area_sensitivity, random = (~SPEC|SPEC), data = short_clim, method = "ML")
+randomslope_inter <- lme(abundTrend ~ ppt + deltaProp + Wintering_Slimit_general + Area_sensitivity + tmin*deltaED + tmax*deltaED, random = (~SPEC|SPEC), data = short_clim, method = "ML")
+anova(randomslope_add, randomslope_inter)
