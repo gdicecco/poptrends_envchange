@@ -465,16 +465,18 @@ clim_hab_poptrend_mixedmod <- clim_hab_poptrend_z %>%
   filter(SPEC != "CERW")
 #write.csv(clim_hab_poptrend_mixedmod, "\\\\BioArk\\hurlbertlab\\DiCecco\\data\\clim_hab_poptrend_mixedmod.csv", row.names = F)
 
-randomint_add <- lme(abundTrend ~ tmin + tmax + ppt + deltaED + deltaProp + Wintering_Slimit_general + Area_sensitivity, random = (~1|SPEC), data = clim_hab_poptrend_mixedmod, method = "ML")
-
-randomint_inter <- lme(abundTrend ~ ppt + deltaProp + Wintering_Slimit_general + Area_sensitivity + tmin*deltaED + tmax*deltaED, random = (~1|SPEC), data = clim_hab_poptrend_mixedmod, method = "ML")
-
-AIC(randomint_add)
-
-AIC(randomint_inter)
+clim_hab_poptrend_mixedmod <- read.csv("\\\\BioArk\\hurlbertlab\\DiCecco\\data\\clim_hab_poptrend_mixedmod.csv", stringsAsFactors = F)
 
 short_clim <- clim_hab_poptrend_mixedmod %>%
   filter(SPEC %in% obs_size[20:24, ]$SPEC)
-randomslope_add <- lme(abundTrend ~ tmin + tmax + ppt + deltaED + deltaProp + Wintering_Slimit_general + Area_sensitivity, random = (~SPEC|SPEC), data = short_clim, method = "ML")
-randomslope_inter <- lme(abundTrend ~ ppt + deltaProp + Wintering_Slimit_general + Area_sensitivity + tmin*deltaED + tmax*deltaED, random = (~SPEC|SPEC), data = short_clim, method = "ML")
-anova(randomslope_add, randomslope_inter)
+randomslope_add <- lme(abundTrend ~ tmin + tmax + ppt + deltaED + deltaProp + Wintering_Slimit_general + Area_sensitivity, 
+                       random = (~SPEC|SPEC), data = short_clim)
+randomslope_inter <- lme(abundTrend ~ ppt + deltaProp + Wintering_Slimit_general + Area_sensitivity + tmin*deltaED + tmax*deltaED, 
+                         random = (~SPEC|SPEC), data = short_clim)
+
+library(brms)
+randomslope_add_brm <- brm(abundTrend ~ tmin + tmax + ppt + deltaED + deltaProp + (SPEC|SPEC), 
+                       data = clim_hab_poptrend_mixedmod, inits = "0", ncores = 4)
+randomslope_inter_brm <- brm(abundTrend ~ ppt + deltaProp + Wintering_Slimit_general + Area_sensitivity + tmin*deltaED + tmax*deltaED + (SPEC|SPEC),
+                         data = clim_hab_poptrend_mixedmod, inits = "0", ncores = 4)
+
