@@ -476,7 +476,7 @@ randomslope_inter <- lme(abundTrend ~ ppt + deltaProp + Wintering_Slimit_general
 
 library(brms)
 randomslope_add_brm <- brm(abundTrend ~ tmin + tmax + ppt + deltaED + deltaProp + (SPEC|SPEC), 
-                       data = clim_hab_poptrend_mixedmod, inits = "0", ncores = 4)
+                       data = clim_hab_poptrend_mixedmod, inits = "0", cores = 4)
 randomslope_inter_brm <- brm(abundTrend ~ ppt + deltaProp + Wintering_Slimit_general + Area_sensitivity + tmin*deltaED + tmax*deltaED + (SPEC|SPEC),
-                         data = clim_hab_poptrend_mixedmod, inits = "0", ncores = 4)
+                         data = clim_hab_poptrend_mixedmod, inits = "0", cores = 4)
 
