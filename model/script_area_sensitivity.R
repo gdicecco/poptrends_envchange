@@ -254,17 +254,19 @@ ggsave("figures/area_sensitivity/trait_distribution.pdf", units = "in")
 env_breadth <- clim_hab_poptrend %>%
   dplyr::group_by(Area_sensitivity, SPEC, aou) %>%
   summarize(ed = mean(ED),
-            sterr_ed = sd(ED)/sqrt(length(ED)),
+            std_ed = sd(ED),
             propFor = mean(propForest),
-            sterr_for = sd(propForest)/sqrt(length(propForest)),
+            std_for = sd(propForest),
             patchArea = mean(meanPatchArea),
-            sterr_patch = sd(meanPatchArea)/sqrt(length(meanPatchArea)))
+            std_patch = sd(meanPatchArea))
 
-ed_breadth <- ggplot(env_breadth, aes(x = reorder(SPEC, ed), y = ed, color = Area_sensitivity)) +
+ed_breadth <- ggplot(env_breadth, aes(x = reorder(SPEC, ed), y = ed, color = SPEC)) +
   geom_point() + 
-  geom_errorbar(aes(ymin = ed - 1.96*sterr_ed, ymax = ed + 1.96*sterr_ed)) +
-  theme(axis.text.x = element_text(angle = 90, hjust = 1)) +
-  labs(x = "Species", y = "Forest edge density")
+  geom_errorbar(aes(ymin = ed - 1.96*std_ed, ymax = ed + 1.96*std_ed)) +
+  theme(axis.text.x = element_text(angle = 45, hjust = 1)) +
+  labs(x = "", y = "Forest edge density") +
+  scale_color_viridis_d() +
+  theme(legend.position = "none")
 
 # Use all routes for cover_breadth
 
@@ -301,15 +303,18 @@ clim_hab_pop_allroutes <- abund_trend %>%
 env_breadth_allroutes <- clim_hab_pop_allroutes %>%
   dplyr::group_by(Area_sensitivity, SPEC, aou) %>%
   summarize(propFor = mean(propForest),
-            sterr_for = sd(propForest)/sqrt(length(propForest)),
+              min_for = quantile(propForest, c(0.05))[[1]],
+            max_for = quantile(propForest, c(0.95))[[1]],
             patchArea = mean(meanPatchArea),
-            sterr_patch = sd(meanPatchArea)/sqrt(length(meanPatchArea)))
+            std_patch = sd(meanPatchArea))
 
-cover_breadth <- ggplot(env_breadth_allroutes, aes(x = reorder(SPEC, propFor), y = propFor, color = Area_sensitivity)) +
+cover_breadth <- ggplot(env_breadth_allroutes, aes(x = reorder(SPEC, propFor), y = propFor, color = SPEC)) +
   geom_point() + 
-  geom_errorbar(aes(ymin = propFor - 1.96*sterr_for, ymax = propFor + 1.96*sterr_for)) +
-  theme(axis.text.x = element_text(angle = 90, hjust = 1)) +
-  labs(x = "Species", y = "Forest cover")
+  scale_color_viridis_d()+
+  geom_errorbar(aes(ymin = min_for, ymax = max_for)) +
+  theme(axis.text.x = element_text(angle = 45, hjust = 1)) +
+  labs(x = "Species", y = "Forest cover") +
+  theme(legend.position = "none")
 
 plot_grid(ed_breadth, cover_breadth, nrow = 2)
 ggsave("figures/area_sensitivity/forest_breadth.pdf", units = "in", height = 12, width = 15)
@@ -467,16 +472,81 @@ clim_hab_poptrend_mixedmod <- clim_hab_poptrend_z %>%
 
 clim_hab_poptrend_mixedmod <- read.csv("\\\\BioArk\\hurlbertlab\\DiCecco\\data\\clim_hab_poptrend_mixedmod.csv", stringsAsFactors = F)
 
-short_clim <- clim_hab_poptrend_mixedmod %>%
-  filter(SPEC %in% obs_size[20:24, ]$SPEC)
-randomslope_add <- lme(abundTrend ~ tmin + tmax + ppt + deltaED + deltaProp + Wintering_Slimit_general + Area_sensitivity, 
-                       random = (~SPEC|SPEC), data = short_clim)
-randomslope_inter <- lme(abundTrend ~ ppt + deltaProp + Wintering_Slimit_general + Area_sensitivity + tmin*deltaED + tmax*deltaED, 
-                         random = (~SPEC|SPEC), data = short_clim)
+randomslope_add <- lme(abundTrend ~ tmin + tmax + ppt + deltaED + deltaProp + Wintering_Slimit_general, 
+                       random = (~deltaED|SPEC), data = clim_hab_poptrend_mixedmod)
+randomslope_fullinter <- lme(abundTrend ~ ppt + deltaProp + tmin*deltaED + tmax*deltaED + Wintering_Slimit_general, 
+                         random = (~deltaED|SPEC), data = clim_hab_poptrend_mixedmod)
+randomslope_noppt <- lme(abundTrend ~ tmin*deltaED + tmax*deltaED + Wintering_Slimit_general,
+                               random = (~deltaED|SPEC), data = clim_hab_poptrend_mixedmod)
 
-library(brms)
-randomslope_add_brm <- brm(abundTrend ~ tmin + tmax + ppt + deltaED + deltaProp + (SPEC|SPEC), 
-                       data = clim_hab_poptrend_mixedmod, inits = "0", cores = 4)
-randomslope_inter_brm <- brm(abundTrend ~ ppt + deltaProp + Wintering_Slimit_general + Area_sensitivity + tmin*deltaED + tmax*deltaED + (SPEC|SPEC),
-                         data = clim_hab_poptrend_mixedmod, inits = "0", cores = 4)
+aic_table <- data.frame(model = c("Additive", "Full interactive", "Temperature and edge density"),
+                        AIC = c(AIC(randomslope_add), AIC(randomslope_fullinter), AIC(randomslope_noppt)))
 
+# Make plots of effects
+
+add_table <- summary(randomslope_add)$tTable
+add_df <- as.data.frame(add_table)
+add_df$Variable <- row.names(add_table)
+
+full_table <- summary(randomslope_fullinter)$tTable
+full_df <- as.data.frame(full_table)
+full_df$Variable <- row.names(full_table)
+
+noppt_table <- summary(randomslope_noppt)$tTable
+noppt_df <- as.data.frame(noppt_table)
+noppt_df$Variable <- row.names(noppt_table)
+
+model <- data.frame(model = c(rep("Additive", nrow(add_table)), 
+                                    rep("Full interactive", nrow(full_table)),
+                                    rep("Temperature and edge density", nrow(noppt_table))))
+
+fixed_effects <- bind_rows(add_df, full_df, noppt_df) %>%
+  bind_cols(model) %>%
+  filter(Variable != "(Intercept)", !grepl("Wintering", Variable))
+
+ggplot(fixed_effects, aes(x = Variable, y = Value)) +
+  geom_point(cex = 2) + geom_errorbar(aes(ymin = Value - 1.96*Std.Error, ymax = Value + 1.96*Std.Error)) +
+  geom_hline(yintercept = 0, lty = 2, col = "red") +
+  facet_wrap(~model) +
+  theme_bw()
+ggsave("figures/area_sensitivity/mixed_mods_fixedeffects.pdf", units = "in", height = 6, width = 16)
+
+# Population level responses with species responses for tmin, deltaED
+
+clim_hab_poptrend_mixedmod$popmean <- predict(randomslope_fullinter, level = 0)
+clim_hab_poptrend_mixedmod$sppmean <- predict(randomslope_fullinter, level = 1)
+
+# model predictions
+ggplot(clim_hab_poptrend_mixedmod, aes(x = tmin, color = SPEC)) + 
+  geom_line(aes(y = sppmean, color = SPEC), alpha = 0.5, stat="smooth", method = "lm", se = F) + 
+  geom_smooth(aes(y = popmean), color = "black", cex = 1, method = "lm", se = F) +
+  scale_color_viridis_d() +
+  labs(x = "Trend in Tmin", y = "Abundance trend", color = "Species")
+ggsave("figures/area_sensitivity/mixedmod_randomeffect_tmin.pdf")
+
+ggplot(clim_hab_poptrend_mixedmod, aes(x = deltaED, color = SPEC)) + 
+  geom_line(aes(y = sppmean, color = SPEC), alpha = 0.5, stat="smooth", method = "lm", se = F) + 
+  geom_smooth(aes(y = popmean), color = "black", cex = 1, method = "lm", se = F) +
+  scale_color_viridis_d() +
+  labs(x = "Change in forest edge density", y = "Abundance trend", color = "Species")
+ggsave("figures/area_sensitivity/mixedmod_randomeffect_deltaED.pdf")
+
+clim_hab_poptrend_mixedmod$dEDsign <- ifelse(clim_hab_poptrend_mixedmod$deltaED > 0, "Increase in forest edge density", "Decrease in forest edge density")
+
+ggplot(clim_hab_poptrend_mixedmod, aes(x = tmax, color = SPEC)) + 
+  geom_line(aes(y = sppmean, color = SPEC), alpha = 0.5, stat="smooth", method = "lm", se = F) + 
+  geom_smooth(aes(y = popmean), color = "black", cex = 1, method = "lm", se = F) +
+  scale_color_viridis_d() +
+  labs(x = "Trend in Tmax", y = "Abundance trend", color = "Species") +
+  facet_wrap(~dEDsign)
+ggsave("figures/area_sensitivity/mixedmod_randomeffect_interaction.pdf", units = "in", height = 6, width = 12)
+
+# raw data
+ggplot(clim_hab_poptrend_mixedmod, aes(x = deltaED, y = abundTrend, color = SPEC)) + 
+  geom_smooth(method = "lm", se = F, alpha = 0.5) + 
+  geom_smooth(aes(x = deltaED, y = abundTrend), color = "black", method = "lm", se = F, cex = 1)
+ggsave("figures/area_sensitivity/abundTrend_deltaED_spp.pdf")
+
+ggplot(clim_hab_poptrend_mixedmod, aes(x = tmin, y = abundTrend, color = SPEC)) +
+  geom_smooth(method = "lm", se = F) +
+  geom_smooth(aes(x = tmin, y = abundTrend), color = "black", method = "lm", se = F)
