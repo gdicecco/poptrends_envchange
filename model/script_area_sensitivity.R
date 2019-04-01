@@ -316,8 +316,47 @@ cover_breadth <- ggplot(env_breadth_allroutes, aes(x = reorder(SPEC, propFor), y
   labs(x = "Species", y = "Forest cover") +
   theme(legend.position = "none")
 
-plot_grid(ed_breadth, cover_breadth, nrow = 2)
-ggsave("figures/area_sensitivity/forest_breadth.pdf", units = "in", height = 12, width = 15)
+volume <- traits %>%
+  filter(aou %in% env_breadth_allroutes$aou) %>%
+  left_join(dplyr::select(env_breadth_allroutes, SPEC, aou)) %>%
+  dplyr::select(SPEC, aou, volume)
+
+volume_plot <- ggplot(volume, aes(x = reorder(SPEC, volume), y = volume, color = SPEC)) +
+  geom_point() + 
+  scale_color_viridis_d()+
+  theme(axis.text.x = element_text(angle = 45, hjust = 1)) +
+  labs(x = "Species", y = "Climatic niche breadth") +
+  theme(legend.position = "none")
+
+plot_grid(ed_breadth, cover_breadth, volume_plot, nrow = 2)
+ggsave("figures/area_sensitivity/forest_breadth.pdf", units = "in", height = 13, width = 30)
+
+## Correlations between forest edge density breadth, forest cover breadth, climate niche breadth
+
+spp_breadths <- env_breadth_allroutes %>%
+  dplyr::select(SPEC, aou, propFor, min_for, max_for) %>%
+  left_join(dplyr::select(env_breadth, SPEC, aou, ed, std_ed)) %>%
+  left_join(dplyr::select(traits, aou, volume))
+
+ed_cov <- ggplot(spp_breadths, aes(x = ed, y = propFor)) +
+  geom_point() + 
+  geom_smooth(method = "lm", se = F) + 
+  labs(x = "Mean forest edge density", y = "Mean forest cover")
+
+ed_vol <- ggplot(spp_breadths, aes(x = ed, y = volume)) +
+  geom_point() + 
+  geom_smooth(method = "lm", se = F) +
+  labs(x = "Mean forest edge density", y = "Climatic niche breadth")
+
+vol_cov <- ggplot(spp_breadths, aes(x = volume, y = propFor)) +
+  geom_point() + 
+  geom_smooth(method = "lm", se = F) +
+  labs(x = "Climatic niche breadth", y = "Mean forest cover")
+
+plot_grid(ed_cov, ed_vol, vol_cov, nrow = 2)
+ggsave("figures/area_sensitivity/traits_covariation.pdf", units = "in", height = 8, width = 8)
+
+cor(spp_breadths[, c(4,7,9)]) # edxpropFor = -0.65, edxVolume = 0.11, volumexPropFor = -0.59
 
 ### Individual models of climate + frag + loss + climate:frag + climate:loss for species
 
@@ -473,11 +512,11 @@ clim_hab_poptrend_mixedmod <- clim_hab_poptrend_z %>%
 clim_hab_poptrend_mixedmod <- read.csv("\\\\BioArk\\hurlbertlab\\DiCecco\\data\\clim_hab_poptrend_mixedmod.csv", stringsAsFactors = F)
 
 randomslope_add <- lme(abundTrend ~ tmin + tmax + ppt + deltaED + deltaProp + Wintering_Slimit_general, 
-                       random = (~deltaED|SPEC), data = clim_hab_poptrend_mixedmod)
+                       random = (~deltaProp + deltaED|SPEC), data = clim_hab_poptrend_mixedmod)
 randomslope_fullinter <- lme(abundTrend ~ ppt + deltaProp + tmin*deltaED + tmax*deltaED + Wintering_Slimit_general, 
-                         random = (~deltaED|SPEC), data = clim_hab_poptrend_mixedmod)
+                         random = (~deltaProp + deltaED|SPEC), data = clim_hab_poptrend_mixedmod)
 randomslope_noppt <- lme(abundTrend ~ tmin*deltaED + tmax*deltaED + Wintering_Slimit_general,
-                               random = (~deltaED|SPEC), data = clim_hab_poptrend_mixedmod)
+                               random = (~deltaProp + deltaED|SPEC), data = clim_hab_poptrend_mixedmod)
 
 aic_table <- data.frame(model = c("Additive", "Full interactive", "Temperature and edge density"),
                         AIC = c(AIC(randomslope_add), AIC(randomslope_fullinter), AIC(randomslope_noppt)))
@@ -516,24 +555,32 @@ ggsave("figures/area_sensitivity/mixed_mods_fixedeffects.pdf", units = "in", hei
 clim_hab_poptrend_mixedmod$popmean <- predict(randomslope_fullinter, level = 0)
 clim_hab_poptrend_mixedmod$sppmean <- predict(randomslope_fullinter, level = 1)
 
-# model predictions
+# Marginal plots
+
+# Tmin
 ggplot(clim_hab_poptrend_mixedmod, aes(x = tmin, color = SPEC)) + 
+  geom_point(aes(y = sppmean, color = SPEC), alpha = 0.1) +
   geom_line(aes(y = sppmean, color = SPEC), alpha = 0.5, stat="smooth", method = "lm", se = F) + 
   geom_smooth(aes(y = popmean), color = "black", cex = 1, method = "lm", se = F) +
   scale_color_viridis_d() +
-  labs(x = "Trend in Tmin", y = "Abundance trend", color = "Species")
+  labs(x = "Trend in Tmin", y = "Abundance trend", color = "Species") 
 ggsave("figures/area_sensitivity/mixedmod_randomeffect_tmin.pdf")
 
+# deltaED
 ggplot(clim_hab_poptrend_mixedmod, aes(x = deltaED, color = SPEC)) + 
+  geom_point(aes(y = sppmean, color = SPEC), alpha = 0.1) +
   geom_line(aes(y = sppmean, color = SPEC), alpha = 0.5, stat="smooth", method = "lm", se = F) + 
   geom_smooth(aes(y = popmean), color = "black", cex = 1, method = "lm", se = F) +
   scale_color_viridis_d() +
   labs(x = "Change in forest edge density", y = "Abundance trend", color = "Species")
 ggsave("figures/area_sensitivity/mixedmod_randomeffect_deltaED.pdf")
 
+# Interaction of Tmax and deltaED
 clim_hab_poptrend_mixedmod$dEDsign <- ifelse(clim_hab_poptrend_mixedmod$deltaED > 0, "Increase in forest edge density", "Decrease in forest edge density")
 
+theme_set(theme_bw())
 ggplot(clim_hab_poptrend_mixedmod, aes(x = tmax, color = SPEC)) + 
+  geom_point(aes(y = sppmean, color = SPEC), alpha = 0.1) +
   geom_line(aes(y = sppmean, color = SPEC), alpha = 0.5, stat="smooth", method = "lm", se = F) + 
   geom_smooth(aes(y = popmean), color = "black", cex = 1, method = "lm", se = F) +
   scale_color_viridis_d() +
@@ -541,12 +588,132 @@ ggplot(clim_hab_poptrend_mixedmod, aes(x = tmax, color = SPEC)) +
   facet_wrap(~dEDsign)
 ggsave("figures/area_sensitivity/mixedmod_randomeffect_interaction.pdf", units = "in", height = 6, width = 12)
 
-# raw data
-ggplot(clim_hab_poptrend_mixedmod, aes(x = deltaED, y = abundTrend, color = SPEC)) + 
-  geom_smooth(method = "lm", se = F, alpha = 0.5) + 
-  geom_smooth(aes(x = deltaED, y = abundTrend), color = "black", method = "lm", se = F, cex = 1)
-ggsave("figures/area_sensitivity/abundTrend_deltaED_spp.pdf")
+## Trait analysis
+# Predict slope of correlation of spp abundance trends for tmin, tmax, deltaED with three traits
+# Mean forest cover of routes observed on
+# Mean forest edge density of routes observed on
+# Climatic niche breadth
 
-ggplot(clim_hab_poptrend_mixedmod, aes(x = tmin, y = abundTrend, color = SPEC)) +
+z <- function(x, na.rm = TRUE) {(x - mean(x, na.rm = na.rm))/sd(x, na.rm = na.rm)}
+
+spp_breadths_z <- data.frame(spp_breadths,
+                             propFor_z = z(spp_breadths$propFor),
+                             ed_z = z(spp_breadths$ed),
+                             volume_z = z(spp_breadths$volume))
+
+# Calculate relationship between abundance trend and three env predictors from model for each spp
+# Join with spp env traits (z scores)
+
+env_trends_spp <- clim_hab_poptrend_mixedmod %>%
+  group_by(aou) %>%
+  nest() %>%
+  mutate(tmin_mod = map(data, ~{
+    df <- .
+    mod <- lm(tmin ~ sppmean, data = df)
+    tidy(mod)
+  }),
+  tmax_mod = map(data, ~{
+    df <- .
+    mod <- lm(tmax ~ sppmean, data = df)
+    tidy(mod)
+  }),
+  ed_mod = map(data, ~{
+    df <- .
+    mod <- lm(deltaED ~ sppmean, data = df)
+    tidy(mod)
+  })) %>%
+  dplyr::select(-data) %>%
+  gather(key = "model", value = "output", 2:4) %>%
+  unnest() %>%
+  filter(term == "sppmean") %>%
+  left_join(spp_breadths_z)
+
+# 3 models, 1 for each slope, slope ~ for_cov + ed + volume
+
+trait_mods <- env_trends_spp %>%
+  group_by(model) %>%
+  nest() %>%
+  mutate(trait_mod = map(data, ~{
+    df <- .
+    mod <- lm(estimate ~ propFor_z + ed_z + volume_z, data = df)
+    tidy(mod)
+  })) %>%
+  dplyr::select(-data) %>%
+  unnest() %>%
+  filter(term != "(Intercept)")
+
+ggplot(trait_mods, aes(x = term, y = estimate)) +
+  geom_point() +
+  geom_errorbar(aes(ymin = estimate - 1.96*std.error, ymax = estimate + 1.96*std.error)) +
+  geom_hline(yintercept = 0, lty = 2) +
+  facet_grid(~model) +
+  labs(x = "", y = "Estimate")
+ggsave("figures/area_sensitivity/trait_model_estimates.pdf")
+
+ed_ed <- filter(env_trends_spp, model == "ed_mod") %>% 
+  ggplot(aes(x = ed_z, y = estimate)) + 
   geom_smooth(method = "lm", se = F) +
-  geom_smooth(aes(x = tmin, y = abundTrend), color = "black", method = "lm", se = F)
+  geom_text(aes(label = SPEC)) +
+  labs(x = "Mean edge density", y = "Abundance trend vs. change in ED")
+
+tmin_vol <- filter(env_trends_spp, model == "tmin_mod") %>% 
+  ggplot(aes(x = volume_z, y = estimate)) + 
+  geom_text(aes(label = SPEC)) + geom_smooth(method = "lm", se = F) +
+  labs(x = "Climatic niche breadth", y = "Abundance trend vs. Tmin")
+
+tmin_for <- filter(env_trends_spp, model == "tmin_mod") %>% 
+  ggplot(aes(x = propFor_z, y = estimate)) +
+  geom_text(aes(label = SPEC)) + geom_smooth(method = "lm", se = F) +
+  labs(x = "Mean proportion forest cover", y = "Abundance trend vs. Tmin")
+
+plot_grid(ed_ed, tmin_vol, tmin_for, nrow = 2)
+ggsave("figures/area_sensitivity/trait_model_relationships.pdf", units = "in", height = 8, width = 10)
+
+## BRMS model
+
+### Need to use alphadelt bigger than 0.8, see https://mc-stan.org/misc/warnings.html#divergent-transitions-after-warmup
+library(brms)
+Sys.time()
+brm_add <- brm(abundTrend ~ ppt + deltaProp + tmin + deltaED + tmax + Wintering_Slimit_general + (~ppt + deltaProp + tmin + deltaED + tmax + Wintering_Slimit_general|SPEC),
+                     data = clim_hab_poptrend_mixedmod,
+                     iter = 10000, 
+                     cores = 4)
+brm_fullinter <- brm(abundTrend ~ ppt + deltaProp + tmin*deltaED + deltaED*tmax + Wintering_Slimit_general + (~ppt + deltaProp + tmin*deltaED + deltaED*tmax + Wintering_Slimit_general|SPEC),
+                             data = clim_hab_poptrend_mixedmod,
+                     iter = 10000, 
+                     cores = 4)
+brm_shortinter <- brm(abundTrend ~ tmin*deltaED + deltaED*tmax + Wintering_Slimit_general + (~tmin*deltaED + deltaED*tmax + Wintering_Slimit_general|SPEC),
+                     data = clim_hab_poptrend_mixedmod,
+                     iter = 10000, 
+                     cores = 4)
+Sys.time()
+
+params <- summary(brm_add)
+fixed <- data.frame(Variable = row.names(params$fixed), params$fixed)
+
+ggplot(filter(fixed, Variable != "Intercept", !(grepl("Wintering", Variable))), aes(x = Variable, y = Estimate)) +
+  geom_point(cex = 2) + geom_errorbar(aes(ymin = l.95..CI, ymax = u.95..CI)) +
+  geom_hline(yintercept = 0, lty = 2, col = "red") +
+  theme_bw()
+ggsave("figures/area_sensitivity/brms_fixedeffects_add.pdf", units = "in", height = 6, width = 16)
+
+params <- summary(brm_fullinter)
+fixed_fullinter <- data.frame(Variable = row.names(params$fixed), params$fixed)
+
+ggplot(filter(fixed_fullinter, Variable != "Intercept", !(grepl("Wintering", Variable))), aes(x = Variable, y = Estimate)) +
+  geom_point(cex = 2) + geom_errorbar(aes(ymin = l.95..CI, ymax = u.95..CI)) +
+  geom_hline(yintercept = 0, lty = 2, col = "red") +
+  theme_bw()
+ggsave("figures/area_sensitivity/brms_fixedeffects_fullinter.pdf", units = "in", height = 6, width = 16)
+
+
+params <- summary(brm_shortinter)
+fixed_shortinter <- data.frame(Variable = row.names(params$fixed), params$fixed)
+
+ggplot(filter(fixed, Variable != "Intercept", !(grepl("Wintering", Variable))), aes(x = Variable, y = Estimate)) +
+  geom_point(cex = 2) + geom_errorbar(aes(ymin = l.95..CI, ymax = u.95..CI)) +
+  geom_hline(yintercept = 0, lty = 2, col = "red") +
+  theme_bw()
+ggsave("figures/area_sensitivity/brms_fixedeffects_shortinter.pdf", units = "in", height = 6, width = 16)
+
+fullinterPlots <- plot(marginal_effects(brm_fullinter, method = "fitted", re_formula = NULL), points = T)
