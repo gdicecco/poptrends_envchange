@@ -510,11 +510,14 @@ clim_hab_poptrend_mixedmod <- clim_hab_poptrend_z %>%
 #write.csv(clim_hab_poptrend_mixedmod, "\\\\BioArk\\hurlbertlab\\DiCecco\\data\\clim_hab_poptrend_mixedmod.csv", row.names = F)
 
 clim_hab_poptrend_mixedmod <- read.csv("\\\\BioArk\\hurlbertlab\\DiCecco\\data\\clim_hab_poptrend_mixedmod.csv", stringsAsFactors = F)
+clim_hab_poptrend_mixedmod <- read.csv("/Volumes/hurlbertlab/DiCecco/data/clim_hab_poptrend_mixedmod.csv", stringsAsFactors = F)
+
+
 
 randomslope_add <- lme(abundTrend ~ tmin + tmax + ppt + deltaED + deltaProp + Wintering_Slimit_general, 
                        random = (~deltaProp + deltaED|SPEC), data = clim_hab_poptrend_mixedmod)
 randomslope_fullinter <- lme(abundTrend ~ ppt + deltaProp + tmin*deltaED + tmax*deltaED + Wintering_Slimit_general, 
-                         random = (~deltaProp + deltaED|SPEC), data = clim_hab_poptrend_mixedmod)
+                         random = (~deltaProp + deltaED*tmax|SPEC), data = clim_hab_poptrend_mixedmod)
 randomslope_noppt <- lme(abundTrend ~ tmin*deltaED + tmax*deltaED + Wintering_Slimit_general,
                                random = (~deltaProp + deltaED|SPEC), data = clim_hab_poptrend_mixedmod)
 
@@ -603,24 +606,29 @@ spp_breadths_z <- data.frame(spp_breadths,
 
 # Calculate relationship between abundance trend and three env predictors from model for each spp
 # Join with spp env traits (z scores)
+# Remake these plots!
 
 env_trends_spp <- clim_hab_poptrend_mixedmod %>%
   group_by(aou) %>%
   nest() %>%
   mutate(tmin_mod = map(data, ~{
     df <- .
-    mod <- lm(tmin ~ sppmean, data = df)
+    mod <- lm(sppmean ~ tmin, data = df)
     tidy(mod)
   }),
   tmax_mod = map(data, ~{
     df <- .
-    mod <- lm(tmax ~ sppmean, data = df)
+    mod <- lm(sppmean ~ tmax, data = df)
     tidy(mod)
   }),
   ed_mod = map(data, ~{
     df <- .
-    mod <- lm(deltaED ~ sppmean, data = df)
+    mod <- lm(sppmean ~ deltaED, data = df)
     tidy(mod)
+  }),
+  inter_mod = map(data, ~{
+    df <- .
+    mod <- lm(sppmean ~ deltaED*tmax, data = df)
   })) %>%
   dplyr::select(-data) %>%
   gather(key = "model", value = "output", 2:4) %>%
