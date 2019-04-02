@@ -517,7 +517,7 @@ clim_hab_poptrend_mixedmod <- read.csv("/Volumes/hurlbertlab/DiCecco/data/clim_h
 randomslope_add <- lme(abundTrend ~ tmin + tmax + ppt + deltaED + deltaProp + Wintering_Slimit_general, 
                        random = (~deltaProp + deltaED|SPEC), data = clim_hab_poptrend_mixedmod)
 randomslope_fullinter <- lme(abundTrend ~ ppt + deltaProp + tmin*deltaED + tmax*deltaED + Wintering_Slimit_general, 
-                         random = (~deltaProp + deltaED*tmax|SPEC), data = clim_hab_poptrend_mixedmod)
+                         random = (~deltaProp + deltaED|SPEC), data = clim_hab_poptrend_mixedmod)
 randomslope_noppt <- lme(abundTrend ~ tmin*deltaED + tmax*deltaED + Wintering_Slimit_general,
                                random = (~deltaProp + deltaED|SPEC), data = clim_hab_poptrend_mixedmod)
 
@@ -625,15 +625,11 @@ env_trends_spp <- clim_hab_poptrend_mixedmod %>%
     df <- .
     mod <- lm(sppmean ~ deltaED, data = df)
     tidy(mod)
-  }),
-  inter_mod = map(data, ~{
-    df <- .
-    mod <- lm(sppmean ~ deltaED*tmax, data = df)
   })) %>%
   dplyr::select(-data) %>%
   gather(key = "model", value = "output", 2:4) %>%
   unnest() %>%
-  filter(term == "sppmean") %>%
+  filter(term != "(Intercept)") %>%
   left_join(spp_breadths_z)
 
 # 3 models, 1 for each slope, slope ~ for_cov + ed + volume
