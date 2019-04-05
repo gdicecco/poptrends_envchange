@@ -105,6 +105,12 @@ traits <- read.csv("traits/spp_traits.csv", stringsAsFactors = F)
 traits.short <- traits %>%
   dplyr::select(Common_name, aou, nHabitats1, nHabitats2, volume)
 
+setwd("//BioArk/HurlbertLab/DiCecco/Data/")
+correlates <- read.csv("Master_RO_Correlates_20110610.csv", stringsAsFactors = F)
+
+breedingRange <- correlates %>%
+  dplyr::select(AOU, Brange_Area_km2)
+
 # Climate data
 setwd("C:/Users/gdicecco/Desktop/git/NLCD_fragmentation/climate/")
 setwd("/Users/gracedicecco/Desktop/git/NLCD_fragmentation/climate/")
@@ -391,15 +397,25 @@ clim_hab_poptrend_mixedmod <- clim_hab_poptrend_z %>%
   filter(SPEC != "CERW")
 #write.csv(clim_hab_poptrend_mixedmod, "\\\\BioArk\\hurlbertlab\\DiCecco\\data\\clim_hab_poptrend_mixedmod.csv", row.names = F)
 
+# Species by site matrix
+spp_site <- clim_hab_poptrend_mixedmod %>%
+  dplyr::select(stateroute, abundTrend, SPEC) %>%
+  spread(SPEC, abundTrend)
+spp_cor <- cor(spp_site, use = "pairwise.complete.obs")
+
+pdf("figures/area_sensitivity/species_correlations.pdf", height = 12, width = 12)
+corrplot(spp_cor, method = "circle", tl.col = "black")
+dev.off()
+
+# Mixed models
 clim_hab_poptrend_mixedmod <- read.csv("\\\\BioArk\\hurlbertlab\\DiCecco\\data\\clim_hab_poptrend_mixedmod.csv", stringsAsFactors = F)
 clim_hab_poptrend_mixedmod <- read.csv("/Volumes/hurlbertlab/DiCecco/data/clim_hab_poptrend_mixedmod.csv", stringsAsFactors = F)
 
 randomslope_add <- lme(abundTrend ~ tmin + tmax + ppt + deltaED + deltaProp + Wintering_Slimit_general, 
                        random = (~deltaProp + deltaED|SPEC), data = clim_hab_poptrend_mixedmod)
 
-ctrl <- lmeControl(opt='optim')
 randomslope_fullinter <- lme(abundTrend ~ ppt + deltaProp + tmin*deltaED + tmax*deltaED + Wintering_Slimit_general, 
-                         random = (~deltaProp + deltaED|SPEC), data = clim_hab_poptrend_mixedmod, control = ctrl)
+                         random = (~tmin + deltaED|SPEC), data = clim_hab_poptrend_mixedmod)
 
 randomslope_noppt <- lme(abundTrend ~ tmin*deltaED + tmax*deltaED + Wintering_Slimit_general,
                                random = (~deltaProp + deltaED|SPEC), data = clim_hab_poptrend_mixedmod)
@@ -502,50 +518,70 @@ ranef$SPEC <- row.names(ranef)
 env_trends_spp <- ranef %>%
   left_join(spp_breadths_z)
 
+# Pairwise comparisons
+
+neg_tmin <- filter(env_trends_spp, tmin < 0)
+pos_tmin <- filter(env_trends_spp, tmin > 0)
+
+neg_ed <- filter(env_trends_spp, deltaED < 0)
+pos_ed <- filter(env_trends_spp, deltaED > 0)
+
+shapiro.test(env_trends_spp$volume) # non-normal
+shapiro.test(env_trends_spp$propFor) # non-normal
+shapiro.test(env_trends_spp$ed) # normal
+
+wilcox.test(neg_tmin$volume, pos_tmin$volume)
+wilcox.test(neg_tmin$propFor, pos_tmin$propFor)
+t.test(neg_tmin$ed, pos_tmin$ed)
+
+boxplot_deltaED <- env_trends_spp %>%
+  mutate(group = ifelse(deltaED < 0, "Negative", "Positive")) %>%
+  left_join(breedingRange, by = c("aou" = "AOU"))
+
+t.test(filter(boxplot_deltaED, group == "Negative")$Brange_Area_km2, 
+            filter(boxplot_deltaED, group == "Positive")$Brange_Area_km2)
+
+propFor_lm <- ggplot(boxplot_deltaED, aes(x = group, y = propFor)) + 
+  geom_violin(aes(fill = group), bw = 0.1, trim = F, draw_quantiles = c(0.5), alpha = 0.5, cex = 1) +
+  scale_fill_viridis_d(begin = 0.5) +
+  geom_jitter(height = 0, width = 0.1, alpha = 0.5) +
+  theme(legend.position = "none") + 
+  ylim(c(0,1)) +
+  theme(axis.text.y = element_text(size = 12)) +
+  theme(axis.text.x = element_text(size = 12)) +
+  theme(axis.title.x = element_blank()) +
+  theme(axis.title.y = element_text(size = 12)) +
+  labs(y = "Mean proportion of forest cover") + 
+  scale_x_discrete(labels = c("Negative" = "Neg. response to fragmentation", "Positive" = "Pos. response to fragmentation"))
+
+vol_lm <- ggplot(boxplot_deltaED, aes(x = group, y = volume)) + 
+  geom_violin(aes(fill = group), trim = F, draw_quantiles = c(0.5), alpha = 0.5, cex = 1) +
+  scale_fill_viridis_d(begin = 0.5) +
+  ylim(c(0, 4)) +
+  geom_jitter(height = 0, width = 0.1, alpha = 0.5) +
+  theme(legend.position = "none") + 
+  theme(axis.text.y = element_text(size = 12)) +
+  theme(axis.text.x = element_text(size = 12)) +
+  theme(axis.title.x = element_blank()) +
+  theme(axis.title.y = element_text(size = 12)) +
+  labs(y = "Climatic niche breadth") + 
+  scale_x_discrete(labels = c("Negative" = "Neg. response to fragmentation", "Positive" = "Pos. response to fragmentation"))
+
+plot_grid(propFor_lm, vol_lm, 
+          labels = c("*", "*"),
+          label_x = 0.72,
+          label_y = c(1, 1),
+          label_size = 24)
+ggsave("figures/area_sensitivity/deltaED_ranef_violinplots_traits.pdf")
+
 # 3 models, 1 for each slope, slope ~ for_cov + ed + volume
 
 tmin_mod <- lm(tmin ~ propFor_z + ed_z + volume_z, data = env_trends_spp)
 summary(tmin_mod)
 plot(env_trends_spp$propFor, env_trends_spp$tmin)
 
-tmax_mod <- lm(tmax ~ propFor_z + ed_z + volume_z, data = env_trends_spp)
-plot(env_trends_spp$volume, env_trends_spp$tmax)
-
 deltaED_mod <- lm(deltaED ~ propFor_z + ed_z + volume_z, data = env_trends_spp)
 plot(env_trends_spp$propFor, env_trends_spp$deltaED)
-
-tminED_mod <- lm(`tmin:deltaED` ~ propFor_z + ed_z + volume_z, data = env_trends_spp)
-plot(env_trends_spp$volume, env_trends_spp$`tmin:deltaED`)
-
-tmaxED_mod <- lm(`deltaED:tmax` ~ propFor_z + ed_z + volume_z, data = env_trends_spp)
-plot(env_trends_spp$propFor, env_trends_spp$`deltaED:tmax`)
-
-ggplot(trait_mods, aes(x = term, y = estimate)) +
-  geom_point() +
-  geom_errorbar(aes(ymin = estimate - 1.96*std.error, ymax = estimate + 1.96*std.error)) +
-  geom_hline(yintercept = 0, lty = 2) +
-  facet_grid(~model) +
-  labs(x = "", y = "Estimate")
-ggsave("figures/area_sensitivity/trait_model_estimates.pdf")
-
-ed_ed <- filter(env_trends_spp, model == "ed_mod") %>% 
-  ggplot(aes(x = ed_z, y = estimate)) + 
-  geom_smooth(method = "lm", se = F) +
-  geom_text(aes(label = SPEC)) +
-  labs(x = "Mean edge density", y = "Abundance trend vs. change in ED")
-
-tmin_vol <- filter(env_trends_spp, model == "tmin_mod") %>% 
-  ggplot(aes(x = volume_z, y = estimate)) + 
-  geom_text(aes(label = SPEC)) + geom_smooth(method = "lm", se = F) +
-  labs(x = "Climatic niche breadth", y = "Abundance trend vs. Tmin")
-
-tmin_for <- filter(env_trends_spp, model == "tmin_mod") %>% 
-  ggplot(aes(x = propFor_z, y = estimate)) +
-  geom_text(aes(label = SPEC)) + geom_smooth(method = "lm", se = F) +
-  labs(x = "Mean proportion forest cover", y = "Abundance trend vs. Tmin")
-
-plot_grid(ed_ed, tmin_vol, tmin_for, nrow = 2)
-ggsave("figures/area_sensitivity/trait_model_relationships.pdf", units = "in", height = 8, width = 10)
 
 ## BRMS model
 
@@ -564,8 +600,13 @@ land_mod <- brm(abundTrend ~ deltaProp + deltaED + Wintering_Slimit_general + (~
                 iter = 10000, 
                 cores = 4)
 
-inter_mod <- brm(abundTrend ~ tmin*deltaED + deltaED*tmax + Wintering_Slimit_general + (~tmin*deltaED + deltaED*tmax|SPEC),
+inter_mod <- brm(abundTrend ~ tmin*deltaED + tmax*deltaED + Wintering_Slimit_general + (~tmin*deltaED + tmax*deltaED|SPEC),
                  data = clim_hab_poptrend_mixedmod,
                  inits = "0",
                  iter = 10000, 
                  cores = 4)
+
+brm_plot <- marginal_effects(inter_mod, re_formula = NULL)
+plot(brm_plot, points = T)
+
+summary <- summary(inter_mod)
