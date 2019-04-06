@@ -180,6 +180,18 @@ setwd("C:/Users/gdicecco/Desktop/git/NLCD_fragmentation/")
 
 ### Route trends
 
+# Plot of routes used
+
+forest_routes <- us_subs[us_subs$rteno %in% forest_ed$stateroute, ]
+
+us.proj <- readOGR("\\\\BioArk/hurlbertlab/DiCecco/nlcd_frag_proj_shapefiles/BCRs_contiguous_us/BCRs_contiguous_us.shp")
+
+us_subs_transf <- spTransform(forest_routes, crs(us.proj))
+
+plot(us.proj, col = "gray73", border = "gray73")
+plot(us_subs_transf, add = T)
+
+
 hist(clim_hab_poptrend$deltaED)
 hist(clim_hab_poptrend$deltaProp)
 
@@ -247,12 +259,13 @@ env_breadth_allroutes <- clim_hab_pop_allroutes %>%
             std_patch = sd(meanPatchArea))
 
 cover_breadth <- ggplot(env_breadth_allroutes, aes(x = reorder(SPEC, propFor), y = propFor, color = SPEC)) +
-  geom_point() + 
+  geom_point(cex = 4) + 
   scale_color_viridis_d()+
   geom_errorbar(aes(ymin = min_for, ymax = max_for)) +
   theme(axis.text.x = element_text(angle = 45, hjust = 1)) +
   labs(x = "Species", y = "Forest cover") +
-  theme(legend.position = "none")
+  theme(legend.position = "none", axis.text = element_text(size = 18),
+        axis.title.x = element_blank(), axis.title.y = element_text(size = 24))
 
 volume <- traits %>%
   filter(aou %in% env_breadth_allroutes$aou) %>%
@@ -260,13 +273,15 @@ volume <- traits %>%
   dplyr::select(SPEC, aou, volume)
 
 volume_plot <- ggplot(volume, aes(x = reorder(SPEC, volume), y = volume, color = SPEC)) +
-  geom_point() + 
+  geom_point(cex = 4) + 
   scale_color_viridis_d()+
   theme(axis.text.x = element_text(angle = 45, hjust = 1)) +
   labs(x = "Species", y = "Climatic niche breadth") +
-  theme(legend.position = "none")
+  theme(legend.position = "none", axis.text = element_text(size = 18), 
+        axis.title = element_text(size = 24))
 
-plot_grid(ed_breadth, cover_breadth, volume_plot, nrow = 2)
+plot_grid(cover_breadth, volume_plot, nrow = 2)
+ggsave("figures/area_sensitivity/forest_breadth.tiff", units = "in", height = 13, width = 30)
 ggsave("figures/area_sensitivity/forest_breadth.pdf", units = "in", height = 13, width = 30)
 
 ## Correlations between forest edge density breadth, forest cover breadth, climate niche breadth
@@ -452,6 +467,21 @@ ggplot(fixed_effects, aes(x = Variable, y = Value)) +
   theme_bw()
 ggsave("figures/area_sensitivity/mixed_mods_fixedeffects.pdf", units = "in", height = 6, width = 16)
 
+wintering_effects <- bind_rows(add_df, full_df, noppt_df) %>%
+  bind_cols(model) %>%
+  filter(grepl("Wintering", Variable)) %>%
+  filter(model == "Full interactive")
+wintering_effects$label <- c("Central America", "Mexico", "South America", "US")
+
+ggplot(wintering_effects, aes(x = label, y = Value)) +
+  geom_point(cex = 2) + geom_errorbar(aes(ymin = Value - 1.96*Std.Error, ymax = Value + 1.96*Std.Error), 
+                                      width = 0.2) +
+  geom_hline(yintercept = 0, lty = 2, col = "red") +
+  theme(text = element_text(size = 18)) +
+  labs(x = "Southern limit of wintering grounds", y = "Estimate")
+ggsave("figures/area_sensitivity/mixed_mods_wintering.tiff")
+
+
 # Population level responses with species responses for tmin, deltaED
 
 clim_hab_poptrend_mixedmod$popmean <- predict(randomslope_fullinter, level = 0)
@@ -465,7 +495,9 @@ ggplot(clim_hab_poptrend_mixedmod, aes(x = tmin, color = SPEC)) +
   geom_line(aes(y = sppmean, color = SPEC), alpha = 0.5, stat="smooth", method = "lm", se = F) + 
   geom_smooth(aes(y = popmean), color = "black", cex = 1, method = "lm", se = F) +
   scale_color_viridis_d() +
-  labs(x = "Trend in Tmin", y = "Abundance trend", color = "Species") 
+  labs(x = "Trend in Tmin", y = "Abundance trend", color = "Species") +
+  theme(legend.position = "none")
+ggsave("figures/area_sensitivity/mixedmod_randomeffect_tmin.tiff")
 ggsave("figures/area_sensitivity/mixedmod_randomeffect_tmin.pdf")
 
 # deltaED
@@ -474,20 +506,24 @@ ggplot(clim_hab_poptrend_mixedmod, aes(x = deltaED, color = SPEC)) +
   geom_line(aes(y = sppmean, color = SPEC), alpha = 0.5, stat="smooth", method = "lm", se = F) + 
   geom_smooth(aes(y = popmean), color = "black", cex = 1, method = "lm", se = F) +
   scale_color_viridis_d() +
-  labs(x = "Change in forest edge density", y = "Abundance trend", color = "Species")
+  labs(x = "Change in forest edge density", y = "Abundance trend", color = "Species") +
+  theme(legend.position = "none")
+ggsave("figures/area_sensitivity/mixedmod_randomeffect_deltaED.tiff")
 ggsave("figures/area_sensitivity/mixedmod_randomeffect_deltaED.pdf")
 
 # Interaction of Tmax and deltaED
 clim_hab_poptrend_mixedmod$dEDsign <- ifelse(clim_hab_poptrend_mixedmod$deltaED > 0, "Increase in forest edge density", "Decrease in forest edge density")
 
-theme_set(theme_bw())
 ggplot(clim_hab_poptrend_mixedmod, aes(x = tmax, color = SPEC)) + 
   geom_point(aes(y = sppmean, color = SPEC), alpha = 0.1) +
   geom_line(aes(y = sppmean, color = SPEC), alpha = 0.5, stat="smooth", method = "lm", se = F) + 
   geom_smooth(aes(y = popmean), color = "black", cex = 1, method = "lm", se = F) +
   scale_color_viridis_d() +
   labs(x = "Trend in Tmax", y = "Abundance trend", color = "Species") +
-  facet_wrap(~dEDsign)
+  facet_wrap(~dEDsign) +
+  theme(legend.position = "none") +
+  theme(strip.text.x = element_text(size = 18))
+ggsave("figures/area_sensitivity/mixedmod_randomeffect_interaction.tiff", units = "in", height = 6, width = 12)
 ggsave("figures/area_sensitivity/mixedmod_randomeffect_interaction.pdf", units = "in", height = 6, width = 12)
 
 ## Trait analysis
@@ -547,10 +583,10 @@ propFor_lm <- ggplot(boxplot_deltaED, aes(x = group, y = propFor)) +
   geom_jitter(height = 0, width = 0.1, alpha = 0.5) +
   theme(legend.position = "none") + 
   ylim(c(0,1)) +
-  theme(axis.text.y = element_text(size = 12)) +
-  theme(axis.text.x = element_text(size = 12)) +
+  theme(axis.text.y = element_text(size = 18)) +
+  theme(axis.text.x = element_text(size = 13)) +
   theme(axis.title.x = element_blank()) +
-  theme(axis.title.y = element_text(size = 12)) +
+  theme(axis.title.y = element_text(size = 18)) +
   labs(y = "Mean proportion of forest cover") + 
   scale_x_discrete(labels = c("Negative" = "Neg. response to fragmentation", "Positive" = "Pos. response to fragmentation"))
 
@@ -560,18 +596,19 @@ vol_lm <- ggplot(boxplot_deltaED, aes(x = group, y = volume)) +
   ylim(c(0, 4)) +
   geom_jitter(height = 0, width = 0.1, alpha = 0.5) +
   theme(legend.position = "none") + 
-  theme(axis.text.y = element_text(size = 12)) +
-  theme(axis.text.x = element_text(size = 12)) +
+  theme(axis.text.y = element_text(size = 18)) +
+  theme(axis.text.x = element_text(size = 13)) +
   theme(axis.title.x = element_blank()) +
-  theme(axis.title.y = element_text(size = 12)) +
+  theme(axis.title.y = element_text(size = 18)) +
   labs(y = "Climatic niche breadth") + 
   scale_x_discrete(labels = c("Negative" = "Neg. response to fragmentation", "Positive" = "Pos. response to fragmentation"))
 
 plot_grid(propFor_lm, vol_lm, 
           labels = c("*", "*"),
-          label_x = 0.72,
+          label_x = c(0.74, 0.725),
           label_y = c(1, 1),
           label_size = 24)
+ggsave("figures/area_sensitivity/deltaED_ranef_violinplots_traits.tiff")
 ggsave("figures/area_sensitivity/deltaED_ranef_violinplots_traits.pdf")
 
 # 3 models, 1 for each slope, slope ~ for_cov + ed + volume

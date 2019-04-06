@@ -188,7 +188,22 @@ nlcd_cropHigh <- crop(nlcd2011, routeHigh)
 EDHigh <- mask(nlcd_cropHigh, routeHigh)
 
 setwd("C:/Users/gdicecco/Desktop/git/NLCD_fragmentation/")
-pdf("figures/methods_figs/forest_edge_density_scale.pdf", height = 6, width = 8)
+
+nlcd_palette <- c("#0000FF", "#FF9900", "#E5E5CC", "#006600", "#B2B200", "#FFB3CC", "#E5CC99", "#80FFCC", "#FFFFFF")
+low <- tm_shape(EDlow) + tm_raster(palette = nlcd_palette, style = "cat", labels = as.character(newcode$legend), title = "Land cover class") +
+  tm_layout(legend.text.size = 1, legend.title.size = 2)
+tmap_save(low, "figures/methods_figs/forest_ed_low.tiff")
+
+med <- tm_shape(EDmed) + tm_raster(palette = nlcd_palette, style = "cat") +
+  tm_legend(show = F)
+tmap_save(med, "figures/methods_figs/forest_ed_med.tiff")
+
+high <- tm_shape(EDHigh) + tm_raster(palette = nlcd_palette, style = "cat") +
+  tm_legend(show = F)
+tmap_save(high, "figures/methods_figs/forest_ed_high.tiff")
+
+
+pdf("figures/methods_figs/forest_edge_density_scale.pdf", height = 10, width = 12)
 par(mfrow = c(1,3))
 plot(EDlow, main = "Forest edge density = 0.056")
 plot(EDmed, main = "Forest edge density = 0.184")
