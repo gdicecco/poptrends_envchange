@@ -554,6 +554,27 @@ ranef$SPEC <- row.names(ranef)
 env_trends_spp <- ranef %>%
   left_join(spp_breadths_z)
 
+# Compare random effects with indiv model estimates
+
+compare_mods <- model_fits %>%
+  dplyr::select(SPEC, term, estimate) %>%
+  spread(key = "term", value = "estimate") %>%
+  dplyr::select(SPEC, tmin, deltaED) %>%
+  left_join(ranef, by = c("SPEC"))
+
+ggplot(compare_mods, aes(x = tmin.x, y = tmin.y, label = SPEC)) +
+  geom_text() +
+  geom_abline(yintercept = 0, slope = 1) +
+  labs(x = "Tmin estimate indiv. models", y = "Tmin estimate mixed model")
+ggsave("figures/area_sensitivity/compare_indiv_mixedmod_tmin.pdf")
+
+ggplot(compare_mods, aes(x = deltaED.x, y = deltaED.y, label = SPEC)) +
+  geom_text() +
+  geom_abline(yintercept = 0, slope = 1) +
+  labs(x = "deltaED estimate indiv. models", y = "deltaED estimate mixed model")
+ggsave("figures/area_sensitivity/compare_indiv_mixedmod_deltaED.pdf")
+
+
 # Pairwise comparisons
 
 neg_tmin <- filter(env_trends_spp, tmin < 0)
