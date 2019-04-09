@@ -258,27 +258,31 @@ env_breadth_allroutes <- clim_hab_pop_allroutes %>%
             patchArea = mean(meanPatchArea),
             std_patch = sd(meanPatchArea))
 
-cover_breadth <- ggplot(env_breadth_allroutes, aes(x = reorder(SPEC, propFor), y = propFor, color = SPEC)) +
-  geom_point(cex = 4) + 
+cover_breadth <- ggplot(env_breadth_allroutes, aes(x = reorder(SPEC, propFor), y = propFor)) +
+  geom_point(cex = 8) + 
   scale_color_viridis_d()+
-  geom_errorbar(aes(ymin = min_for, ymax = max_for)) +
+  geom_errorbar(aes(ymin = min_for, ymax = max_for), cex = 3, width = 0) +
   theme(axis.text.x = element_text(angle = 45, hjust = 1)) +
   labs(x = "Species", y = "Forest cover") +
-  theme(legend.position = "none", axis.text = element_text(size = 18),
-        axis.title.x = element_blank(), axis.title.y = element_text(size = 24))
+  theme(legend.position = "none", axis.text.x = element_text(size = 26), 
+        axis.text.y = element_text(size = 40),
+        axis.title.x = element_blank(), axis.title.y = element_text(size = 45),
+        axis.line = element_line(colour = 'black', size = 3))
 
 volume <- traits %>%
   filter(aou %in% env_breadth_allroutes$aou) %>%
   left_join(dplyr::select(env_breadth_allroutes, SPEC, aou)) %>%
   dplyr::select(SPEC, aou, volume)
 
-volume_plot <- ggplot(volume, aes(x = reorder(SPEC, volume), y = volume, color = SPEC)) +
-  geom_point(cex = 4) + 
+volume_plot <- ggplot(volume, aes(x = reorder(SPEC, volume), y = volume)) +
+  geom_point(cex = 8) + 
   scale_color_viridis_d()+
   theme(axis.text.x = element_text(angle = 45, hjust = 1)) +
   labs(x = "Species", y = "Climatic niche breadth") +
-  theme(legend.position = "none", axis.text = element_text(size = 18), 
-        axis.title = element_text(size = 24))
+  theme(legend.position = "none", axis.text.x = element_text(size = 26), 
+        axis.text.y = element_text(size = 40), 
+        axis.title = element_text(size = 45),
+        axis.line = element_line(colour = 'black', size = 3))
 
 plot_grid(cover_breadth, volume_plot, nrow = 2)
 ggsave("figures/area_sensitivity/forest_breadth.tiff", units = "in", height = 13, width = 30)
@@ -307,7 +311,7 @@ vol_cov <- ggplot(spp_breadths, aes(x = volume, y = propFor)) +
   labs(x = "Climatic niche breadth", y = "Mean forest cover")
 
 plot_grid(ed_cov, ed_vol, vol_cov, nrow = 2)
-ggsave("figures/area_sensitivity/traits_covariation.pdf", units = "in", height = 8, width = 8)
+ggsave("figures/area_sensitivity/traits_covariation.tiff", units = "in", height = 8, width = 8)
 
 cor(spp_breadths[, c(4,7,9)]) # edxpropFor = -0.65, edxVolume = 0.11, volumexPropFor = -0.59
 
@@ -474,10 +478,14 @@ wintering_effects <- bind_rows(add_df, full_df, noppt_df) %>%
 wintering_effects$label <- c("Central America", "Mexico", "South America", "US")
 
 ggplot(wintering_effects, aes(x = label, y = Value)) +
-  geom_point(cex = 2) + geom_errorbar(aes(ymin = Value - 1.96*Std.Error, ymax = Value + 1.96*Std.Error), 
-                                      width = 0.2) +
-  geom_hline(yintercept = 0, lty = 2, col = "red") +
-  theme(text = element_text(size = 18)) +
+  geom_point(cex = 4) + geom_errorbar(aes(ymin = Value - 1.96*Std.Error, ymax = Value + 1.96*Std.Error), 
+                                      width = 0, cex = 2) +
+  geom_hline(yintercept = 0, lty = 2, col = "red", cex = 2) +
+  theme(axis.text.y = element_text(size = 24),
+        axis.title.x = element_text(size = 30),
+        axis.title.y = element_text(size = 30),
+        axis.text.x = element_text(size = 25)) +
+  theme(axis.line = element_line(colour = 'black', size = 2)) +
   labs(x = "Southern limit of wintering grounds", y = "Estimate")
 ggsave("figures/area_sensitivity/mixed_mods_wintering.tiff")
 
@@ -501,13 +509,13 @@ ggsave("figures/area_sensitivity/mixedmod_randomeffect_tmin.tiff")
 ggsave("figures/area_sensitivity/mixedmod_randomeffect_tmin.pdf")
 
 # deltaED
-ggplot(clim_hab_poptrend_mixedmod, aes(x = deltaED, color = SPEC)) + 
-  geom_point(aes(y = sppmean, color = SPEC), alpha = 0.1) +
-  geom_line(aes(y = sppmean, color = SPEC), alpha = 0.5, stat="smooth", method = "lm", se = F) + 
-  geom_smooth(aes(y = popmean), color = "black", cex = 1, method = "lm", se = F) +
-  scale_color_viridis_d() +
+ggplot(clim_hab_poptrend_mixedmod, aes(x = deltaED)) + 
+  geom_point(aes(y = sppmean), color = "gray", alpha = 0.75) +
+  geom_line(aes(y = sppmean, group = SPEC), alpha = 0.75, color = "steelblue", stat="smooth", method = "lm", se = F, cex = 0.75) + 
+  geom_smooth(aes(y = popmean), color = "black", cex = 1.2, method = "lm", se = F) +
+  theme(axis.line = element_line(colour = 'black', size = 1)) +
   labs(x = "Change in forest edge density", y = "Abundance trend", color = "Species") +
-  theme(legend.position = "none")
+  theme(legend.position = "none", text = element_text(size = 24))
 ggsave("figures/area_sensitivity/mixedmod_randomeffect_deltaED.tiff")
 ggsave("figures/area_sensitivity/mixedmod_randomeffect_deltaED.pdf")
 
@@ -515,14 +523,14 @@ ggsave("figures/area_sensitivity/mixedmod_randomeffect_deltaED.pdf")
 clim_hab_poptrend_mixedmod$dEDsign <- ifelse(clim_hab_poptrend_mixedmod$deltaED > 0, "Increase in forest edge density", "Decrease in forest edge density")
 
 ggplot(clim_hab_poptrend_mixedmod, aes(x = tmax, color = SPEC)) + 
-  geom_point(aes(y = sppmean, color = SPEC), alpha = 0.1) +
-  geom_line(aes(y = sppmean, color = SPEC), alpha = 0.5, stat="smooth", method = "lm", se = F) + 
-  geom_smooth(aes(y = popmean), color = "black", cex = 1, method = "lm", se = F) +
-  scale_color_viridis_d() +
+  geom_point(aes(y = sppmean), color = "gray", alpha = 0.75) +
+  geom_line(aes(y = sppmean, group = SPEC), alpha = 0.75, color = "steelblue", stat="smooth", method = "lm", se = F, cex = 0.75) + 
+  geom_smooth(aes(y = popmean), color = "black", cex = 1.2, method = "lm", se = F) +
+  theme(axis.line = element_line(colour = 'black', size = 1)) +
   labs(x = "Trend in Tmax", y = "Abundance trend", color = "Species") +
   facet_wrap(~dEDsign) +
   theme(legend.position = "none") +
-  theme(strip.text.x = element_text(size = 18))
+  theme(legend.position = "none", text = element_text(size = 24))
 ggsave("figures/area_sensitivity/mixedmod_randomeffect_interaction.tiff", units = "in", height = 6, width = 12)
 ggsave("figures/area_sensitivity/mixedmod_randomeffect_interaction.pdf", units = "in", height = 6, width = 12)
 
@@ -599,34 +607,30 @@ t.test(filter(boxplot_deltaED, group == "Negative")$Brange_Area_km2,
             filter(boxplot_deltaED, group == "Positive")$Brange_Area_km2)
 
 propFor_lm <- ggplot(boxplot_deltaED, aes(x = group, y = propFor)) + 
-  geom_violin(aes(fill = group), bw = 0.1, trim = F, draw_quantiles = c(0.5), alpha = 0.5, cex = 1) +
+  geom_violin(aes(fill = group), bw = 0.1, trim = F, draw_quantiles = c(0.5), alpha = 0.5, cex = 1.5) +
   scale_fill_viridis_d(begin = 0.5) +
-  geom_jitter(height = 0, width = 0.1, alpha = 0.5) +
+  geom_jitter(height = 0, width = 0.1, alpha = 0.75, cex = 2) +
   theme(legend.position = "none") + 
   ylim(c(0,1)) +
-  theme(axis.text.y = element_text(size = 18)) +
-  theme(axis.text.x = element_text(size = 13)) +
-  theme(axis.title.x = element_blank()) +
-  theme(axis.title.y = element_text(size = 18)) +
-  labs(y = "Mean proportion of forest cover") + 
-  scale_x_discrete(labels = c("Negative" = "Neg. response to fragmentation", "Positive" = "Pos. response to fragmentation"))
+  theme(text = element_text(size = 24), axis.line = element_line(colour = 'black', size = 1),
+        axis.text.x = element_text(size = 30)) +
+  labs(y = "Mean proportion of forest cover", x = "Fragmentation effect") + 
+  scale_x_discrete(labels = c("Negative" = "-", "Positive" = "+"))
 
 vol_lm <- ggplot(boxplot_deltaED, aes(x = group, y = volume)) + 
-  geom_violin(aes(fill = group), trim = F, draw_quantiles = c(0.5), alpha = 0.5, cex = 1) +
+  geom_violin(aes(fill = group), trim = F, draw_quantiles = c(0.5), alpha = 0.5, cex = 1.5) +
   scale_fill_viridis_d(begin = 0.5) +
   ylim(c(0, 4)) +
-  geom_jitter(height = 0, width = 0.1, alpha = 0.5) +
+  geom_jitter(height = 0, width = 0.1, alpha = 0.75, cex = 2) +
   theme(legend.position = "none") + 
-  theme(axis.text.y = element_text(size = 18)) +
-  theme(axis.text.x = element_text(size = 13)) +
-  theme(axis.title.x = element_blank()) +
-  theme(axis.title.y = element_text(size = 18)) +
-  labs(y = "Climatic niche breadth") + 
-  scale_x_discrete(labels = c("Negative" = "Neg. response to fragmentation", "Positive" = "Pos. response to fragmentation"))
+  theme(text = element_text(size = 24), axis.line = element_line(colour = 'black', size = 1),
+        axis.text.x = element_text(size = 30)) +
+  labs(y = "Climatic niche breadth", x = "Fragmentation effect") + 
+  scale_x_discrete(labels = c("Negative" = "-", "Positive" = "+"))
 
-plot_grid(propFor_lm, vol_lm, 
+plot_grid(vol_lm, propFor_lm,
           labels = c("*", "*"),
-          label_x = c(0.74, 0.725),
+          label_x = c(0.725, 0.74),
           label_y = c(1, 1),
           label_size = 24)
 ggsave("figures/area_sensitivity/deltaED_ranef_violinplots_traits.tiff")

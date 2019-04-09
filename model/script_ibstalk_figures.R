@@ -59,6 +59,7 @@ tm_shape(route_prism_tmax) +
 # Plots of abundance trend and climate trend for one species
 
 setwd("/Volumes/hurlbertlab/DiCecco/data/")
+setwd("\\\\BioArk\\hurlbertlab\\DiCecco\\data\\")
 routePRISM <- read.csv("bbs_routes_breeding_season_climate.csv", stringsAsFactors = F)
 routeClim <- filter(routePRISM, ID == 6) %>%
   group_by(year, env) %>%
@@ -67,28 +68,31 @@ routeClim <- filter(routePRISM, ID == 6) %>%
 library(ggplot2)
 theme_set(theme_classic())
 
-ggplot(filter(routeClim, env == "ppt"), aes(x = year, y = mean)) + geom_point() + 
-  geom_smooth(method = "lm", se = F, color = "green") + 
+ggplot(filter(routeClim, env == "ppt"), aes(x = year, y = mean)) + geom_point(size = 4) + 
+  geom_smooth(method = "lm", se = F, color = "green", cex = 3) + 
   theme(axis.text.y = element_text(size = 12)) +
   theme(axis.text.x = element_text(size = 12)) +
   theme(axis.title.x = element_text(size = 12)) +
   theme(axis.title.y = element_text(size = 12)) +
+  theme(axis.line = element_line(colour = 'black', size = 3)) +
   labs(x = "Year", y = "Precipitation (mm)")
 
-ggplot(filter(routeClim, env == "tmax"), aes(x = year, y = mean)) + geom_point() + 
-  geom_smooth(method = "lm", se = F, color = "red") + 
+ggplot(filter(routeClim, env == "tmax"), aes(x = year, y = mean)) + geom_point(size = 4) + 
+  geom_smooth(method = "lm", se = F, color = "red", cex = 3) + 
   theme(axis.text.y = element_text(size = 12)) +
   theme(axis.text.x = element_text(size = 12)) +
   theme(axis.title.x = element_text(size = 12)) +
   theme(axis.title.y = element_text(size = 12)) +
+  theme(axis.line = element_line(colour = 'black', size = 3)) +
   labs(x = "Year", y = "Tmax (C)")
 
-ggplot(filter(routeClim, env == "tmin"), aes(x = year, y = mean)) + geom_point() + 
-  geom_smooth(method = "lm", se = F) + 
+ggplot(filter(routeClim, env == "tmin"), aes(x = year, y = mean)) + geom_point(size = 4) + 
+  geom_smooth(method = "lm", se = F, cex = 3) + 
   theme(axis.text.y = element_text(size = 12)) +
   theme(axis.text.x = element_text(size = 12)) +
   theme(axis.title.x = element_text(size = 12)) +
   theme(axis.title.y = element_text(size = 12)) +
+  theme(axis.line = element_line(colour = 'black', size = 3)) +
   labs(x = "Year", y = "Tmin (C)")
 
 routes <- read.csv("/Volumes/hurlbertlab/Databases/BBS/2017/bbs_routes_20170712.csv")
@@ -105,12 +109,13 @@ counts$stateroute <- counts$statenum*1000 + counts$route
 counts_onespp <- counts %>%
   filter(aou == 2890, year > 1989, stateroute == 2001)
 
-ggplot(counts_onespp, aes(x = year, y = speciestotal)) + geom_point() + 
-  geom_smooth(method = "lm", se = F, color = "purple") + 
+ggplot(counts_onespp, aes(x = year, y = speciestotal)) + geom_point(size = 4) + 
+  geom_smooth(method = "lm", se = F, color = "purple", cex = 3) + 
   theme(axis.text.y = element_text(size = 12)) +
   theme(axis.text.x = element_text(size = 12)) +
   theme(axis.title.x = element_text(size = 12)) +
   theme(axis.title.y = element_text(size = 12)) +
+  theme(axis.line = element_line(colour = 'black', size = 3)) +
   labs(x = "Year", y = "Abundance")
 
 ### Plot of example routes for edge density scale
@@ -190,8 +195,8 @@ EDHigh <- mask(nlcd_cropHigh, routeHigh)
 setwd("C:/Users/gdicecco/Desktop/git/NLCD_fragmentation/")
 
 nlcd_palette <- c("#0000FF", "#FF9900", "#E5E5CC", "#006600", "#B2B200", "#FFB3CC", "#E5CC99", "#80FFCC", "#FFFFFF")
-low <- tm_shape(EDlow) + tm_raster(palette = nlcd_palette, style = "cat", labels = as.character(newcode$legend), title = "Land cover class") +
-  tm_layout(legend.text.size = 1, legend.title.size = 2)
+low <- tm_shape(EDlow) + tm_raster(palette = nlcd_palette, style = "cat", labels = as.character(newcode$legend), title = "") +
+  tm_layout(legend.text.size = 1.5)
 tmap_save(low, "figures/methods_figs/forest_ed_low.tiff")
 
 med <- tm_shape(EDmed) + tm_raster(palette = nlcd_palette, style = "cat") +
