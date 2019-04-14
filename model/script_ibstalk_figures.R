@@ -120,11 +120,14 @@ ggplot(counts_onespp, aes(x = year, y = speciestotal)) + geom_point(size = 4) +
 
 ### Plot of example routes for edge density scale
 setwd("//BioArk/hurlbertlab/DiCecco/nlcd_frag_proj_shapefiles/")
+setwd("/Volumes/hurlbertlab/DiCecco/nlcd_frag_proj_shapefiles/")
 bufferRoutes <- readOGR("bbsroutes_5km_buffer.shp")
 
 nlcd2011 <- raster("//BioArk/hurlbertlab/GIS/LandCoverData/nlcd_2011_landcover_2011_edition_2014_10_10/nlcd_2011_whole_simplified.tif")
+nlcd2011 <- raster("/Volumes/hurlbertlab/GIS/LandCoverData/nlcd_2011_landcover_2011_edition_2014_10_10/nlcd_2011_whole_simplified.tif")
 
 frags <- read.csv("\\\\BioArk\\hurlbertlab\\DiCecco\\data\\fragmentation_indices_nlcd_simplified.csv", stringsAsFactors = F)
+frags <- read.csv("/Volumes/hurlbertlab/DiCecco/data/fragmentation_indices_nlcd_simplified.csv", stringsAsFactors = F)
 
 newcode <- data.frame(code = seq(1,9), 
                       legend = c("Open water", "Urban", "Barren", "Forest", "Shrubland", 
@@ -193,18 +196,20 @@ nlcd_cropHigh <- crop(nlcd2011, routeHigh)
 EDHigh <- mask(nlcd_cropHigh, routeHigh)
 
 setwd("C:/Users/gdicecco/Desktop/git/NLCD_fragmentation/")
+setwd("/Users/gracedicecco/Desktop/git/NLCD_fragmentation/")
+
 
 nlcd_palette <- c("#0000FF", "#FF9900", "#E5E5CC", "#006600", "#B2B200", "#FFB3CC", "#E5CC99", "#80FFCC", "#FFFFFF")
 low <- tm_shape(EDlow) + tm_raster(palette = nlcd_palette, style = "cat", labels = as.character(newcode$legend), title = "") +
-  tm_layout(legend.text.size = 1.5)
+  tm_scale_bar(size = 2, breaks = c(0, 5))
 tmap_save(low, "figures/methods_figs/forest_ed_low.tiff")
 
 med <- tm_shape(EDmed) + tm_raster(palette = nlcd_palette, style = "cat") +
-  tm_legend(show = F)
+  tm_legend(show = F) + tm_scale_bar(size = 2, breaks = c(0, 5))
 tmap_save(med, "figures/methods_figs/forest_ed_med.tiff")
 
 high <- tm_shape(EDHigh) + tm_raster(palette = nlcd_palette, style = "cat") +
-  tm_legend(show = F)
+  tm_legend(show = F)+ tm_scale_bar(size = 2, position = c("LEFT", "BOTTOM"), breaks = c(0, 5))
 tmap_save(high, "figures/methods_figs/forest_ed_high.tiff")
 
 
