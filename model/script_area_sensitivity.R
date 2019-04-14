@@ -654,19 +654,20 @@ climate_mod <- brm(abundTrend ~ ppt + tmin + tmax + Wintering_Slimit_general + (
                    data = clim_hab_poptrend_mixedmod,
                    inits = "0",
                    iter = 10000, 
-                   cores = 4)
+                   cores = 4, control = list(adapt_delta = 0.97))
 
 land_mod <- brm(abundTrend ~ deltaProp + deltaED + Wintering_Slimit_general + (~deltaProp + deltaED|SPEC),
                 data = clim_hab_poptrend_mixedmod,
                 inits = "0",
                 iter = 10000, 
-                cores = 4)
+                cores = 4, control = list(adapt_delta = 0.97))
 
-inter_mod <- brm(abundTrend ~ tmin*deltaED + tmax*deltaED + Wintering_Slimit_general + (~tmin*deltaED + tmax*deltaED|SPEC),
+inter_mod <- brm(abundTrend ~ ppt + deltaProp + tmin*deltaED + tmax*deltaED + Wintering_Slimit_general + (~ppt + deltaProp + tmin*deltaED + tmax*deltaED|SPEC),
                  data = clim_hab_poptrend_mixedmod,
                  inits = "0",
                  iter = 10000, 
-                 cores = 4)
+                 cores = 4, control = list(adapt_delta = 0.97))
+save(climate_mod, land_mod, inter_mod, file = "model/brms_mods.Rdata")
 
 brm_plot <- marginal_effects(inter_mod, re_formula = NULL)
 plot(brm_plot, points = T)
