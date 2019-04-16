@@ -679,28 +679,71 @@ load("/Volumes/hurlbertlab/DiCecco/data/brms_mods.Rdata")
 ### Simulate data to compare modeling approaches:
 # Simulated data set of five species
 
-sim_data <- data.frame(spec = c(rep(1, 100), rep(2, 350), rep(3, 300), rep(4, 600), rep(5, 400), rep(6, 100), rep(7, 350), rep(8, 300), rep(9, 600), rep(10, 400)))
+sim_data <- data.frame(routeno = c(1:1000))
 
 sim_data$tmin <- rnorm(nrow(sim_data), mean = 0.2, sd = 0.6)
-sim_data$tmax <- rnorm(nrow(sim_data), mean = 0.2, sd = 0.6)
-sim_data$ppt <- rnorm(nrow(sim_data), mean = 0, sd = 1)
 sim_data$deltaED <- rnorm(nrow(sim_data), mean = 0.3, sd = 0.8)
-  
-abund_trend = 0.5*tmin + rnorm(n, mean = 0, sd = .5)
-  
-  
+
+coefs <- data.frame(spec = c(1:5), 
+                    tmin = c(0.5, 0.4, -0.7, -0.2, 0.3),
+                    deltaED = c(-0.2, 0.7, -0.4, 0.5, 0.1),
+                    int = c(0.4, 0.2, -0.1, -0.3, 0.5))
+range <- 500
+sim_trends <- coefs %>%
+  group_by(spec) %>%
+  nest() %>%
+  mutate(sim = map(data, ~{
+    params <- .
+    routeno <- sample_n(sim_data, size = range, replace = F) %>%
+      mutate(abund_trend = params$tmin*tmin + params$deltaED*deltaED + params$int*deltaED*tmin +
+               rnorm(range, mean = 0, sd = 0.5))
+  })) %>%
+  dplyr::select(-data) %>%
+  unnest()
+
+# Individual species models
+
+indiv_mod <- sim_trends %>%
+  group_by(spec) %>%
+  nest() %>%
+  mutate(mod = map(data, ~{
+    tidy(lm(abund_trend ~ tmin*deltaED, data = .))
+  })) %>%
+  dplyr::select(-data) %>%
+  unnest() %>%
+  filter(term != "(Intercept)") %>%
+  dplyr::select(spec, term, estimate) %>%
+  spread(key = "term", value = "estimate") %>%
+  mutate(model = "indiv") %>%
+  rename(int = `tmin:deltaED`)
+
 # Fixed effects model
 
-fixed_mod <- lm(abund_trend ~ tmin*deltaED + tmax*deltaED + ppt + spec, data = sim_data)
+fixed_mod <- lm(abund_trend ~ tmin*deltaED + spec, data = sim_trends)
 
 # Mixed effects model
 
 ctrl <- lmeControl(opt='optim')
 mixed_mod <- lme(abund_trend ~ tmin*deltaED, random = (~tmin*deltaED|spec), 
-                 data = sim_data, control = ctrl)
+                 data = sim_trends, control = ctrl)
 
-# Hierachical bayes model
+mixed_mod_ranef <- data.frame(mixed_mod$coefficients$random[[1]])
+mixed_mod_ranef$spec <- row.names(mixed_mod_ranef)
+mixed_mod_fixed <- data.frame(mixed_mod$coefficients$fixed)
 
-bayes_mod <- brm(abund_trend ~ tmin*deltaED + (~tmin*deltaED|spec), 
-    data = sim_data)
-load("/Volumes/hurlbertlab/DiCecco/data/simulation_bayes_mod.Rdata")
+mixed_mod_est <- mixed_mod_ranef %>%
+  mutate(tmin = tmin + mixed_mod_fixed$mixed_mod.coefficients.fixed[2],
+         deltaED = deltaED + mixed_mod_fixed$mixed_mod.coefficients.fixed[3], 
+         int = tmin.deltaED + mixed_mod_fixed$mixed_mod.coefficients.fixed[4]) %>%
+  dplyr::select(spec, tmin, deltaED, int) %>%
+  mutate(model = "mixed") %>%
+  mutate(spec = as.numeric(spec))
+
+## Compare methods
+
+sim_results <- coefs %>%
+  mutate(model = "true") %>%
+  bind_rows(mixed_mod_est, indiv_mod)
+  
+ggplot(filter(sim_results, model == "mixed" | model == "true"), 
+       aes(x = sim, y = value, color = model)) + geom_point()
