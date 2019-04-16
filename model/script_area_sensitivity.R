@@ -674,17 +674,21 @@ plot(brm_plot, points = T)
 
 summary <- summary(inter_mod)
 
+load("/Volumes/hurlbertlab/DiCecco/data/brms_mods.Rdata")
+
 ### Simulate data to compare modeling approaches:
 # Simulated data set of five species
 
 sim_data <- data.frame(spec = c(rep(1, 100), rep(2, 350), rep(3, 300), rep(4, 600), rep(5, 400), rep(6, 100), rep(7, 350), rep(8, 300), rep(9, 600), rep(10, 400)))
 
-sim_data$abund_trend <- rnorm(nrow(sim_data), mean = 0, sd = 0.5)
 sim_data$tmin <- rnorm(nrow(sim_data), mean = 0.2, sd = 0.6)
 sim_data$tmax <- rnorm(nrow(sim_data), mean = 0.2, sd = 0.6)
 sim_data$ppt <- rnorm(nrow(sim_data), mean = 0, sd = 1)
 sim_data$deltaED <- rnorm(nrow(sim_data), mean = 0.3, sd = 0.8)
-
+  
+abund_trend = 0.5*tmin + rnorm(n, mean = 0, sd = .5)
+  
+  
 # Fixed effects model
 
 fixed_mod <- lm(abund_trend ~ tmin*deltaED + tmax*deltaED + ppt + spec, data = sim_data)
@@ -698,4 +702,5 @@ mixed_mod <- lme(abund_trend ~ tmin*deltaED, random = (~tmin*deltaED|spec),
 # Hierachical bayes model
 
 bayes_mod <- brm(abund_trend ~ tmin*deltaED + (~tmin*deltaED|spec), 
-    data = sim_data, control = list(adapt_delta = 0.999))
+    data = sim_data)
+load("/Volumes/hurlbertlab/DiCecco/data/simulation_bayes_mod.Rdata")
