@@ -719,7 +719,23 @@ indiv_mod <- sim_trends %>%
 
 # Fixed effects model
 
-fixed_mod <- lm(abund_trend ~ tmin*deltaED + spec, data = sim_trends)
+fixed_mod <- lm(abund_trend ~ tmin*deltaED*factor(spec), data = sim_trends)
+fixed_mod_df <- data.frame(term = row.names(data.frame(fixed_mod$coefficients)), est = fixed_mod$coefficients)
+fixed_mod_1 <- data.frame(spec = 1, 
+                          tmin = fixed_mod_df$est[2], 
+                          deltaED = fixed_mod_df$est[3],
+                          int = fixed_mod_df$est[8])
+fixed_mod_est <- fixed_mod_df %>%
+  slice(9:nrow(fixed_mod_df)) %>%
+  mutate(spec = rep(c(2:5), 3)) %>%
+  mutate(param = c(rep("tmin", 4), rep("deltaED", 4), rep("int", 4))) %>%
+  dplyr::select(-term) %>%
+  spread(key= param, value = est) %>%
+  mutate(tmin = fixed_mod_1$tmin + tmin,
+         deltaED = fixed_mod_1$deltaED + deltaED,
+         int = fixed_mod_1$int + int) %>%
+  bind_rows(fixed_mod_1) %>%
+  mutate(model = "fixed")
 
 # Mixed effects model
 
@@ -743,7 +759,40 @@ mixed_mod_est <- mixed_mod_ranef %>%
 
 sim_results <- coefs %>%
   mutate(model = "true") %>%
-  bind_rows(mixed_mod_est, indiv_mod)
-  
-ggplot(filter(sim_results, model == "mixed" | model == "true"), 
-       aes(x = sim, y = value, color = model)) + geom_point()
+  bind_rows(mixed_mod_est, indiv_mod, fixed_mod_est)
+
+pdf("figures/area_sensitivity/simulated_data_models_equalRange.pdf")
+par(mfrow = c(2,2))
+  plot(filter(sim_results, model == "true")$tmin, 
+       filter(sim_results, model == "mixed")$tmin, col = "red", cex = 1, pch = 19, 
+       ylim= c(-0.7, 0.7),
+       xlab = c("Estimated Tmin"), ylab = "True Tmin")
+  abline(a = 0, b = 1)
+  points(filter(sim_results, model == "true")$tmin,
+         filter(sim_results, model == "indiv")$tmin, col = "blue", cex = 1, pch = 19)
+  points(filter(sim_results, model == "true")$tmin,
+         filter(sim_results, model == "fixed")$tmin, col = "green", cex = 1, pch = 19)
+  legend(x = "topleft", legend = c("Mixed model", "Individual models", "Fixed model"), 
+         col = c("red", "blue", "green"), pch = 19)
+
+plot(filter(sim_results, model == "true")$deltaED, 
+       filter(sim_results, model == "mixed")$deltaED, col = "red", cex = 1, pch = 19, 
+       ylim= c(-0.7, 0.7),
+       xlab = c("Estimated deltaED"), ylab = "True deltaED")
+abline(a = 0, b = 1)
+points(filter(sim_results, model == "true")$deltaED,
+         filter(sim_results, model == "indiv")$deltaED, col = "blue", cex = 1, pch = 19)
+points(filter(sim_results, model == "true")$deltaED,
+         filter(sim_results, model == "fixed")$deltaED, col = "green", cex = 1, pch = 19)
+
+plot(filter(sim_results, model == "true")$int, 
+     filter(sim_results, model == "mixed")$int, col = "red", cex = 1, pch = 19, 
+     ylim= c(-0.7, 0.7),
+     xlab = c("Estimated deltaED:Tmin"), ylab = "True deltaED:Tmin")
+abline(a = 0, b = 1)
+points(filter(sim_results, model == "true")$int,
+       filter(sim_results, model == "indiv")$int, col = "blue", cex = 1, pch = 19)
+points(filter(sim_results, model == "true")$int,
+       filter(sim_results, model == "fixed")$int, col = "green", cex = 1, pch = 19)
+
+dev.off()
