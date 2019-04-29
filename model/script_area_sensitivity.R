@@ -1,6 +1,6 @@
 ### Fit species-specific models using area-sensitivity classification
 
-### Libraries
+#### Libraries ####
 
 library(tidyverse)
 library(raster)
@@ -14,7 +14,7 @@ library(forcats)
 library(MuMIn)
 library(nlme)
 
-### Read in data
+### Read in data #####
 
 # Bird population data
 ## BBS
@@ -178,7 +178,7 @@ clim_hab_poptrend <- abund_trend %>%
 ##### Analysis #####
 setwd("C:/Users/gdicecco/Desktop/git/NLCD_fragmentation/")
 
-### Route trends
+#### Route trends ####
 
 # Plot of routes used
 
@@ -315,7 +315,8 @@ ggsave("figures/area_sensitivity/traits_covariation.tiff", units = "in", height 
 
 cor(spp_breadths[, c(4,7,9)]) # edxpropFor = -0.65, edxVolume = 0.11, volumexPropFor = -0.59
 
-### Individual models of climate + frag + loss + climate:frag + climate:loss for species
+#### Individual models ####
+# of climate + frag + loss + climate:frag + climate:loss for species
 
 z <- function(x) {(x - mean(x, na.rm = T))/sd(x, na.rm = T)}
 
@@ -341,70 +342,77 @@ clim_hab_poptrend_z <- abund_trend %>%
 # Models by species
 
 model_fits <- clim_hab_poptrend_z %>%
-  group_by(aou, SPEC, Area_sensitivity) %>%
+  group_by(aou, SPEC) %>%
   nest() %>%
   mutate(lmFit = map(data, ~{
     df <- .
-    lm(abundTrend_z ~ tmax + tmin + ppt + deltaED + deltaProp + tmax:deltaED + tmin:deltaED, df, na.action = na.fail)
+    lm(abundTrend ~ tmax*deltaED + tmin*deltaED + tmax*deltaProp + tmin*deltaProp, df, na.action = na.fail)
   })) %>%
   mutate(nObs = map_dbl(data, ~{
     df <- .
     nrow(df)
   })) %>%
   mutate(lm_broom = map(lmFit, tidy)) %>%
-  dplyr::select(aou, SPEC, Area_sensitivity, nObs, lm_broom) %>%
-  unnest()
+  dplyr::select(aou, SPEC, nObs, lm_broom) %>%
+  unnest() %>%
+  filter(nObs > 40) %>%
+  filter(term != "(Intercept)")
 
 range(model_fits$nObs) # 1 spp at 38, only one below 40
 
-# Comparison of parameter estimates for area-sensitive vs. non-area-sensitive spp
-## For each parameter, plot of confidence intervals around estimate for each species, color those by area sensitivity
+# Distribution of effect sizes for species
 
-for(i in 2:6) {
-param <- unique(model_fits$term)[[i]]
-ggplot(filter(model_fits, term == param), aes(x = reorder(SPEC, estimate), y = estimate)) +
-    geom_point() +
-    geom_hline(yintercept = 0, lty = 2) +
-    geom_errorbar(aes(ymin = estimate - 1.96*std.error, ymax = estimate + 1.96*std.error)) +
-    labs(x = "Species", y = "Estimate", title = param) +
-    theme(axis.text.x = element_text(angle = 45, hjust = 1))
-ggsave(paste0("figures/area_sensitivity/", param, "_estimates.pdf"), units = "in", height = 6, width = 12)
+density_plot <- function(variable, label) {
+  ggplot(filter(model_fits, term == variable), aes(x = estimate)) + 
+    geom_density(fill = "honeydew3", color = "honeydew4", size = 1) + 
+    geom_vline(aes(xintercept = mean(estimate)), lty = 2, cex = 1) + 
+    labs(x = label, y = "Number of species")
 }
 
-ggplot(filter(model_fits, term == "tmin:deltaED"), aes(x = reorder(SPEC, estimate), y = estimate)) +
-  geom_point() +
-  geom_hline(yintercept = 0, lty = 2) +
-  geom_errorbar(aes(ymin = estimate - 1.96*std.error, ymax = estimate + 1.96*std.error)) +
-  labs(x = "Species", y = "Estimate", title = "Tmin:deltaED") +
-  theme(axis.text.x = element_text(angle = 45, hjust = 1))
-ggsave(paste0("figures/area_sensitivity/tminED_estimates.pdf"), units = "in", height = 6, width = 12)
+deltaED <- density_plot("deltaED", "Change in ED")
+deltaProp <- density_plot("deltaProp", "Change in forest cover")
+tmin <- density_plot("tmin", "Trend in Tmin")
+tmax <- density_plot("tmax", "Trend in Tmax")
+tmaxED <- density_plot("tmax:deltaED", "Tmax:change in ED")
+tminED <- density_plot("deltaED:tmin", "Tmin:change in ED")
+tmaxProp <- density_plot("tmax:deltaProp", "Tmax:change in forest cover")
+tminProp <- density_plot("tmin:deltaProp", "Tmin:change in forest cover")
 
-ggplot(filter(model_fits, term == "tmax:deltaED"), aes(x = reorder(SPEC, estimate), y = estimate)) +
-  geom_point() +
-  geom_hline(yintercept = 0, lty = 2) +
-  geom_errorbar(aes(ymin = estimate - 1.96*std.error, ymax = estimate + 1.96*std.error)) +
-  labs(x = "Species", y = "Estimate", title = "Tmax:deltaED") +
-  theme(axis.text.x = element_text(angle = 45, hjust = 1))
-ggsave(paste0("figures/area_sensitivity/tmaxED_estimates.pdf"), units = "in", height = 6, width = 12)
+plot_grid(deltaED, deltaProp, tmin, tmax, tmaxED, tminED, tmaxProp, tminProp, nrow = 2)
+ggsave("figures/area_sensitivity/indiv_mods_parameter_distributions.pdf", units = "in", height = 6, width = 12)
 
-model_fits_traits <- model_fits %>%
-  left_join(spp_breadths_z)
+## Traits and responses 
 
-tmin_mod <- lm(estimate ~ propFor_z + ed_z + volume_z, data = filter(model_fits_traits, term == "tmin"))
-summary(tmin_mod)
+forest_traits <- spp_breadths %>%
+  left_join(area_aous) %>%
+  left_join(correlates, by = c("aou" = "AOU"))
 
-tmax_mod <- lm(estimate ~ propFor_z + ed_z + volume_z, data = filter(model_fits_traits, term == "tmax"))
-summary(tmax_mod)
+spp_traits <- spp_breadths %>%
+  left_join(area_aous) %>%
+  left_join(correlates, by = c("aou" = "AOU")) %>%
+  left_join(model_fits) %>%
+  group_by(term) %>%
+  nest() %>%
+  filter(!is.na(term)) %>%
+  mutate(trait_mod = map(data, ~{
+    df <- .
+    lm(estimate ~ volume + Brange_Area_km2 + migclass, data = df)
+  }),
+  tidy = map(trait_mod, ~{
+    mod <- .
+    tidy(mod)
+  }),
+  r2 = map_dbl(trait_mod, ~{
+    mod <- .
+    glance(mod)$r.squared
+  })) %>%
+  dplyr::select(term, tidy, r2) %>%
+  unnest()
 
-deltaED_mod <- lm(estimate ~ propFor_z + ed_z + volume_z, data = filter(model_fits_traits, term == "deltaED"))
-summary(deltaED_mod)
+spp_traits_pred <- spp_traits %>%
+  filter(p.value < 0.1)
 
-tminED_mod <- lm(estimate ~ propFor_z + ed_z + volume_z, data = filter(model_fits_traits, term == "tmin:deltaED"))
-
-tmaxED_mod <- lm(estimate ~ propFor_z + ed_z + volume_z, data = filter(model_fits_traits, term == "tmax:deltaED"))
-
-
-#### Make a joint model: fixed effects[climate + forest + area_sensitivity] + random slopes/intercepts[species]
+#### Make a joint model: fixed effects[climate + forest + winteringGround] + random slopes/intercepts[species]
 # No z score abundance trends, use term for southern limit of wintering grounds
 
 obs_size <- abund_trend %>% 
