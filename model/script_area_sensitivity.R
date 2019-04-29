@@ -346,7 +346,7 @@ model_fits <- clim_hab_poptrend_z %>%
   nest() %>%
   mutate(lmFit = map(data, ~{
     df <- .
-    lm(abundTrend ~ tmax*deltaED + tmin*deltaED + tmax*deltaProp + tmin*deltaProp, df, na.action = na.fail)
+    lm(abundTrend_z ~ tmax*deltaED + tmin*deltaED + tmax*deltaProp + tmin*deltaProp, df, na.action = na.fail)
   })) %>%
   mutate(nObs = map_dbl(data, ~{
     df <- .
@@ -399,7 +399,7 @@ spp_traits <- spp_breadths %>%
   filter(!is.na(term)) %>%
   mutate(trait_mod = map(data, ~{
     df <- .
-    lm(estimate ~ volume + Brange_Area_km2 + migclass, data = df)
+    lm(estimate ~ volume + propFor + ed + Foraging + migclass, data = df)
   }),
   tidy = map(trait_mod, ~{
     mod <- .
