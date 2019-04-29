@@ -399,7 +399,7 @@ spp_traits <- spp_breadths %>%
   filter(!is.na(term)) %>%
   mutate(trait_mod = map(data, ~{
     df <- .
-    lm(estimate ~ volume + propFor + ed + Foraging + migclass, data = df)
+    lm(estimate ~ volume + Trophic.Group + Foraging + migclass, data = df)
   }),
   tidy = map(trait_mod, ~{
     mod <- .
