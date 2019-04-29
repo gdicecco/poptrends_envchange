@@ -378,8 +378,11 @@ tminED <- density_plot("deltaED:tmin", "Tmin:change in ED")
 tmaxProp <- density_plot("tmax:deltaProp", "Tmax:change in forest cover")
 tminProp <- density_plot("tmin:deltaProp", "Tmin:change in forest cover")
 
-plot_grid(deltaED, deltaProp, tmin, tmax, tmaxED, tminED, tmaxProp, tminProp, nrow = 2)
-ggsave("figures/area_sensitivity/indiv_mods_parameter_distributions.pdf", units = "in", height = 6, width = 12)
+plot_grid(deltaED, deltaProp, tmin, tmax, nrow = 2)
+ggsave("figures/area_sensitivity/indiv_effects_distributions.pdf", units = "in", height = 6, width = 8)
+
+plot_grid(tmaxED, tminED, tmaxProp, tminProp, nrow = 2)
+ggsave("figures/area_sensitivity/indiv_interact_distributions.pdf", units = "in", height = 6, width = 8)
 
 ## Traits and responses 
 
