@@ -201,17 +201,19 @@ setwd("/Users/gracedicecco/Desktop/git/NLCD_fragmentation/")
 
 nlcd_palette <- c("#0000FF", "#FF9900", "#E5E5CC", "#006600", "#B2B200", "#FFB3CC", "#E5CC99", "#80FFCC", "#FFFFFF")
 low <- tm_shape(EDlow) + tm_raster(palette = nlcd_palette, style = "cat", labels = as.character(newcode$legend), title = "") +
-  tm_scale_bar(size = 2, breaks = c(0, 5))
-tmap_save(low, "figures/methods_figs/forest_ed_low.tiff")
+  tm_scale_bar(size = 2, breaks = c(0, 5)) + tm_layout(legend.text.size = 1)
+#tmap_save(low, "figures/methods_figs/forest_ed_low.tiff")
 
 med <- tm_shape(EDmed) + tm_raster(palette = nlcd_palette, style = "cat") +
   tm_legend(show = F) + tm_scale_bar(size = 2, breaks = c(0, 5))
-tmap_save(med, "figures/methods_figs/forest_ed_med.tiff")
+#tmap_save(med, "figures/methods_figs/forest_ed_med.tiff")
 
 high <- tm_shape(EDHigh) + tm_raster(palette = nlcd_palette, style = "cat") +
   tm_legend(show = F)+ tm_scale_bar(size = 2, position = c("LEFT", "BOTTOM"), breaks = c(0, 5))
-tmap_save(high, "figures/methods_figs/forest_ed_high.tiff")
+#tmap_save(high, "figures/methods_figs/forest_ed_high.tiff")
 
+arrange <- tmap_arrange(low, med, high, ncol = 3)
+tmap_save(arrange, "figures/methods_figs/forest_ed_multipanel.pdf", units = "in", height = 6, width = 12)
 
 pdf("figures/methods_figs/forest_edge_density_scale.pdf", height = 10, width = 12)
 par(mfrow = c(1,3))

@@ -199,6 +199,26 @@ cor(clim_hab_poptrend$ED, clim_hab_poptrend$propForest) # -0.41
 cor(clim_hab_poptrend$deltaED, clim_hab_poptrend$deltaProp) # -0.25
 cor(dplyr::select(clim_hab_poptrend, ppt, tmin, tmax, deltaED, deltaProp, ED, propForest))
 
+# Figure 1: map of routes
+states <- us.proj[, -(1:2)]
+
+bbs_routes <- tm_shape(states) + tm_fill(col = "gray73") + tm_borders(col = "gray73") + tm_shape(us_subs_transf)  + tm_lines()
+tmap_save(bbs_routes, "figures/methods_figs/bbs_routes.pdf", units = "in", height = 5, width = 7)
+
+# Figure 2: correlation matrix for environmental variables
+matrix <- climate_wide %>%
+  left_join(forest) %>%
+  filter(!is.na(propForest)) %>%
+  dplyr::select(-meanPatchArea, -stateroute, -ppt, -ED, -propForest, -year) %>%
+  rename("Tmin" = "tmin", "Tmax" = "tmax", "dED" = "deltaED", "dForest" = "deltaProp")
+
+tmin_tmax <- ggplot(matrix, aes(x = Tmin, y = Tmax)) + geom_point(alpha = 0.6) +
+  geom_rug(size = 0.1)
+dED_dProp <- ggplot(matrix, aes(x = dED, y = dForest)) + geom_point(alpha = 0.6) +
+  geom_rug(size = 0.1) + labs(x = "Change in ED", y = "Change in forest cover")
+env_plot <- plot_grid(tmin_tmax, dED_dProp, nrow = 1)
+ggsave("figures/route_eda/env_correlations_scatter.pdf", units = "in", height = 4, width = 8)
+
 # Breadth of forest ED and forest cover for area and non-area sensitive species
 
 env_breadth <- clim_hab_poptrend %>%
@@ -346,7 +366,7 @@ model_fits <- clim_hab_poptrend_z %>%
   nest() %>%
   mutate(lmFit = map(data, ~{
     df <- .
-    lm(abundTrend_z ~ tmax*deltaED + tmin*deltaED + tmax*deltaProp + tmin*deltaProp, df, na.action = na.fail)
+    lm(abundTrend ~ tmax*deltaED + tmin*deltaED + deltaProp, df, na.action = na.fail)
   })) %>%
   mutate(nObs = map_dbl(data, ~{
     df <- .
@@ -364,9 +384,9 @@ range(model_fits$nObs) # 1 spp at 38, only one below 40
 
 density_plot <- function(variable, label) {
   ggplot(filter(model_fits, term == variable), aes(x = estimate)) + 
-    geom_density(fill = "honeydew3", color = "honeydew4", size = 1) + 
+    geom_density(fill = "slategray3", color = "slategray", size = 1) + 
     geom_vline(aes(xintercept = mean(estimate)), lty = 2, cex = 1) + 
-    labs(x = label, y = "Number of species")
+    labs(x = label, y = "Density")
 }
 
 deltaED <- density_plot("deltaED", "Change in ED")
@@ -375,14 +395,12 @@ tmin <- density_plot("tmin", "Trend in Tmin")
 tmax <- density_plot("tmax", "Trend in Tmax")
 tmaxED <- density_plot("tmax:deltaED", "Tmax:change in ED")
 tminED <- density_plot("deltaED:tmin", "Tmin:change in ED")
-tmaxProp <- density_plot("tmax:deltaProp", "Tmax:change in forest cover")
-tminProp <- density_plot("tmin:deltaProp", "Tmin:change in forest cover")
 
 plot_grid(deltaED, deltaProp, tmin, tmax, nrow = 2)
 ggsave("figures/area_sensitivity/indiv_effects_distributions.pdf", units = "in", height = 6, width = 8)
 
-plot_grid(tmaxED, tminED, tmaxProp, tminProp, nrow = 2)
-ggsave("figures/area_sensitivity/indiv_interact_distributions.pdf", units = "in", height = 6, width = 8)
+plot_grid(tmaxED, tminED)
+ggsave("figures/area_sensitivity/indiv_interact_distributions.pdf", units = "in", height = 3, width = 8)
 
 ## Traits and responses 
 
@@ -399,7 +417,7 @@ spp_traits <- spp_breadths %>%
   filter(!is.na(term)) %>%
   mutate(trait_mod = map(data, ~{
     df <- .
-    lm(estimate ~  0 + volume + propFor + Trophic.Group + Foraging + migclass, data = df)
+    lm(estimate ~  volume + propFor + migclass + Foraging, data = df)
   }),
   tidy = map(trait_mod, ~{
     mod <- .
@@ -414,6 +432,36 @@ spp_traits <- spp_breadths %>%
 
 spp_traits_pred <- spp_traits %>%
   filter(p.value < 0.1)
+
+# trait figure
+
+model_traits <- model_fits %>%
+  left_join(forest_traits)
+
+# tmin residents
+
+mig_tmin <- ggplot(filter(model_traits, term == "tmin"), aes(x = fct_reorder(SPEC, estimate), y = estimate, col = migclass)) + 
+  geom_hline(yintercept = 0, lty = 2) + 
+  geom_point(size = 3) + 
+  geom_errorbar(aes(ymin = estimate - 1.96*std.error, ymax = estimate + 1.96*std.error), size = 0.75) + 
+  scale_color_manual(values = c("neotrop" = "skyblue3", "resid" = "seagreen3", "short" = "royalblue3"),
+                     labels = c("neotrop" = "Neotropical", "resid" = "Resident", "short" = "Short distance")) +
+  labs(x = "Species", y = "Effect of Tmin", color = "Migratory class") +
+  theme(axis.text.x = element_text(angle = 45, hjust = 1, size = 12), legend.position = c(0.01, 0.85))
+
+# deltaED short distance migrants
+
+mig_deltaED <- ggplot(filter(model_traits, term == "deltaED"), aes(x = fct_reorder(SPEC, estimate), y = estimate, col = migclass)) + 
+  geom_hline(yintercept = 0, lty = 2) + 
+  geom_point(size = 3) + 
+  geom_errorbar(aes(ymin = estimate - 1.96*std.error, ymax = estimate + 1.96*std.error), size = 0.75) + 
+  scale_color_manual(values = c("neotrop" = "skyblue3", "resid" = "seagreen3", "short" = "royalblue3"),
+                     labels = c("neotrop" = "Neotropical", "resid" = "Resident", "short" = "Short distance")) +
+  labs(x = "Species", y = "Effect of change in ED", color = "Migratory class") +
+  theme(axis.text.x = element_text(angle = 45, hjust = 1, size = 12), legend.position = "none")
+
+plot_grid(mig_tmin, mig_deltaED, nrow = 2)
+ggsave("figures/area_sensitivity/migclass_effects.pdf", units = "in", width = 14, height = 10)
 
 #### Make a joint model: fixed effects[climate + forest + winteringGround] + random slopes/intercepts[species]
 # No z score abundance trends, use term for southern limit of wintering grounds
