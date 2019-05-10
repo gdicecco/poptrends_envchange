@@ -202,8 +202,18 @@ cor(dplyr::select(clim_hab_poptrend, ppt, tmin, tmax, deltaED, deltaProp, ED, pr
 # Figure 1: map of routes
 states <- us.proj[, -(1:2)]
 
-bbs_routes <- tm_shape(states) + tm_fill(col = "gray73") + tm_borders(col = "gray73") + tm_shape(us_subs_transf)  + tm_lines()
-tmap_save(bbs_routes, "figures/methods_figs/bbs_routes.pdf", units = "in", height = 5, width = 7)
+bbs_routes_forest <- us_subs_transf %>%
+  st_as_sf() %>%
+  left_join(forest, by = c("rteno" = "stateroute"))
+
+bbs_routes_forcov <- tm_shape(states) + tm_fill(col = "gray63") + tm_borders(col = "gray63") + 
+  tm_shape(bbs_routes_forest)  + tm_lines(col = "propForest", scale = 3, palette = "BuGn", title.col = "Proportion forest cover") +
+  tm_layout(legend.text.size = 1, legend.title.size = 1.5)
+bbs_routes_fored <- tm_shape(states) + tm_fill(col = "gray63") + tm_borders(col = "gray63") + 
+  tm_shape(bbs_routes_forest)  + tm_lines(col = "ED", scale = 3, palette = "YlGnBu", title.col = "Forest edge density") +
+  tm_layout(legend.text.size = 1, legend.title.size = 1.5)
+bbs_routes <- tmap_arrange(bbs_routes_forcov, bbs_routes_fored)
+tmap_save(bbs_routes, "figures/methods_figs/bbs_routes.pdf", units = "in", height = 5, width = 12)
 
 # Figure 2: correlation matrix for environmental variables
 matrix <- climate_wide %>%
