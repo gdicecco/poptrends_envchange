@@ -213,6 +213,18 @@ occ_test <- counts.subs %>%
   left_join(fourletter_codes) %>%
   na.omit()
 
+ggplot(occ_test, aes(x = fct_reorder(SPEC, occ_90s), y = occ_90s)) +
+  geom_col(col = "white") +
+  labs(x = "", y = "Proportion of core routes in 1990s") +
+  theme(axis.text.x = element_text(angle = 45, hjust = 1))
+ggsave("figures/area_sensitivity/core_routes_1990s.pdf", units = "in", height = 6, width = 15)
+
+ggplot(occ_test, aes(x = fct_reorder(SPEC, occ_00s), y = occ_00s)) +
+  geom_col(col = "white") +
+  labs(x = "", y = "Proportion of core routes in 2010s") +
+  theme(axis.text.x = element_text(angle = 45, hjust = 1))
+ggsave("figures/area_sensitivity/core_routes_2010s.pdf", units = "in", height = 6, width = 15)
+
 ggplot(occ_test, aes(x = fct_reorder(SPEC, deltaOcc), y = deltaOcc)) +
   geom_col(col = "white") +
   labs(x = "", y = "Change proportion core routes 1990s-2010s") +
