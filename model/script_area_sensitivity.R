@@ -90,6 +90,7 @@ counts.subs <- counts %>%
   filter(year >= 1990, year < 2017)
 # 1513 routes
 
+# abundance trends read in
 setwd("\\\\BioArk\\hurlbertlab\\DiCecco\\data\\")
 setwd("/Volumes/hurlbertlab/DiCecco/data/")
 abund_trend <- read.csv("BBS_abundance_trends.csv", stringsAsFactors = F) %>%
@@ -177,6 +178,46 @@ clim_hab_poptrend <- abund_trend %>%
 
 ##### Analysis #####
 setwd("C:/Users/gdicecco/Desktop/git/NLCD_fragmentation/")
+
+
+# Occupancy - test
+
+occ_test <- counts.subs %>%
+  group_by(aou) %>%
+  nest() %>%
+  mutate(occ_90s = map_dbl(data, ~{
+    df <- .
+    df_subs <- df %>%
+      filter(year < 2001)
+    occ <- df %>%
+      filter(year < 2001) %>%
+      group_by(stateroute) %>%
+      summarize(nyear = length(unique(year))) %>%
+      filter(nyear > 6)
+    length(unique(occ$stateroute))/length(unique(df_subs$stateroute))
+  }),
+  occ_00s = map_dbl(data, ~{
+    df <- .
+    df_subs <- df %>%
+      filter(year > 2006)
+    occ <- df %>%
+      filter(year > 2006) %>%
+      group_by(stateroute) %>%
+      summarize(nyear = length(unique(year))) %>%
+      filter(nyear > 6)
+    length(unique(occ$stateroute))
+    length(unique(occ$stateroute))/length(unique(df_subs$stateroute))
+  })) %>%
+  dplyr::select(-data) %>%
+  mutate(deltaOcc = occ_00s - occ_90s) %>%
+  left_join(fourletter_codes) %>%
+  na.omit()
+
+ggplot(occ_test, aes(x = fct_reorder(SPEC, deltaOcc), y = deltaOcc)) +
+  geom_col(col = "white") +
+  labs(x = "", y = "Change proportion core routes 1990s-2010s") +
+  theme(axis.text.x = element_text(angle = 45, hjust = 1))
+ggsave("figures/area_sensitivity/change_core_routes.pdf", units = "in", height = 6, width = 15)
 
 #### Route trends ####
 
