@@ -526,19 +526,67 @@ mig_deltaED <- ggplot(filter(model_traits, term == "deltaED"), aes(x = fct_reord
 plot_grid(mig_tmin, mig_deltaED, nrow = 2)
 ggsave("figures/area_sensitivity/migclass_effects.pdf", units = "in", width = 14, height = 10)
 
-#### Make a joint model: fixed effects[climate + forest + winteringGround] + random slopes/intercepts[species]
-# No z score abundance trends, use term for southern limit of wintering grounds
+#### Range position models ####
 
-obs_size <- abund_trend %>% 
-  group_by(SPEC) %>% 
-  summarize(nRoutes = n_distinct(stateroute)) %>%
-  arrange(nRoutes) # Smallest = CERW @ 38 routes, next smallest = CAWA @ 48, NOWA @ 54
+route_directions <- read.csv("traits/species_route_dist_from_centroids.csv", stringsAsFactors = F)
 
-clim_hab_poptrend_mixedmod <- clim_hab_poptrend_z %>%
-  filter(SPEC != "CERW")
-#write.csv(clim_hab_poptrend_mixedmod, "\\\\BioArk\\hurlbertlab\\DiCecco\\data\\clim_hab_poptrend_mixedmod.csv", row.names = F)
+# Group routes into north, south, center of range
 
-# Species by site matrix
+route_terciles <- route_directions %>%
+  mutate(range_direction = case_when(bearing < 60 & bearing > 0 ~ "North",
+                                     bearing < 0 & bearing > -60 ~ "North",
+                                     bearing > 120 ~ "South",
+                                     bearing < -120 ~ "South",
+                                     TRUE ~ "Central")) %>%
+  group_by(aou, range_direction) %>%
+  filter(n() > 40) %>%
+  group_by(aou) %>%
+  filter(n_distinct(range_direction) == 3)
+
+## Join route position with clim_hab_poptrend table
+
+clim_hab_poptrend_position <- clim_hab_poptrend_z %>%
+  filter(aou %in% route_terciles$aou) %>%
+  left_join(route_terciles, by = c("stateroute", "aou"))
+
+## Individual models of Tmin and Tmax with interactions with route position
+
+model_fits_position <- clim_hab_poptrend_position %>%
+  group_by(aou, SPEC, range_direction) %>%
+  nest() %>%
+  mutate(lmFit = map(data, ~{
+    df <- .
+    lm(abundTrend ~ tmax + tmin, df, na.action = na.fail)
+  })) %>%
+  mutate(lm_broom = map(lmFit, tidy)) %>%
+  dplyr::select(aou, SPEC, range_direction, lm_broom) %>%
+  unnest()
+
+model_fits_position_fig <- model_fits_position %>%
+  filter(term != "(Intercept)") %>%
+  mutate(sig = case_when(p.value < 0.05 ~ "p < 0.05",
+                         TRUE ~ "p > 0.05"))
+
+ggplot(model_fits_position_fig, aes(estimate, fill = sig)) +
+  geom_histogram(bins = 40) + 
+  facet_grid(range_direction ~ term) +
+  geom_vline(xintercept = 0) +
+  scale_fill_manual(values = c("p < 0.05" = "skyblue3",
+                               "p > 0.05" = "gray")) +
+  labs(x = "Effect estimate",
+       y = "Number of Species",
+       fill = "") +
+  theme_bw() + 
+  theme(panel.grid.major = element_blank(), 
+        panel.grid.minor = element_blank(),
+        panel.background = element_rect(colour = "black", size=1)) +
+  theme(axis.text = element_text(size = 12),
+        strip.text = element_text(size = 12),
+        text = element_text(size = 12),
+        legend.text = element_text(size = 12))
+ggsave("figures/area_sensitivity/range_position_temp_responses.pdf")
+
+#### Species by site matrix ####
 spp_site <- clim_hab_poptrend_mixedmod %>%
   dplyr::select(stateroute, abundTrend, SPEC) %>%
   spread(SPEC, abundTrend)
@@ -547,6 +595,16 @@ spp_cor <- cor(spp_site, use = "pairwise.complete.obs")
 pdf("figures/area_sensitivity/species_correlations.pdf", height = 12, width = 12)
 corrplot(spp_cor, method = "circle", tl.col = "black")
 dev.off()
+
+#### Joint models ####
+obs_size <- abund_trend %>% 
+  group_by(SPEC) %>% 
+  summarize(nRoutes = n_distinct(stateroute)) %>%
+  arrange(nRoutes) # Smallest = CERW @ 38 routes, next smallest = CAWA @ 48, NOWA @ 54
+
+clim_hab_poptrend_mixedmod <- clim_hab_poptrend_z %>%
+  filter(SPEC != "CERW")
+#write.csv(clim_hab_poptrend_mixedmod, "\\\\BioArk\\hurlbertlab\\DiCecco\\data\\clim_hab_poptrend_mixedmod.csv", row.names = F)
 
 # Mixed models
 clim_hab_poptrend_mixedmod <- read.csv("\\\\BioArk\\hurlbertlab\\DiCecco\\data\\clim_hab_poptrend_mixedmod.csv", stringsAsFactors = F)
@@ -798,7 +856,7 @@ summary <- summary(inter_mod)
 
 load("/Volumes/hurlbertlab/DiCecco/data/brms_mods.Rdata")
 
-### Simulate data to compare modeling approaches:
+#### Simulation for modeling approaches ####
 # Simulated data set of five species
 
 sim_data <- data.frame(routeno = c(1:1000))
