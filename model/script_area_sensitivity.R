@@ -278,9 +278,7 @@ bbs_routes_tmax <- tm_shape(states) + tm_fill(col = "gray63") + tm_borders(col =
   tm_shape(bbs_routes_forest)  + tm_lines(col = "tmax", scale = 3, palette = "-RdBu", title.col = "Trend in Tmax") +
   tm_layout(legend.text.size = 1, legend.title.size = 1.5)
 
-
 bbs_routes <- tmap_arrange(bbs_routes_forcov, bbs_routes_fored, bbs_routes_tmin, bbs_routes_tmax, nrow = 2)
-tmap_save(bbs_routes, "figures/methods_figs/bbs_routes.pdf", units = "in", height = 10, width = 12)
 
 # Histograms for each variable - put in gulf of mexico in PPT
 
@@ -308,7 +306,7 @@ tmax_hist <- ggplot(bbs_routes_forest, aes(x = tmax)) + geom_histogram(bins = 30
   theme(text = element_text(size = 10), axis.text = element_text(size = 9),
         axis.title.x = element_text(vjust = 1), axis.title.y = element_text(vjust = 0))
 
-## Test insets
+## Insets
 
 vp_for <- viewport(0.32, 0.565, width = 0.175, height = 0.125)
 vp_ed <- viewport(0.82, 0.565, width = 0.175, height = 0.125)
@@ -324,19 +322,16 @@ print(tmin_hist, vp = vp_tmin)
 print(tmax_hist, vp = vp_tmax)
 dev.off()
 
-# Figure 2: correlation matrix for environmental variables
+# Appendix figure: correlation between env variables
 matrix <- climate_wide %>%
   left_join(forest) %>%
   filter(!is.na(propForest)) %>%
   dplyr::select(-meanPatchArea, -stateroute, -ppt, -ED, -propForest, -year) %>%
   rename("Tmin" = "tmin", "Tmax" = "tmax", "dED" = "deltaED", "dForest" = "deltaProp")
 
-tmin_tmax <- ggplot(matrix, aes(x = Tmin, y = Tmax)) + geom_point(alpha = 0.6) +
-  geom_rug(size = 0.1)
-dED_dProp <- ggplot(matrix, aes(x = dED, y = dForest)) + geom_point(alpha = 0.6) +
-  geom_rug(size = 0.1) + labs(x = "Change in ED", y = "Change in forest cover")
-env_plot <- plot_grid(tmin_tmax, dED_dProp, nrow = 1)
-ggsave("figures/route_eda/env_correlations_scatter.pdf", units = "in", height = 4, width = 8)
+corr.table <- cor(matrix)
+corrplot::corrplot(corr.table, method = "circle", diag = F, tl.col = "black",
+                   tl.cex = 1.5, cl.cex = 1)
 
 # Breadth of forest ED and forest cover for area and non-area sensitive species
 

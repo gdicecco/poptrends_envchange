@@ -178,7 +178,7 @@ forest_ed <- frags %>%
   group_by(stateroute, year) %>%
   summarize(ED = total.edge/sum.area,
             propForest = prop.landscape) %>%
-  filter(year == 2011, propForest> 0.5) %>% # use filter to ID routes
+  filter(year == 2011, propForest> 0.2) %>% # use filter to ID routes
   arrange(ED)
 
 bufferRoutes_transf <- spTransform(bufferRoutes, crs(nlcd2011))
@@ -186,35 +186,55 @@ bufferRoutes_transf <- spTransform(bufferRoutes, crs(nlcd2011))
 routeLow <- subset(bufferRoutes_transf, rteno == 63908)
 nlcd_crop <- crop(nlcd2011, routeLow)
 EDlow <- mask(nlcd_crop, routeLow)
+# ED = 0.056, % for = 0.961
+# Busick, NC
 
 routeMed <- subset(bufferRoutes_transf, rteno == 85106)
 nlcd_cropMed <- crop(nlcd2011, routeMed)
 EDmed <- mask(nlcd_cropMed, routeMed)
+# ED = 0.184, % for = 0.704
+# Uinta National Forest, UT
 
 routeHigh <- subset(bufferRoutes_transf, rteno == 42039)
 nlcd_cropHigh <- crop(nlcd2011, routeHigh)
 EDHigh <- mask(nlcd_cropHigh, routeHigh)
+# ED = 0.321, % for = 0.597
+# Marion, LA
 
 setwd("C:/Users/gdicecco/Desktop/git/NLCD_fragmentation/")
 setwd("/Users/gracedicecco/Desktop/git/NLCD_fragmentation/")
 
-
+#### Figure in manuscript - edge density scale
 nlcd_palette <- c("#0000FF", "#FF9900", "#E5E5CC", "#006600", "#B2B200", "#FFB3CC", "#E5CC99", "#80FFCC", "#FFFFFF")
 low <- tm_shape(EDlow) + tm_raster(palette = nlcd_palette, style = "cat", labels = as.character(newcode$legend), title = "") +
-  tm_scale_bar(size = 2, breaks = c(0, 5)) + tm_layout(legend.text.size = 1)
+  tm_scale_bar(size = 2, breaks = c(0, 5)) + 
+  tm_layout(legend.text.size = 1, title = "ED = 0.056\nForest cover = 0.961", 
+            title.position = c("left", "bottom"),
+            title.size = 1,
+            main.title = "A) Busick, NC")
 #tmap_save(low, "figures/methods_figs/forest_ed_low.tiff")
 
 med <- tm_shape(EDmed) + tm_raster(palette = nlcd_palette, style = "cat") +
-  tm_legend(show = F) + tm_scale_bar(size = 2, breaks = c(0, 5))
+  tm_legend(show = F) + tm_scale_bar(size = 2, breaks = c(0, 5)) + 
+  tm_layout(legend.text.size = 1, title = "ED = 0.184\nForest cover = 0.704", 
+            title.position = c("left", "bottom"),
+            title.size = 1,
+            main.title = "B) Uinta National Forest, UT",
+            inner.margins = c(0, 0.13, 0, 0.13))
 #tmap_save(med, "figures/methods_figs/forest_ed_med.tiff")
 
 high <- tm_shape(EDHigh) + tm_raster(palette = nlcd_palette, style = "cat") +
-  tm_legend(show = F)+ tm_scale_bar(size = 2, position = c("LEFT", "BOTTOM"), breaks = c(0, 5))
+  tm_legend(show = F)+ tm_scale_bar(size = 2, position = c("LEFT", "BOTTOM"), breaks = c(0, 5)) + 
+  tm_layout(legend.text.size = 1, title = "ED = 0.321\nForest cover = 0.597", 
+            title.size = 1,
+            main.title = "C) Marion, LA",
+            title.position = c("left", "bottom"))
 #tmap_save(high, "figures/methods_figs/forest_ed_high.tiff")
 
 arrange <- tmap_arrange(low, med, high, ncol = 3)
 tmap_save(arrange, "figures/methods_figs/forest_ed_multipanel.pdf", units = "in", height = 6, width = 12)
 
+## alternative plotting of figure
 pdf("figures/methods_figs/forest_edge_density_scale.pdf", height = 10, width = 12)
 par(mfrow = c(1,3))
 plot(EDlow, main = "Forest edge density = 0.056")
