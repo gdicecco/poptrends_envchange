@@ -13,6 +13,7 @@ library(sf)
 library(forcats)
 library(MuMIn)
 library(nlme)
+library(grid)
 
 ### Read in data #####
 
@@ -257,16 +258,71 @@ states <- us.proj[, -(1:2)]
 
 bbs_routes_forest <- us_subs_transf %>%
   st_as_sf() %>%
-  left_join(forest, by = c("rteno" = "stateroute"))
+  left_join(forest, by = c("rteno" = "stateroute")) %>%
+  left_join(climate_wide, by = c("rteno" = "stateroute"))
 
 bbs_routes_forcov <- tm_shape(states) + tm_fill(col = "gray63") + tm_borders(col = "gray63") + 
-  tm_shape(bbs_routes_forest)  + tm_lines(col = "propForest", scale = 3, palette = "BuGn", title.col = "Proportion forest cover") +
+  tm_shape(bbs_routes_forest)  + 
+  tm_lines(col = "deltaProp", scale = 3, palette = "PRGn", title.col = "Change in forest cover") +
   tm_layout(legend.text.size = 1, legend.title.size = 1.5)
+
 bbs_routes_fored <- tm_shape(states) + tm_fill(col = "gray63") + tm_borders(col = "gray63") + 
-  tm_shape(bbs_routes_forest)  + tm_lines(col = "ED", scale = 3, palette = "YlGnBu", title.col = "Forest edge density") +
+  tm_shape(bbs_routes_forest)  + tm_lines(col = "deltaED", scale = 3, palette = "-PiYG", title.col = "Change in edge density")
   tm_layout(legend.text.size = 1, legend.title.size = 1.5)
-bbs_routes <- tmap_arrange(bbs_routes_forcov, bbs_routes_fored)
-tmap_save(bbs_routes, "figures/methods_figs/bbs_routes.pdf", units = "in", height = 5, width = 12)
+
+bbs_routes_tmin <- tm_shape(states) + tm_fill(col = "gray63") + tm_borders(col = "gray63") + 
+  tm_shape(bbs_routes_forest)  + tm_lines(col = "tmin", scale = 3, palette = "-RdBu", title.col = "Trend in Tmin") +
+  tm_layout(legend.text.size = 1, legend.title.size = 1.5)
+
+bbs_routes_tmax <- tm_shape(states) + tm_fill(col = "gray63") + tm_borders(col = "gray63") + 
+  tm_shape(bbs_routes_forest)  + tm_lines(col = "tmax", scale = 3, palette = "-RdBu", title.col = "Trend in Tmax") +
+  tm_layout(legend.text.size = 1, legend.title.size = 1.5)
+
+
+bbs_routes <- tmap_arrange(bbs_routes_forcov, bbs_routes_fored, bbs_routes_tmin, bbs_routes_tmax, nrow = 2)
+tmap_save(bbs_routes, "figures/methods_figs/bbs_routes.pdf", units = "in", height = 10, width = 12)
+
+# Histograms for each variable - put in gulf of mexico in PPT
+
+ED_hist <- ggplot(bbs_routes_forest, aes(x = deltaED)) + geom_histogram(bins = 30) +
+  labs(x = "Change in edge density", y = "Count") +
+  scale_y_continuous(breaks = c(0, 75, 150)) +
+  theme(text = element_text(size = 10), axis.text = element_text(size = 9),
+        axis.title.x = element_text(vjust = 1), axis.title.y = element_text(vjust = 0))
+
+for_hist <- ggplot(bbs_routes_forest, aes(x = deltaProp)) + geom_histogram(bins = 30) +
+  labs(x = "Change in forest cover", y = "Count") +
+  scale_y_continuous(breaks = c(0, 100, 200)) +
+  theme(text = element_text(size = 10), axis.text = element_text(size = 9),
+        axis.title.x = element_text(vjust = 1), axis.title.y = element_text(vjust = 0))
+
+tmin_hist <- ggplot(bbs_routes_forest, aes(x = tmin)) + geom_histogram(bins = 30) +
+  labs(x = "Trend in Tmin", y = "Count") +
+  scale_y_continuous(breaks = c(0, 100, 200)) +
+  theme(text = element_text(size = 10), axis.text = element_text(size = 9),
+        axis.title.x = element_text(vjust = 1), axis.title.y = element_text(vjust = 0))
+
+tmax_hist <- ggplot(bbs_routes_forest, aes(x = tmax)) + geom_histogram(bins = 30) +
+  labs(x = "Trend in Tmax", y = "Count") +
+  scale_y_continuous(breaks = c(0, 100, 200)) +
+  theme(text = element_text(size = 10), axis.text = element_text(size = 9),
+        axis.title.x = element_text(vjust = 1), axis.title.y = element_text(vjust = 0))
+
+## Test insets
+
+vp_for <- viewport(0.32, 0.565, width = 0.175, height = 0.125)
+vp_ed <- viewport(0.82, 0.565, width = 0.175, height = 0.125)
+
+vp_tmin <- viewport(0.32, 0.065, width = 0.175, height = 0.125)
+vp_tmax <- viewport(0.82, 0.065, width = 0.175, height = 0.125)
+
+pdf("figures/methods_figs/bbs_routes.pdf", height = 10, width = 12)
+print(bbs_routes)
+print(for_hist, vp = vp_for)
+print(ED_hist, vp = vp_ed)
+print(tmin_hist, vp = vp_tmin)
+print(tmax_hist, vp = vp_tmax)
+dev.off()
 
 # Figure 2: correlation matrix for environmental variables
 matrix <- climate_wide %>%
@@ -525,6 +581,8 @@ mig_deltaED <- ggplot(filter(model_traits, term == "deltaED"), aes(x = fct_reord
 
 plot_grid(mig_tmin, mig_deltaED, nrow = 2)
 ggsave("figures/area_sensitivity/migclass_effects.pdf", units = "in", width = 14, height = 10)
+
+# Make panel with just Tmin in South and Tmax in North
 
 #### Range position models ####
 
