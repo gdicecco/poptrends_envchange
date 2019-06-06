@@ -646,7 +646,7 @@ ggplot(model_fits_position_fig, aes(estimate, fill = sig)) +
         strip.text = element_text(size = 12),
         text = element_text(size = 12),
         legend.text = element_text(size = 12))
-ggsave("figures/area_sensitivity/range_position_temp_responses.pdf")
+ggsave("figures/area_sensitivity/range_position_temp_responses_appendix.pdf")
 
 ## Only two relevant panels for main text
 
