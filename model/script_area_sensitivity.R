@@ -632,7 +632,7 @@ model_fits_position_fig <- model_fits_position %>%
 ggplot(model_fits_position_fig, aes(estimate, fill = sig)) +
   geom_histogram(bins = 40) + 
   facet_grid(range_direction ~ term) +
-  geom_vline(xintercept = 0) +
+  geom_vline(aes(xintercept = mean(estimate)), lty = 2, cex = 1) +
   scale_fill_manual(values = c("p < 0.05" = "skyblue3",
                                "p > 0.05" = "gray")) +
   labs(x = "Effect estimate",
@@ -656,7 +656,7 @@ tmin_north <- model_fits_position_fig %>%
 
 tmin_plot <- ggplot(tmin_north, aes(x = estimate, fill = sig)) +
   geom_histogram(bins = 20) + 
-  geom_vline(xintercept = mean(tmin_north$estimate)) +
+  geom_vline(xintercept = mean(tmin_north$estimate), lty = 2, cex = 1) +
   scale_fill_manual(values = c("p < 0.05" = "skyblue3",
                                "p > 0.05" = "gray")) +
   labs(x = "Trend in Tmin",
@@ -669,7 +669,7 @@ tmax_south <- model_fits_position_fig %>%
 
 tmax_plot <- ggplot(tmax_south, aes(x = estimate, fill = sig)) +
   geom_histogram(bins = 20) + 
-  geom_vline(xintercept = mean(tmax_south$estimate)) +
+  geom_vline(xintercept = mean(tmax_south$estimate), lty = 2, cex = 1) +
   scale_fill_manual(values = c("p < 0.05" = "skyblue3",
                                "p > 0.05" = "gray")) +
   labs(x = "Trend in Tmax",
