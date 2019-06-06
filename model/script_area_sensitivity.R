@@ -264,19 +264,19 @@ bbs_routes_forest <- us_subs_transf %>%
 bbs_routes_forcov <- tm_shape(states) + tm_fill(col = "gray63") + tm_borders(col = "gray63") + 
   tm_shape(bbs_routes_forest)  + 
   tm_lines(col = "deltaProp", scale = 3, palette = "PRGn", title.col = "Change in forest cover") +
-  tm_layout(legend.text.size = 1, legend.title.size = 1.5)
+  tm_layout(legend.text.size = 1, legend.title.size = 1.5, title = "A", title.fontface = "bold")
 
 bbs_routes_fored <- tm_shape(states) + tm_fill(col = "gray63") + tm_borders(col = "gray63") + 
-  tm_shape(bbs_routes_forest)  + tm_lines(col = "deltaED", scale = 3, palette = "-PiYG", title.col = "Change in edge density")
-  tm_layout(legend.text.size = 1, legend.title.size = 1.5)
+  tm_shape(bbs_routes_forest)  + tm_lines(col = "deltaED", scale = 3, palette = "-PiYG", title.col = "Change in edge density") +
+  tm_layout(legend.text.size = 1, legend.title.size = 1.5, title = "B", title.fontface = "bold")
 
 bbs_routes_tmin <- tm_shape(states) + tm_fill(col = "gray63") + tm_borders(col = "gray63") + 
   tm_shape(bbs_routes_forest)  + tm_lines(col = "tmin", scale = 3, palette = "-RdBu", title.col = "Trend in Tmin") +
-  tm_layout(legend.text.size = 1, legend.title.size = 1.5)
+  tm_layout(legend.text.size = 1, legend.title.size = 1.5, title = "C", title.fontface = "bold")
 
 bbs_routes_tmax <- tm_shape(states) + tm_fill(col = "gray63") + tm_borders(col = "gray63") + 
   tm_shape(bbs_routes_forest)  + tm_lines(col = "tmax", scale = 3, palette = "-RdBu", title.col = "Trend in Tmax") +
-  tm_layout(legend.text.size = 1, legend.title.size = 1.5)
+  tm_layout(legend.text.size = 1, legend.title.size = 1.5, title = "D", title.fontface = "bold")
 
 bbs_routes <- tmap_arrange(bbs_routes_forcov, bbs_routes_fored, bbs_routes_tmin, bbs_routes_tmax, nrow = 2)
 
@@ -490,17 +490,21 @@ model_fits <- clim_hab_poptrend_z %>%
   dplyr::select(aou, SPEC, nObs, lm_broom) %>%
   unnest() %>%
   filter(nObs > 40) %>%
-  filter(term != "(Intercept)")
+  filter(term != "(Intercept)") %>%
+  mutate(sig = case_when(p.value < 0.05 ~ "p < 0.05",
+                         TRUE ~ "p > 0.05"))
 
 range(model_fits$nObs) # 1 spp at 38, only one below 40
 
-# Distribution of effect sizes for species
+# Figure: distributions of effect sizes by species
 
 density_plot <- function(variable, label) {
-  ggplot(filter(model_fits, term == variable), aes(x = estimate)) + 
-    geom_density(fill = "slategray3", color = "slategray", size = 1) + 
+  ggplot(filter(model_fits, term == variable), aes(x = estimate, fill = sig)) + 
+    geom_histogram(bins = 20) + 
     geom_vline(aes(xintercept = mean(estimate)), lty = 2, cex = 1) + 
-    labs(x = label, y = "Density")
+    labs(x = label, y = "Number of Species", fill = "") +
+    scale_fill_manual(values = c("p < 0.05" = "skyblue3",
+                                 "p > 0.05" = "gray"))
 }
 
 deltaED <- density_plot("deltaED", "Change in ED")
@@ -510,11 +514,18 @@ tmax <- density_plot("tmax", "Trend in Tmax")
 tmaxED <- density_plot("tmax:deltaED", "Tmax:change in ED")
 tminED <- density_plot("deltaED:tmin", "Tmin:change in ED")
 
-plot_grid(deltaED, deltaProp, tmin, tmax, nrow = 2)
-ggsave("figures/area_sensitivity/indiv_effects_distributions.pdf", units = "in", height = 6, width = 8)
+legend <- get_legend(deltaED)
 
-plot_grid(tmaxED, tminED)
-ggsave("figures/area_sensitivity/indiv_interact_distributions.pdf", units = "in", height = 3, width = 8)
+grid_effects <- plot_grid(deltaED + theme(legend.position = "none"), 
+                          deltaProp + theme(legend.position = "none", axis.title.y = element_blank()), 
+          tmin + theme(legend.position = "none"), 
+          tmax + theme(legend.position = "none", axis.title.y = element_blank()), 
+          tmaxED + theme(legend.position = "none"), 
+          tminED + theme(legend.position = "none", axis.title.y = element_blank()),
+          nrow = 3,
+          labels = c("A", "B", "C", "D", "E", "F"))
+plot_grid(grid_effects, legend, rel_widths = c(2, 0.4))
+ggsave("figures/area_sensitivity/model_effects_distributions.pdf", units = "in", height = 9, width = 8)
 
 ## Traits and responses 
 
@@ -574,10 +585,8 @@ mig_deltaED <- ggplot(filter(model_traits, term == "deltaED"), aes(x = fct_reord
   labs(x = "Species", y = "Effect of change in ED", color = "Migratory class") +
   theme(axis.text.x = element_text(angle = 45, hjust = 1, size = 12), legend.position = "none")
 
-plot_grid(mig_tmin, mig_deltaED, nrow = 2)
+plot_grid(mig_tmin, mig_deltaED, nrow = 2, labels = c("A", "B"))
 ggsave("figures/area_sensitivity/migclass_effects.pdf", units = "in", width = 14, height = 10)
-
-# Make panel with just Tmin in South and Tmax in North
 
 #### Range position models ####
 
@@ -619,7 +628,7 @@ model_fits_position_fig <- model_fits_position %>%
   filter(term != "(Intercept)") %>%
   mutate(sig = case_when(p.value < 0.05 ~ "p < 0.05",
                          TRUE ~ "p > 0.05"))
-
+# Plot for appendix
 ggplot(model_fits_position_fig, aes(estimate, fill = sig)) +
   geom_histogram(bins = 40) + 
   facet_grid(range_direction ~ term) +
@@ -638,6 +647,46 @@ ggplot(model_fits_position_fig, aes(estimate, fill = sig)) +
         text = element_text(size = 12),
         legend.text = element_text(size = 12))
 ggsave("figures/area_sensitivity/range_position_temp_responses.pdf")
+
+## Only two relevant panels for main text
+
+tmin_north <- model_fits_position_fig %>%
+  filter(term == "tmin",
+         range_direction == "North")
+
+tmin_plot <- ggplot(tmin_north, aes(x = estimate, fill = sig)) +
+  geom_histogram(bins = 20) + 
+  geom_vline(xintercept = mean(tmin_north$estimate)) +
+  scale_fill_manual(values = c("p < 0.05" = "skyblue3",
+                               "p > 0.05" = "gray")) +
+  labs(x = "Trend in Tmin",
+       y = "Number of Species",
+       fill = "") + ggtitle("Northern range tercile")
+
+tmax_south <- model_fits_position_fig %>%
+  filter(term == "tmax",
+         range_direction == "South")
+
+tmax_plot <- ggplot(tmax_south, aes(x = estimate, fill = sig)) +
+  geom_histogram(bins = 20) + 
+  geom_vline(xintercept = mean(tmax_south$estimate)) +
+  scale_fill_manual(values = c("p < 0.05" = "skyblue3",
+                               "p > 0.05" = "gray")) +
+  labs(x = "Trend in Tmax",
+       y = "",
+       fill = "") + ggtitle("Southern range tercile")
+
+legend_range <- get_legend(tmin_plot)
+
+grid_range <- plot_grid(tmin_plot + theme(legend.position = "none"), 
+                        tmax_plot + theme(legend.position = "none"), 
+                        nrow = 1, labels = c("A", "B"))
+
+plot_grid(grid_range, legend_range, rel_widths = c(2, 0.4))
+
+ggsave("figures/area_sensitivity/range_position_temp_responses.pdf", units = "in", height = 3, width = 8)
+
+
 
 #### Species by site matrix ####
 spp_site <- clim_hab_poptrend_mixedmod %>%
