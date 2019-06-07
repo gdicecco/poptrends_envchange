@@ -597,19 +597,18 @@ route_directions <- read.csv("traits/species_route_dist_from_centroids.csv", str
 route_terciles <- route_directions %>%
   left_join(range_centroids, by = c("aou")) %>%
   left_join(dplyr::select(routes, stateroute, latitude, longitude)) %>%
-  mutate(range_direction = case_when(latitude > n_tercile ~ "North", 
-                                    latitude < s_tercile ~ "South",
+  mutate(range_direction = case_when(latitude >= n_tercile ~ "North", 
+                                    latitude <= s_tercile ~ "South",
                                      TRUE ~ "Central")) %>%
   group_by(aou, range_direction) %>%
-  filter(n() > 40) %>%
-  group_by(aou) %>%
-  filter(n_distinct(range_direction) == 3)
+  filter(n() > 40)
 
 ## Join route position with clim_hab_poptrend table
 
 clim_hab_poptrend_position <- clim_hab_poptrend_z %>%
   filter(aou %in% route_terciles$aou) %>%
-  left_join(route_terciles, by = c("stateroute", "aou"))
+  left_join(route_terciles, by = c("stateroute", "aou")) %>%
+  filter(!is.na(range_direction))
 
 ## Individual models of Tmin and Tmax with interactions with route position
 
@@ -627,12 +626,17 @@ model_fits_position <- clim_hab_poptrend_position %>%
 model_fits_position_fig <- model_fits_position %>%
   filter(term != "(Intercept)") %>%
   mutate(sig = case_when(p.value < 0.05 ~ "p < 0.05",
-                         TRUE ~ "p > 0.05"))
-# Plot for appendix
+                         TRUE ~ "p > 0.05")) %>%
+  mutate(term = fct_recode(term, Tmin = "tmin", Tmax = "tmax")) %>%
+  mutate(term = paste("Trend in", term)) %>%
+  mutate(range_direction = fct_relevel(range_direction, levels = c("North", "Central", "South")))
+
+# Figure
+
 ggplot(model_fits_position_fig, aes(estimate, fill = sig)) +
   geom_histogram(bins = 40) + 
   facet_grid(range_direction ~ term) +
-  geom_vline(aes(xintercept = mean(estimate)), lty = 2, cex = 1) +
+  geom_vline(aes(xintercept = mean(estimate)), lty = 2) +
   scale_fill_manual(values = c("p < 0.05" = "skyblue3",
                                "p > 0.05" = "gray")) +
   labs(x = "Effect estimate",
@@ -641,51 +645,13 @@ ggplot(model_fits_position_fig, aes(estimate, fill = sig)) +
   theme_bw() + 
   theme(panel.grid.major = element_blank(), 
         panel.grid.minor = element_blank(),
-        panel.background = element_rect(colour = "black", size=1)) +
+        panel.background = element_rect(colour = "black")) +
   theme(axis.text = element_text(size = 12),
         strip.text = element_text(size = 12),
         text = element_text(size = 12),
         legend.text = element_text(size = 12))
-ggsave("figures/area_sensitivity/range_position_temp_responses_appendix.pdf")
-
-## Only two relevant panels for main text
-
-tmin_north <- model_fits_position_fig %>%
-  filter(term == "tmin",
-         range_direction == "North")
-
-tmin_plot <- ggplot(tmin_north, aes(x = estimate, fill = sig)) +
-  geom_histogram(bins = 20) + 
-  geom_vline(xintercept = mean(tmin_north$estimate), lty = 2, cex = 1) +
-  scale_fill_manual(values = c("p < 0.05" = "skyblue3",
-                               "p > 0.05" = "gray")) +
-  labs(x = "Trend in Tmin",
-       y = "Number of Species",
-       fill = "") + ggtitle("Northern range tercile")
-
-tmax_south <- model_fits_position_fig %>%
-  filter(term == "tmax",
-         range_direction == "South")
-
-tmax_plot <- ggplot(tmax_south, aes(x = estimate, fill = sig)) +
-  geom_histogram(bins = 20) + 
-  geom_vline(xintercept = mean(tmax_south$estimate), lty = 2, cex = 1) +
-  scale_fill_manual(values = c("p < 0.05" = "skyblue3",
-                               "p > 0.05" = "gray")) +
-  labs(x = "Trend in Tmax",
-       y = "",
-       fill = "") + ggtitle("Southern range tercile")
-
-legend_range <- get_legend(tmin_plot)
-
-grid_range <- plot_grid(tmin_plot + theme(legend.position = "none"), 
-                        tmax_plot + theme(legend.position = "none"), 
-                        nrow = 1, labels = c("A", "B"))
-
-plot_grid(grid_range, legend_range, rel_widths = c(2, 0.4))
-
-ggsave("figures/area_sensitivity/range_position_temp_responses.pdf", units = "in", height = 3, width = 8)
-
+  
+ggsave("figures/area_sensitivity/range_position_temp_responses.pdf")
 
 
 #### Species by site matrix ####
