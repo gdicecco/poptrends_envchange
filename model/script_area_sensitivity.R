@@ -595,10 +595,10 @@ route_directions <- read.csv("traits/species_route_dist_from_centroids.csv", str
 # Group routes into north, south, center of range
 
 route_terciles <- route_directions %>%
-  mutate(range_direction = case_when(bearing < 60 & bearing > 0 ~ "North",
-                                     bearing < 0 & bearing > -60 ~ "North",
-                                     bearing > 120 ~ "South",
-                                     bearing < -120 ~ "South",
+  left_join(range_centroids, by = c("aou")) %>%
+  left_join(dplyr::select(routes, stateroute, latitude, longitude)) %>%
+  mutate(range_direction = case_when(latitude > n_tercile ~ "North", 
+                                    latitude < s_tercile ~ "South",
                                      TRUE ~ "Central")) %>%
   group_by(aou, range_direction) %>%
   filter(n() > 40) %>%

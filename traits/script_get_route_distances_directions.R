@@ -125,7 +125,9 @@ spp_map_files <- bind_rows(spp_matches, spp_matches_2, spp_still_nas)
 
 path <- c("\\\\BioArk/HurlbertLab/GIS/birds/All/All/")
 range_centroids <- data.frame(aou = c(), filename = c(), 
-                              centroid_lon = c(), centroid_lat = c())
+                              centroid_lon = c(), centroid_lat = c(),
+                              s_tercile = c(),
+                              n_tercile = c())
 
 for(spec in spp_map_files$aou) {
   file <- spp_map_files[spp_map_files$aou == spec, 4]
@@ -134,11 +136,21 @@ for(spec in spp_map_files$aou) {
     st_transform('+proj=longlat +ellps=GRS80 +no_defs') %>%
     st_union()
   centroid <- st_coordinates(st_centroid(range))
+  bbox <- st_bbox(range) 
+  ymin <- bbox[2]
+  ymax <- bbox[4]
+  
+  third <- (ymax - ymin)/3
+  
+  s_terc <- as.numeric(ymin + third)
+  n_terc <- as.numeric(ymax - third)
   
   temp <- data.frame(aou = spec,
                      filename = file,
                      centroid_lon = centroid[1],
-                     centroid_lat = centroid[2])
+                     centroid_lat = centroid[2],
+                     s_tercile = s_terc,
+                     n_tercile = n_terc)
   
   range_centroids <- bind_rows(range_centroids, temp)
 }
