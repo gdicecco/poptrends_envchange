@@ -204,7 +204,7 @@ forest_prop <- frags %>%
   st_as_sf(coords = c("longitude", "latitude"))
 
 forest_change <- forest_ed %>%
-  dplyr::select(stateroute, deltaED, geometry) %>%
+  dplyr::select(deltaED, geometry) %>%
   st_join(dplyr::select(forest_prop, stateroute, deltaPL, geometry))
 
 ggplot(forest_change, aes(x = deltaPL, y = deltaED)) + geom_point(alpha = 0.75) + 
@@ -372,7 +372,7 @@ print(g.legend, vp = viewport(0.22, 0.15, width = 0.25, height = 0.25))
 
 #### Land cover plus climate maps
 
-route_trends_forest <- forest_ed %>%
+route_trends_forest <- forest_change %>%
   left_join(route_trends, by = "stateroute", suffix = c("_forest", "_landscape"))
 
 ## Edge density and Tmax
@@ -446,6 +446,11 @@ plot(for.cor, main = "Forest edge density", xlab = "Distance (mean-of-class) km"
 abline(h = 0, lty = 2)
 dev.off()
 
+# Forest proportion cover
+
+cov.cor <- correlog(route_trends_forest$longitude, route_trends_forest$latitude, route_trends_forest$deltaPL,
+                    increment = 250, latlon = T, na.rm = T)
+
 # Trend in tmax
 
 tmax.cor <- correlog(route_trends_forest$longitude, route_trends_forest$latitude, route_trends_forest$tmax,
@@ -479,7 +484,7 @@ dev.off()
 ## Combine on one plot
 
 env.cor <- data.frame(mean.of.class = land.cor$mean.of.class, 
-                      landscapeED = land.cor$correlation,
+                      forestCover = cov.cor$correlation,
                       forestED = for.cor$correlation,
                       tmin = tmin.cor$correlation,
                       tmax = tmax.cor$correlation,
@@ -491,8 +496,9 @@ env.long <- tidyr::gather(env.cor[, 1:6], key = variable, value = correlation, 2
 theme_set(theme_classic())
 ggplot(env.long, aes(x = mean.of.class, y = correlation, col = variable)) + 
   geom_point(size = 2) + geom_line(cex = 1) + geom_hline(yintercept = 0, lty = 2) +
-  labs(x = "Mean of distance class (km)", y = "Moran's I", col = "Trend", title = "Distance band") +
-  scale_color_viridis_d()
+  labs(x = "Mean of distance class (km)", y = "Moran's I", col = "Trend") +
+  scale_color_viridis_d() + theme(axis.text = element_text(size = 12), axis.title = element_text(size = 12), 
+                                  legend.text = element_text(size = 12), legend.title = element_text(size = 12))
 ggsave("moransI_allenv.pdf", units = "in")
 
 ## Package spdep method
