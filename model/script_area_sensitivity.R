@@ -180,7 +180,6 @@ clim_hab_poptrend <- abund_trend %>%
 ##### Analysis #####
 setwd("C:/Users/gdicecco/Desktop/git/NLCD_fragmentation/")
 
-
 # Occupancy - test
 
 occ_test <- counts.subs %>%
@@ -587,6 +586,176 @@ mig_deltaED <- ggplot(filter(model_traits, term == "deltaED"), aes(x = fct_reord
 
 plot_grid(mig_tmin, mig_deltaED, nrow = 2, labels = c("A", "B"))
 ggsave("figures/area_sensitivity/migclass_effects.pdf", units = "in", width = 14, height = 10)
+
+#### Individual species EDA ####
+
+us.proj <- readOGR("\\\\BioArk/hurlbertlab/DiCecco/nlcd_frag_proj_shapefiles/BCRs_contiguous_us/BCRs_contiguous_us.shp")
+
+states <- us.proj[, -(1:2)]
+
+states_map <- tm_shape(states) + tm_fill(col = "gray63") + tm_borders(col = "gray63")
+
+# Redstart, Veery, Common cardinal, Northern Cardinal
+# Case studies on these species - how correlated are ENV variables at the routes they occur on? 
+
+# Redstart - open woodlands, insectivore, migrant
+
+redstart <- clim_hab_poptrend_z %>%
+  filter(Common_name == "American redstart") %>% 
+  left_join(dplyr::select(routes, stateroute, latitude, longitude)) %>%
+  st_as_sf(coords = c("longitude", "latitude"))
+
+redstart_mod <- model_fits %>%
+  filter(aou == 6870)
+
+ggplot(redstart, aes(x = tmin, y = abundTrend)) + geom_point() + geom_smooth(method = "lm", se = F) +
+  labs(x = "Trend in Tmin", title = "American redstart")
+ggsave("figures/four_species_eda/amre_tmin.pdf")
+
+ggplot(redstart, aes(x = deltaProp, y = abundTrend)) + geom_point() + geom_smooth(method = "lm", se = F) +
+  labs(x = "Change in forest cover", title = "American redstart")
+ggsave("figures/four_species_eda/amre_dForest.pdf")
+
+redstart_map <- states_map + tm_shape(redstart) + tm_dots(col = "abundTrend", size = 0.5) +
+  tm_layout(main.title = "American redstart")
+tmap_save(redstart_map, "figures/four_species_eda/amre_map.pdf")
+
+redstart_env_matrix <- clim_hab_poptrend_z %>%
+  filter(Common_name == "American redstart") %>%
+  ungroup() %>%
+  dplyr::select(tmin, tmax, deltaED, deltaProp) %>%
+  as.matrix()
+
+redstart_cor <- cor(redstart_env_matrix, use = "pairwise.complete.obs")
+
+pdf("figures/four_species_eda/amre_cormatrix.pdf")
+corrplot::corrplot(redstart_cor, method = "circle", diag = F, tl.col = "black", title = "American redstart", mar = c(1,1,1,1))
+dev.off()
+
+# Veery - deciduous forest, well developed understory, ground foraging insectivore, migrant
+
+veery <- clim_hab_poptrend_z %>%
+  filter(Common_name == "Veery") %>% 
+  left_join(dplyr::select(routes, stateroute, latitude, longitude)) %>%
+  st_as_sf(coords = c("longitude", "latitude"))
+
+veery_lm <- lm(abundTrend ~ tmax*deltaED + tmin*deltaED + deltaProp, veery)
+
+veery_mod <- model_fits %>%
+  filter(aou == 7560)
+
+ggplot(veery, aes(x = deltaED, y = abundTrend)) + geom_point() + geom_smooth(method = "lm", se = F) +
+  labs(x = "Change in edge density", title = "Veery")
+ggsave("figures/four_species_eda/veer_dED.pdf")
+
+veery$sign_ED <- ifelse(veery$deltaED > 0, "increasing ED", "decreasing ED")
+ggplot(veery, aes(x = tmin, y = abundTrend)) + geom_point() + geom_smooth(method = "lm", se = F) + 
+         facet_wrap(~sign_ED) + labs(x = "Trend in Tmin", title = "Veery")
+ggsave("figures/four_species_eda/veer_interact_tmin.pdf")
+
+veery$sign_tmin <- ifelse(veery$tmin > 0, "increasing Tmin", "decreasing Tmin")
+ggplot(veery, aes(x = deltaED, y = abundTrend)) + geom_point() + geom_smooth(method = "lm", se = F) + 
+  facet_wrap(~sign_tmin) + labs(x = "Change in edge density", title = "Veery")
+ggsave("figures/four_species_eda/veer_interact_ed.pdf")
+
+veery_map <- states_map + tm_shape(veery) + tm_dots(col = "abundTrend", size = 0.5) +
+  tm_layout(main.title = "Veery")
+tmap_save(veery_map, "figures/four_species_eda/veer_map.pdf")
+
+veery_env_matrix <- clim_hab_poptrend_z %>%
+  filter(Common_name == "Veery") %>%
+  ungroup() %>%
+  dplyr::select(tmin, tmax, deltaED, deltaProp) %>%
+  as.matrix()
+
+veery_cor <- cor(veery_env_matrix, use = "pairwise.complete.obs")
+
+pdf("figures/four_species_eda/veer_cormatrix.pdf")
+corrplot::corrplot(veery_cor, method = "circle", diag = F, tl.col = "black", title = "Veery", mar = c(1,1,1,1))
+dev.off()
+
+# Common grackle - resident
+
+grackle <- clim_hab_poptrend_z %>%
+  filter(Common_name == "Common grackle") %>% 
+  left_join(dplyr::select(routes, stateroute, latitude, longitude)) %>%
+  st_as_sf(coords = c("longitude", "latitude"))
+
+grackle_lm <- lm(abundTrend ~ tmax*deltaED + tmin*deltaED + deltaProp, grackle)
+
+grackle_mod <- model_fits %>%
+  filter(aou == 5110)
+
+# Model effects
+ggplot(grackle, aes(x = deltaED, y = abundTrend)) + geom_point() + geom_smooth(method = "lm", se = F) +
+  labs(x = "Change in edge density", title = "Common grackle")
+ggsave("figures/four_species_eda/cogr_dED.pdf")
+
+ggplot(grackle, aes(x = tmax, y = abundTrend)) + geom_point() + geom_smooth(method = "lm", se = F) +
+  labs(x = "Trend in Tmax", title = "Common grackle")
+ggsave("figures/four_species_eda/cogr_tmax.pdf")
+
+ggplot(grackle, aes(x = tmin, y = abundTrend)) + geom_point() + geom_smooth(method = "lm", se = F) +
+  labs(x = "Trend in Tmin", title = "Common grackle")
+ggsave("figures/four_species_eda/cogr_tmin.pdf")
+
+# Map of abundTrend
+grackle_map <- states_map + tm_shape(grackle) + tm_dots(col = "abundTrend", size = 0.5) +
+  tm_layout(main.title = "Common grackle")
+tmap_save(grackle_map, "figures/four_species_eda/cogr_map.pdf")
+
+# correlation matrix
+grackle_env_matrix <- clim_hab_poptrend_z %>%
+  filter(Common_name == "Common grackle") %>%
+  ungroup() %>%
+  dplyr::select(tmin, tmax, deltaED, deltaProp) %>%
+  as.matrix()
+
+grackle_cor <- cor(grackle_env_matrix, use = "pairwise.complete.obs")
+
+pdf("figures/four_species_eda/cogr_cormatrix.pdf")
+corrplot::corrplot(grackle_cor, method = "circle", diag = F, tl.col = "black", title = "Common grackle", mar = c(1,1,1,1))
+dev.off()
+
+# Northern cardinal - resident
+
+cardinal <- clim_hab_poptrend_z %>%
+  filter(Common_name == "Northern cardinal") %>% 
+  left_join(dplyr::select(routes, stateroute, latitude, longitude)) %>%
+  st_as_sf(coords = c("longitude", "latitude"))
+
+cardinal_lm <- lm(abundTrend ~ tmax*deltaED + tmin*deltaED + deltaProp, cardinal)
+
+cardinal_mod <- model_fits %>%
+  filter(aou == 5930)
+
+# Model effects
+ggplot(cardinal, aes(x = tmax, y = abundTrend)) + geom_point() + geom_smooth(method = "lm", se = F) +
+  labs(x = "Trend in Tmax", title = "Northern cardinal")
+ggsave("figures/four_species_eda/noca_tmax.pdf")
+
+ggplot(cardinal, aes(x = tmin, y = abundTrend)) + geom_point() + geom_smooth(method = "lm", se = F) +
+  labs(x = "Trend in Tmin", title = "Northern cardinal")
+ggsave("figures/four_species_eda/noca_tmin.pdf")
+
+# Map of abundTrend
+cardinal_map <- states_map + tm_shape(cardinal) + tm_dots(col = "abundTrend", size = 0.5) +
+  tm_layout(main.title = "Northern cardinal")
+tmap_save(cardinal_map, "figures/four_species_eda/noca_map.pdf")
+
+# correlation matrix
+cardinal_env_matrix <- clim_hab_poptrend_z %>%
+  filter(Common_name == "Northern cardinal") %>%
+  ungroup() %>%
+  dplyr::select(tmin, tmax, deltaED, deltaProp) %>%
+  as.matrix()
+
+cardinal_cor <- cor(cardinal_env_matrix, use = "pairwise.complete.obs")
+
+pdf("figures/four_species_eda/noca_cormatrix.pdf")
+corrplot::corrplot(cardinal_cor, method = "circle", diag = F, tl.col = "black", title = "Common cardinal", mar = c(1,1,1,1))
+dev.off()
+
 
 #### Range position models ####
 
