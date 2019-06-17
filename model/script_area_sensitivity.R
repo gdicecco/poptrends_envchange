@@ -648,12 +648,12 @@ ggplot(veery, aes(x = deltaED, y = abundTrend)) + geom_point() + geom_smooth(met
   labs(x = "Change in edge density", title = "Veery")
 ggsave("figures/four_species_eda/veer_dED.pdf")
 
-veery$sign_ED <- ifelse(veery$deltaED > 0, "increasing ED", "decreasing ED")
+veery$sign_ED <- ifelse(veery$deltaED > 0, "positive ED", "negative ED")
 ggplot(veery, aes(x = tmin, y = abundTrend)) + geom_point() + geom_smooth(method = "lm", se = F) + 
          facet_wrap(~sign_ED) + labs(x = "Trend in Tmin", title = "Veery")
 ggsave("figures/four_species_eda/veer_interact_tmin.pdf")
 
-veery$sign_tmin <- ifelse(veery$tmin > 0, "increasing Tmin", "decreasing Tmin")
+veery$sign_tmin <- ifelse(veery$tmin > 0, "positive Tmin", "negative Tmin")
 ggplot(veery, aes(x = deltaED, y = abundTrend)) + geom_point() + geom_smooth(method = "lm", se = F) + 
   facet_wrap(~sign_tmin) + labs(x = "Change in edge density", title = "Veery")
 ggsave("figures/four_species_eda/veer_interact_ed.pdf")
@@ -756,6 +756,43 @@ pdf("figures/four_species_eda/noca_cormatrix.pdf")
 corrplot::corrplot(cardinal_cor, method = "circle", diag = F, tl.col = "black", title = "Common cardinal", mar = c(1,1,1,1))
 dev.off()
 
+## Indigo bunting (negative interaction between tmin and deltaED)
+
+bunting <- clim_hab_poptrend_z %>%
+  filter(Common_name == "Indigo bunting") %>% 
+  left_join(dplyr::select(routes, stateroute, latitude, longitude)) %>%
+  st_as_sf(coords = c("longitude", "latitude"))
+
+bunting_lm <- lm(abundTrend ~ tmax*deltaED + tmin*deltaED + deltaProp, bunting)
+
+bunting_mod <- model_fits %>%
+  filter(aou == 5980)
+
+bunting$sign_ED <- ifelse(bunting$deltaED > 0, "positive ED", "negative ED")
+ggplot(bunting, aes(x = tmin, y = abundTrend)) + geom_point() + geom_smooth(method = "lm", se = F) + 
+  facet_wrap(~sign_ED) + labs(x = "Trend in Tmin", title = "Indigo bunting")
+ggsave("figures/four_species_eda/inbu_interact_tmin.pdf")
+
+bunting$sign_tmin <- ifelse(bunting$tmin > 0, "positive Tmin", "negative Tmin")
+ggplot(bunting, aes(x = deltaED, y = abundTrend)) + geom_point() + geom_smooth(method = "lm", se = F) + 
+  facet_wrap(~sign_tmin) + labs(x = "Change in edge density", title = "Indigo bunting")
+ggsave("figures/four_species_eda/inbu_interact_ed.pdf")
+
+bunting_map <- states_map + tm_shape(bunting) + tm_dots(col = "abundTrend", size = 0.5) +
+  tm_layout(main.title = "Indigo bunting")
+tmap_save(bunting_map, "figures/four_species_eda/inbu_map.pdf")
+
+bunting_env_matrix <- clim_hab_poptrend_z %>%
+  filter(Common_name == "Indigo bunting") %>%
+  ungroup() %>%
+  dplyr::select(tmin, tmax, deltaED, deltaProp) %>%
+  as.matrix()
+
+bunting_cor <- cor(bunting_env_matrix, use = "pairwise.complete.obs")
+
+pdf("figures/four_species_eda/inbu_cormatrix.pdf")
+corrplot::corrplot(bunting_cor, method = "circle", diag = F, tl.col = "black", title = "Indigo bunting", mar = c(1,1,1,1))
+dev.off()
 
 #### Range position models ####
 
