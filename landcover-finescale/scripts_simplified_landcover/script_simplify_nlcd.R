@@ -10,6 +10,12 @@ nlcd2006 <- raster("nlcd_2006_landcover_2011_edition_2014_10_10\\nlcd_2006_landc
 
 nlcd2011 <- raster("nlcd_2011_landcover_2011_edition_2014_10_10\\nlcd_2011_landcover_2011_edition_2014_10_10.img")
 
+setwd("C:/Users/gdicecco/Desktop/data/nlcd/")
+
+nlcd2013 <- raster("NLCD_2013_Land_Cover_L48_20190424/NLCD_2013_Land_Cover_L48_20190424.img")
+nlcd2016 <- raster("NLCD_2016_Land_Cover_L48_20190424/NLCD_2016_Land_Cover_L48_20190424.img")
+
+
 ## Reclassify to Urban, Forest, Shrubland, Grassland, Agriculture, Wetlands
 newcode <- data.frame(code = seq(1,9), 
                       legend = c("Open water", "Urban", "Barren", "Forest", "Shrubland", "Agricultural", "Grasslands", "Wetlands", "Perennial ice, snow"))
@@ -43,3 +49,9 @@ writeRaster(nlcd2006_simp, "nlcd_2006_landcover_2011_edition_2014_10_10\\nlcd_20
 nlcd2011_simp <- reclassify(nlcd2011, rcl = reclass_simp_00s, right = NA)
 
 writeRaster(nlcd2011_simp, "nlcd_2011_landcover_2011_edition_2014_10_10\\nlcd_2011_whole_simplified.tif", overwrite = T)
+
+nlcd2013_simp <- reclassify(nlcd2013, rcl = reclass_simp_00s, right = NA)
+writeRaster(nlcd2013_simp, "NLCD_2013_Land_Cover_L48_20190424/nlcd_2013_whole_simplified.tif", overwrite = T)
+
+nlcd2016_simp <- reclassify(nlcd2016, rcl = reclass_simp_00s, right = NA)
+writeRaster(nlcd2016_simp, "NLCD_2016_Land_Cover_L48_20190424/nlcd_2016_whole_simplified.tif", overwrite = T)
