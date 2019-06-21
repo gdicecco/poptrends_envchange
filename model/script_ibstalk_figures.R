@@ -123,8 +123,7 @@ setwd("//BioArk/hurlbertlab/DiCecco/nlcd_frag_proj_shapefiles/")
 setwd("/Volumes/hurlbertlab/DiCecco/nlcd_frag_proj_shapefiles/")
 bufferRoutes <- readOGR("bbsroutes_5km_buffer.shp")
 
-nlcd2011 <- raster("//BioArk/hurlbertlab/GIS/LandCoverData/nlcd_2011_landcover_2011_edition_2014_10_10/nlcd_2011_whole_simplified.tif")
-nlcd2011 <- raster("/Volumes/hurlbertlab/GIS/LandCoverData/nlcd_2011_landcover_2011_edition_2014_10_10/nlcd_2011_whole_simplified.tif")
+nlcd2016 <- raster("C:/Users/gdicecco/Desktop/data/nlcd/NLCD_2016_Land_Cover_L48_20190424/nlcd_2016_whole_simplified.tif")
 
 frags <- read.csv("\\\\BioArk\\hurlbertlab\\DiCecco\\data\\fragmentation_indices_nlcd_simplified.csv", stringsAsFactors = F)
 frags <- read.csv("/Volumes/hurlbertlab/DiCecco/data/fragmentation_indices_nlcd_simplified.csv", stringsAsFactors = F)
@@ -138,7 +137,7 @@ newcode <- data.frame(code = seq(1,9),
 route_ed <- frags %>%
   group_by(stateroute, year) %>%
   summarize(ED = sum(total.edge)/sum(total.area)) %>%
-  filter(year == 2011, ED < 0.1) %>% # use filter to ID routes
+  filter(year == 2016) %>% # use filter to ID routes
   arrange(ED)
 
 bufferRoutes_transf <- spTransform(bufferRoutes, crs(nlcd2011))
@@ -178,28 +177,28 @@ forest_ed <- frags %>%
   group_by(stateroute, year) %>%
   summarize(ED = total.edge/sum.area,
             propForest = prop.landscape) %>%
-  filter(year == 2011, propForest> 0.2) %>% # use filter to ID routes
+  filter(year == 2016, propForest> 0.2) %>% # use filter to ID routes
   arrange(ED)
 
-bufferRoutes_transf <- spTransform(bufferRoutes, crs(nlcd2011))
+bufferRoutes_transf <- spTransform(bufferRoutes, crs(nlcd2016))
 
 routeLow <- subset(bufferRoutes_transf, rteno == 63908)
-nlcd_crop <- crop(nlcd2011, routeLow)
+nlcd_crop <- crop(nlcd2016, routeLow)
 EDlow <- mask(nlcd_crop, routeLow)
-# ED = 0.056, % for = 0.961
+# ED = 0.059, % for = 0.965
 # Busick, NC
 
 routeMed <- subset(bufferRoutes_transf, rteno == 85106)
-nlcd_cropMed <- crop(nlcd2011, routeMed)
+nlcd_cropMed <- crop(nlcd2016, routeMed)
 EDmed <- mask(nlcd_cropMed, routeMed)
-# ED = 0.184, % for = 0.704
+# ED = 0.194, % for = 0.695
 # Uinta National Forest, UT
 
-routeHigh <- subset(bufferRoutes_transf, rteno == 42039)
-nlcd_cropHigh <- crop(nlcd2011, routeHigh)
+routeHigh <- subset(bufferRoutes_transf, rteno == 18010)
+nlcd_cropHigh <- crop(nlcd2016, routeHigh)
 EDHigh <- mask(nlcd_cropHigh, routeHigh)
-# ED = 0.321, % for = 0.597
-# Marion, LA
+# ED = 0.328, % for = 0.529
+# Greenwich, CT
 
 setwd("C:/Users/gdicecco/Desktop/git/NLCD_fragmentation/")
 setwd("/Users/gracedicecco/Desktop/git/NLCD_fragmentation/")
@@ -208,31 +207,31 @@ setwd("/Users/gracedicecco/Desktop/git/NLCD_fragmentation/")
 nlcd_palette <- c("#0000FF", "#FF9900", "#E5E5CC", "#006600", "#B2B200", "#FFB3CC", "#E5CC99", "#80FFCC", "#FFFFFF")
 low <- tm_shape(EDlow) + tm_raster(palette = nlcd_palette, style = "cat", labels = as.character(newcode$legend), title = "") +
   tm_scale_bar(size = 2, breaks = c(0, 5)) + 
-  tm_layout(legend.text.size = 1, title = "ED = 0.056\nForest cover = 0.961", 
+  tm_layout(legend.text.size = 1, title = "ED = 0.059\nForest cover = 0.965", 
             title.position = c("left", "bottom"),
             title.size = 1,
             main.title = "A",
             main.title.fontface = "bold")
-#tmap_save(low, "figures/methods_figs/forest_ed_low.tiff")
+tmap_save(low, "figures/methods_figs/forest_ed_low.tiff")
 
 med <- tm_shape(EDmed) + tm_raster(palette = nlcd_palette, style = "cat") +
   tm_legend(show = F) + tm_scale_bar(size = 2, breaks = c(0, 5)) + 
-  tm_layout(legend.text.size = 1, title = "ED = 0.184\nForest cover = 0.704", 
+  tm_layout(legend.text.size = 1, title = "ED = 0.194\nForest cover = 0.695", 
             title.position = c("left", "bottom"),
             title.size = 1,
             inner.margins = c(0, 0.13, 0, 0.13),
             main.title = "B",
             main.title.fontface = "bold")
-#tmap_save(med, "figures/methods_figs/forest_ed_med.tiff")
+tmap_save(med, "figures/methods_figs/forest_ed_med.tiff")
 
 high <- tm_shape(EDHigh) + tm_raster(palette = nlcd_palette, style = "cat") +
-  tm_legend(show = F)+ tm_scale_bar(size = 2, position = c("LEFT", "BOTTOM"), breaks = c(0, 5)) + 
-  tm_layout(legend.text.size = 1, title = "ED = 0.321\nForest cover = 0.597", 
+  tm_legend(show = F)+ tm_scale_bar(size = 2, position = c("RIGHT", "BOTTOM"), breaks = c(0, 5)) + 
+  tm_layout(legend.text.size = 1, title = "ED = 0.328\nForest cover = 0.529", 
             title.size = 1,
-            title.position = c("left", "bottom"),             
+            title.position = c("right", "bottom"),             
             main.title = "C",
             main.title.fontface = "bold")
-#tmap_save(high, "figures/methods_figs/forest_ed_high.tiff")
+tmap_save(high, "figures/methods_figs/forest_ed_high.tiff")
 
 arrange <- tmap_arrange(low, med, high, ncol = 3)
 tmap_save(arrange, "figures/methods_figs/forest_ed_multipanel.pdf", units = "in", height = 6, width = 12)

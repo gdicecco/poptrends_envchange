@@ -144,7 +144,7 @@ forest_ed <- frags %>%
   summarize(ED = total.edge/sum.area,
             propForest = prop.landscape,
             meanPatchArea = mean.patch.area) %>%
-  filter(year == 2011, propForest > 0.25) %>% # use filter to ID routes
+  filter(year == 2016, propForest > 0.25) %>% # use filter to ID routes
   arrange(ED)
 
 forest_deltaED <- frags %>% # 2314 routes
@@ -153,7 +153,10 @@ forest_deltaED <- frags %>% # 2314 routes
   summarize(ED = sum(total.edge[legend == "Forest"])/sum(total.area)) %>%
   spread(key = "year", value = "ED") %>%
   group_by(stateroute) %>%
-  summarize(deltaED = `2011` - `1992`)
+  summarize(deltaED = `2016` - `1992`,
+            deltaEDrecent = `2016` - `2013`,
+            recentChange = abs(deltaEDrecent)/abs(deltaED)) %>%
+  filter(recentChange < 0.5)
 
 forest_deltaP <- frags %>% # 2314 routes
   left_join(newcode, by = c("class" = "code")) %>%
@@ -162,10 +165,10 @@ forest_deltaP <- frags %>% # 2314 routes
   summarize(propForest = prop.landscape) %>%
   spread(key = "year", value = "propForest") %>%
   group_by(stateroute) %>%
-  summarize(deltaProp = `2011` - `1992`)
+  summarize(deltaProp = `2016` - `1992`)
 
 forest <- forest_ed %>%
-  left_join(forest_deltaED) %>%
+  right_join(forest_deltaED) %>%
   left_join(forest_deltaP)
 
 # Master data table
@@ -179,57 +182,6 @@ clim_hab_poptrend <- abund_trend %>%
 
 ##### Analysis #####
 setwd("C:/Users/gdicecco/Desktop/git/NLCD_fragmentation/")
-
-# Occupancy - test
-
-occ_test <- counts.subs %>%
-  group_by(aou) %>%
-  nest() %>%
-  mutate(occ_90s = map_dbl(data, ~{
-    df <- .
-    df_subs <- df %>%
-      filter(year < 2001)
-    occ <- df %>%
-      filter(year < 2001) %>%
-      group_by(stateroute) %>%
-      summarize(nyear = length(unique(year))) %>%
-      filter(nyear > 6)
-    length(unique(occ$stateroute))/length(unique(df_subs$stateroute))
-  }),
-  occ_00s = map_dbl(data, ~{
-    df <- .
-    df_subs <- df %>%
-      filter(year > 2006)
-    occ <- df %>%
-      filter(year > 2006) %>%
-      group_by(stateroute) %>%
-      summarize(nyear = length(unique(year))) %>%
-      filter(nyear > 6)
-    length(unique(occ$stateroute))
-    length(unique(occ$stateroute))/length(unique(df_subs$stateroute))
-  })) %>%
-  dplyr::select(-data) %>%
-  mutate(deltaOcc = occ_00s - occ_90s) %>%
-  left_join(fourletter_codes) %>%
-  na.omit()
-
-ggplot(occ_test, aes(x = fct_reorder(SPEC, occ_90s), y = occ_90s)) +
-  geom_col(col = "white") +
-  labs(x = "", y = "Proportion of core routes in 1990s") +
-  theme(axis.text.x = element_text(angle = 45, hjust = 1))
-ggsave("figures/area_sensitivity/core_routes_1990s.pdf", units = "in", height = 6, width = 15)
-
-ggplot(occ_test, aes(x = fct_reorder(SPEC, occ_00s), y = occ_00s)) +
-  geom_col(col = "white") +
-  labs(x = "", y = "Proportion of core routes in 2010s") +
-  theme(axis.text.x = element_text(angle = 45, hjust = 1))
-ggsave("figures/area_sensitivity/core_routes_2010s.pdf", units = "in", height = 6, width = 15)
-
-ggplot(occ_test, aes(x = fct_reorder(SPEC, deltaOcc), y = deltaOcc)) +
-  geom_col(col = "white") +
-  labs(x = "", y = "Change proportion core routes 1990s-2010s") +
-  theme(axis.text.x = element_text(angle = 45, hjust = 1))
-ggsave("figures/area_sensitivity/change_core_routes.pdf", units = "in", height = 6, width = 15)
 
 #### Route trends ####
 
@@ -248,8 +200,8 @@ plot(us_subs_transf, add = T)
 hist(clim_hab_poptrend$deltaED)
 hist(clim_hab_poptrend$deltaProp)
 
-cor(clim_hab_poptrend$ED, clim_hab_poptrend$propForest) # -0.41
-cor(clim_hab_poptrend$deltaED, clim_hab_poptrend$deltaProp) # -0.25
+cor(clim_hab_poptrend$ED, clim_hab_poptrend$propForest) # -0.31
+cor(clim_hab_poptrend$deltaED, clim_hab_poptrend$deltaProp) # -0.24
 cor(dplyr::select(clim_hab_poptrend, ppt, tmin, tmax, deltaED, deltaProp, ED, propForest))
 
 # Figure 1: map of routes
@@ -258,60 +210,102 @@ states <- us.proj[, -(1:2)]
 bbs_routes_forest <- us_subs_transf %>%
   st_as_sf() %>%
   left_join(forest, by = c("rteno" = "stateroute")) %>%
-  left_join(climate_wide, by = c("rteno" = "stateroute"))
+  left_join(climate_wide, by = c("rteno" = "stateroute")) %>%
+  filter(!is.na(deltaProp))
 
 bbs_routes_forcov <- tm_shape(states) + tm_fill(col = "gray63") + tm_borders(col = "gray63") + 
   tm_shape(bbs_routes_forest)  + 
-  tm_lines(col = "deltaProp", scale = 3, palette = "PRGn", title.col = "Change in forest cover") +
-  tm_layout(legend.text.size = 1, legend.title.size = 1.5, title = "A", title.fontface = "bold")
+  tm_lines(col = "deltaProp", scale = 3, palette = "PRGn") +
+  tm_layout(title = "A", title.fontface = "bold", legend.show = F)
 
 bbs_routes_fored <- tm_shape(states) + tm_fill(col = "gray63") + tm_borders(col = "gray63") + 
-  tm_shape(bbs_routes_forest)  + tm_lines(col = "deltaED", scale = 3, palette = "-PiYG", title.col = "Change in edge density") +
-  tm_layout(legend.text.size = 1, legend.title.size = 1.5, title = "B", title.fontface = "bold")
+  tm_shape(bbs_routes_forest)  + tm_lines(col = "deltaED", scale = 3, palette = "-PiYG") +
+  tm_layout(legend.show = F, title = "B", title.fontface = "bold")
 
 bbs_routes_tmin <- tm_shape(states) + tm_fill(col = "gray63") + tm_borders(col = "gray63") + 
-  tm_shape(bbs_routes_forest)  + tm_lines(col = "tmin", scale = 3, palette = "-RdBu", title.col = "Trend in Tmin") +
-  tm_layout(legend.text.size = 1, legend.title.size = 1.5, title = "C", title.fontface = "bold")
+  tm_shape(bbs_routes_forest)  + tm_lines(col = "tmin", scale = 3, palette = "-RdBu") +
+  tm_layout(legend.show = F, title = "C", title.fontface = "bold")
 
 bbs_routes_tmax <- tm_shape(states) + tm_fill(col = "gray63") + tm_borders(col = "gray63") + 
-  tm_shape(bbs_routes_forest)  + tm_lines(col = "tmax", scale = 3, palette = "-RdBu", title.col = "Trend in Tmax") +
-  tm_layout(legend.text.size = 1, legend.title.size = 1.5, title = "D", title.fontface = "bold")
+  tm_shape(bbs_routes_forest)  + tm_lines(col = "tmax", scale = 3, palette = "-RdBu") +
+  tm_layout(legend.show = F, title = "D", title.fontface = "bold")
 
 bbs_routes <- tmap_arrange(bbs_routes_forcov, bbs_routes_fored, bbs_routes_tmin, bbs_routes_tmax, nrow = 2)
 
-# Histograms for each variable - put in gulf of mexico in PPT
+# Histogram legends for each variable
 
-ED_hist <- ggplot(bbs_routes_forest, aes(x = deltaED)) + geom_histogram(bins = 30) +
-  labs(x = "Change in edge density", y = "Count") +
+# Add color scale
+
+color_scale <- data.frame(color = c(1:5), 
+                          dED_hex = c("#276419", "#7fbc41", "#e6f5d0", "#fde0ef", "#de77ae"),
+                          dProp_hex = c("#7b3294", "#c2a5cf", "#e7d4e8", "#d9f0d3", "#5aae61"),
+                          temp_hex = c("#4393c3", "#d1e5f0", "#fddbc7", "#f4a582", "#b2182b"), stringsAsFactors = F)
+
+bbs_routes_forest_plots <- bbs_routes_forest %>%
+  mutate(dED_color = case_when(
+    deltaED <= -0.2 ~ 1,
+    deltaED > -0.2 & deltaED <= -0.1 ~ 2,
+    deltaED > -0.1 & deltaED <= 0 ~ 3,
+    deltaED > 0 & deltaED <= 0.1 ~ 4,
+    deltaED > 0.1 ~ 5
+  ),
+  dProp_color = case_when(
+    deltaProp <= -0.4 ~ 1,
+    deltaProp > -0.4 & deltaProp <= -0.2 ~ 2,
+    deltaProp > -0.2 & deltaProp <= 0 ~ 3,
+    deltaProp > 0 & deltaProp <= 0.2 ~ 4,
+    deltaProp > 0.2 ~ 5
+  ),
+  tmin_color = case_when(
+    tmin <= -0.05 ~ 1,
+    tmin > -0.05 & tmin <= 0 ~ 2,
+    tmin > 0 & tmin <= 0.05 ~ 3,
+    tmin > 0.05 & tmin <= 0.1 ~ 4,
+    tmin > 0.1 ~ 5
+  ),
+  tmax_color = case_when(
+    tmax <= -0.05 ~ 1,
+    tmax > -0.05 & tmax <= 0 ~ 2,
+    tmax > 0 & tmax <= 0.05 ~ 3,
+    tmax > 0.05 & tmax <= 0.1 ~ 4,
+    tmax > 0.1 ~ 5
+  ))
+
+ED_hist <- ggplot(bbs_routes_forest_plots, aes(x = deltaED, fill = as.factor(dED_color))) + geom_histogram(bins = 50) +
+  labs(title = "Change in edge density") +
   scale_y_continuous(breaks = c(0, 75, 150)) +
-  theme(text = element_text(size = 10), axis.text = element_text(size = 9),
-        axis.title.x = element_text(vjust = 1), axis.title.y = element_text(vjust = 0))
+  scale_fill_manual(values = color_scale$dED_hex) +
+  theme(text = element_text(size = 12), axis.text = element_text(size = 12),
+        axis.title.x = element_blank(), axis.title.y = element_blank(), legend.position = "none")
 
-for_hist <- ggplot(bbs_routes_forest, aes(x = deltaProp)) + geom_histogram(bins = 30) +
-  labs(x = "Change in forest cover", y = "Count") +
+for_hist <- ggplot(bbs_routes_forest_plots, aes(x = deltaProp, fill = as.factor(dProp_color))) + geom_histogram(bins = 30) +
+  labs(title = "Change in forest cover") +
   scale_y_continuous(breaks = c(0, 100, 200)) +
-  theme(text = element_text(size = 10), axis.text = element_text(size = 9),
-        axis.title.x = element_text(vjust = 1), axis.title.y = element_text(vjust = 0))
+  scale_fill_manual(values = color_scale$dProp_hex) +
+  theme(text = element_text(size = 12), axis.text = element_text(size = 12),
+        axis.title.x = element_blank(), axis.title.y = element_blank(), legend.position = "none")
 
-tmin_hist <- ggplot(bbs_routes_forest, aes(x = tmin)) + geom_histogram(bins = 30) +
-  labs(x = "Trend in Tmin", y = "Count") +
+tmin_hist <- ggplot(bbs_routes_forest_plots, aes(x = tmin, fill = as.factor(tmin_color))) + geom_histogram(bins = 30) +
+  labs(title = "Trend in Tmin") +
   scale_y_continuous(breaks = c(0, 100, 200)) +
-  theme(text = element_text(size = 10), axis.text = element_text(size = 9),
-        axis.title.x = element_text(vjust = 1), axis.title.y = element_text(vjust = 0))
+  scale_fill_manual(values = color_scale$temp_hex) +
+  theme(text = element_text(size = 12), axis.text = element_text(size = 10),
+        axis.title.x = element_blank(), axis.title.y = element_blank(), legend.position = "none")
 
-tmax_hist <- ggplot(bbs_routes_forest, aes(x = tmax)) + geom_histogram(bins = 30) +
-  labs(x = "Trend in Tmax", y = "Count") +
+tmax_hist <- ggplot(bbs_routes_forest_plots, aes(x = tmax, fill = as.factor(tmax_color))) + geom_histogram(bins = 30) +
+  labs(title = "Trend in Tmax") +
   scale_y_continuous(breaks = c(0, 100, 200)) +
-  theme(text = element_text(size = 10), axis.text = element_text(size = 9),
-        axis.title.x = element_text(vjust = 1), axis.title.y = element_text(vjust = 0))
+  scale_fill_manual(values = color_scale$temp_hex) +
+  theme(text = element_text(size = 12), axis.text = element_text(size = 10),
+        axis.title.x = element_blank(), axis.title.y = element_blank(), legend.position = "none")
 
 ## Insets
 
-vp_for <- viewport(0.32, 0.565, width = 0.175, height = 0.125)
-vp_ed <- viewport(0.82, 0.565, width = 0.175, height = 0.125)
+vp_for <- viewport(0.1, 0.59, width = 0.175, height = 0.15)
+vp_ed <- viewport(0.6, 0.59, width = 0.175, height = 0.15)
 
-vp_tmin <- viewport(0.32, 0.065, width = 0.175, height = 0.125)
-vp_tmax <- viewport(0.82, 0.065, width = 0.175, height = 0.125)
+vp_tmin <- viewport(0.1, 0.09, width = 0.175, height = 0.15)
+vp_tmax <- viewport(0.6, 0.09, width = 0.175, height = 0.15)
 
 pdf("figures/methods_figs/bbs_routes.pdf", height = 10, width = 12)
 print(bbs_routes)
@@ -325,12 +319,14 @@ dev.off()
 matrix <- climate_wide %>%
   left_join(forest) %>%
   filter(!is.na(propForest)) %>%
-  dplyr::select(-meanPatchArea, -stateroute, -ppt, -ED, -propForest, -year) %>%
-  rename("Tmin" = "tmin", "Tmax" = "tmax", "dED" = "deltaED", "dForest" = "deltaProp")
+  dplyr::select(-meanPatchArea, -stateroute, -ppt, -ED, -propForest, -year, -deltaEDrecent, -recentChange) %>%
+  rename("Tmin" = "tmin", "Tmax" = "tmax", "forestED" = "deltaED", "forestCover" = "deltaProp")
 
 corr.table <- cor(matrix)
+pdf("figures/route_eda/env_cor_matrix.pdf")
 corrplot::corrplot(corr.table, method = "circle", diag = F, tl.col = "black",
                    tl.cex = 1.5, cl.cex = 1)
+dev.off()
 
 # Breadth of forest ED and forest cover for area and non-area sensitive species
 
@@ -363,7 +359,7 @@ forest_ed_allroutes <- frags %>%
   summarize(ED = total.edge/sum.area,
             propForest = prop.landscape,
             meanPatchArea = mean.patch.area) %>%
-  filter(year == 2011)
+  filter(year == 2016)
 
 forest_deltaP_allroutes <- frags %>% # 2314 routes
   left_join(newcode, by = c("class" = "code")) %>%
@@ -372,7 +368,7 @@ forest_deltaP_allroutes <- frags %>% # 2314 routes
   summarize(propForest = prop.landscape) %>%
   spread(key = "year", value = "propForest") %>%
   group_by(stateroute) %>%
-  summarize(deltaProp = `2011` - `1992`)
+  summarize(deltaProp = `2016` - `1992`)
 
 forest_allroutes <- forest_ed_allroutes %>%
   left_join(forest_deltaP_allroutes)
@@ -446,7 +442,7 @@ vol_cov <- ggplot(spp_breadths, aes(x = volume, y = propFor)) +
 plot_grid(ed_cov, ed_vol, vol_cov, nrow = 2)
 ggsave("figures/area_sensitivity/traits_covariation.tiff", units = "in", height = 8, width = 8)
 
-cor(spp_breadths[, c(4,7,9)]) # edxpropFor = -0.65, edxVolume = 0.11, volumexPropFor = -0.59
+cor(spp_breadths[, c(4,7,9)]) # edxpropFor = -0.61, edxVolume = 0.13, volumexPropFor = -0.60
 
 #### Individual models ####
 # of climate + frag + loss + climate:frag + climate:loss for species
@@ -494,6 +490,9 @@ model_fits <- clim_hab_poptrend_z %>%
                          TRUE ~ "p > 0.05"))
 
 range(model_fits$nObs) # 1 spp at 38, only one below 40
+# 67 species
+
+#write.csv(model_fits, "model/individual_species_model_tables.csv", row.names = F)
 
 # Figure: distributions of effect sizes by species
 
@@ -554,6 +553,8 @@ spp_traits <- spp_breadths %>%
   dplyr::select(term, tidy, r2) %>%
   unnest()
 
+#write.csv(spp_traits, "model/spp_trait_model_output.csv", row.names = F)
+
 spp_traits_pred <- spp_traits %>%
   filter(p.value < 0.1)
 
@@ -587,6 +588,75 @@ mig_deltaED <- ggplot(filter(model_traits, term == "deltaED"), aes(x = fct_reord
 plot_grid(mig_tmin, mig_deltaED, nrow = 2, labels = c("A", "B"))
 ggsave("figures/area_sensitivity/migclass_effects.pdf", units = "in", width = 14, height = 10)
 
+#### Range position models ####
+
+range_centroids <- read.csv("traits/species_Brange_centroids.csv", stringsAsFactors = F)
+
+# Group routes into north, south, center of range
+
+route_terciles <- route_directions %>%
+  left_join(range_centroids, by = c("aou")) %>%
+  left_join(dplyr::select(routes, stateroute, latitude, longitude)) %>%
+  mutate(range_direction = case_when(latitude >= n_tercile ~ "North", 
+                                    latitude <= s_tercile ~ "South",
+                                     TRUE ~ "Central")) %>%
+  group_by(aou, range_direction) %>%
+  filter(n() > 10)
+
+## Join route position with clim_hab_poptrend table
+
+clim_hab_poptrend_position <- clim_hab_poptrend_z %>%
+  filter(aou %in% route_terciles$aou) %>%
+  left_join(route_terciles, by = c("stateroute", "aou")) %>%
+  filter(!is.na(range_direction))
+
+## Individual models of Tmin and Tmax with interactions with route position
+
+model_fits_position <- clim_hab_poptrend_position %>%
+  group_by(aou, SPEC, range_direction) %>%
+  nest() %>%
+  mutate(lmFit = map(data, ~{
+    df <- .
+    lm(abundTrend ~ tmax + tmin, df, na.action = na.fail)
+  })) %>%
+  mutate(lm_broom = map(lmFit, tidy)) %>%
+  dplyr::select(aou, SPEC, range_direction, lm_broom) %>%
+  unnest()
+
+model_fits_position_fig <- model_fits_position %>%
+  filter(term != "(Intercept)") %>%
+  mutate(sig = case_when(p.value < 0.05 ~ "p < 0.05",
+                         TRUE ~ "p > 0.05")) %>%
+  mutate(term = fct_recode(term, Tmin = "tmin", Tmax = "tmax")) %>%
+  mutate(term = paste("Trend in", term)) %>%
+  mutate(range_direction = fct_relevel(range_direction, levels = c("North", "Central", "South"))) %>%
+  filter(range_direction != "Central")
+
+# Figure
+
+ggplot(model_fits_position_fig, aes(estimate, fill = sig)) +
+  geom_histogram(bins = 40) + 
+  facet_grid(range_direction ~ term) +
+  geom_vline(aes(xintercept = mean(estimate)), lty = 2) +
+  scale_fill_manual(values = c("p < 0.05" = "skyblue3",
+                               "p > 0.05" = "gray")) +
+  scale_x_continuous(breaks = c(0, 5, 10)) +
+  labs(x = "Effect estimate",
+       y = "Number of Species",
+       fill = "") +
+  theme_bw() + 
+  theme(panel.grid.major = element_blank(), 
+        panel.grid.minor = element_blank(),
+        panel.background = element_rect(colour = "black")) +
+  theme(axis.text = element_text(size = 12),
+        strip.text = element_text(size = 12),
+        text = element_text(size = 12),
+        legend.text = element_text(size = 12))
+  
+ggsave("figures/area_sensitivity/range_position_temp_responses.pdf")
+
+
+
 #### Individual species EDA ####
 
 us.proj <- readOGR("\\\\BioArk/hurlbertlab/DiCecco/nlcd_frag_proj_shapefiles/BCRs_contiguous_us/BCRs_contiguous_us.shp")
@@ -597,6 +667,12 @@ states_map <- tm_shape(states) + tm_fill(col = "gray63") + tm_borders(col = "gra
 
 # Redstart, Veery, Common cardinal, Northern Cardinal
 # Case studies on these species - how correlated are ENV variables at the routes they occur on? 
+
+# Brown headed cowbird: positive to ED, positive to Tmin
+
+# Red-headed woodpecker: positive to ED, negative to propFor, positive to Tmin
+
+# BHVI - interaction between deltaED and Tmin (could also try CAWA or MAWA)
 
 # Redstart - open woodlands, insectivore, migrant
 
@@ -632,47 +708,7 @@ pdf("figures/four_species_eda/amre_cormatrix.pdf")
 corrplot::corrplot(redstart_cor, method = "circle", diag = F, tl.col = "black", title = "American redstart", mar = c(1,1,1,1))
 dev.off()
 
-# Veery - deciduous forest, well developed understory, ground foraging insectivore, migrant
 
-veery <- clim_hab_poptrend_z %>%
-  filter(Common_name == "Veery") %>% 
-  left_join(dplyr::select(routes, stateroute, latitude, longitude)) %>%
-  st_as_sf(coords = c("longitude", "latitude"))
-
-veery_lm <- lm(abundTrend ~ tmax*deltaED + tmin*deltaED + deltaProp, veery)
-
-veery_mod <- model_fits %>%
-  filter(aou == 7560)
-
-ggplot(veery, aes(x = deltaED, y = abundTrend)) + geom_point() + geom_smooth(method = "lm", se = F) +
-  labs(x = "Change in edge density", title = "Veery")
-ggsave("figures/four_species_eda/veer_dED.pdf")
-
-veery$sign_ED <- ifelse(veery$deltaED > 0, "positive ED", "negative ED")
-ggplot(veery, aes(x = tmin, y = abundTrend)) + geom_point() + geom_smooth(method = "lm", se = F) + 
-         facet_wrap(~sign_ED) + labs(x = "Trend in Tmin", title = "Veery")
-ggsave("figures/four_species_eda/veer_interact_tmin.pdf")
-
-veery$sign_tmin <- ifelse(veery$tmin > 0, "positive Tmin", "negative Tmin")
-ggplot(veery, aes(x = deltaED, y = abundTrend)) + geom_point() + geom_smooth(method = "lm", se = F) + 
-  facet_wrap(~sign_tmin) + labs(x = "Change in edge density", title = "Veery")
-ggsave("figures/four_species_eda/veer_interact_ed.pdf")
-
-veery_map <- states_map + tm_shape(veery) + tm_dots(col = "abundTrend", size = 0.5) +
-  tm_layout(main.title = "Veery")
-tmap_save(veery_map, "figures/four_species_eda/veer_map.pdf")
-
-veery_env_matrix <- clim_hab_poptrend_z %>%
-  filter(Common_name == "Veery") %>%
-  ungroup() %>%
-  dplyr::select(tmin, tmax, deltaED, deltaProp) %>%
-  as.matrix()
-
-veery_cor <- cor(veery_env_matrix, use = "pairwise.complete.obs")
-
-pdf("figures/four_species_eda/veer_cormatrix.pdf")
-corrplot::corrplot(veery_cor, method = "circle", diag = F, tl.col = "black", title = "Veery", mar = c(1,1,1,1))
-dev.off()
 
 # Common grackle - resident
 
@@ -717,147 +753,6 @@ pdf("figures/four_species_eda/cogr_cormatrix.pdf")
 corrplot::corrplot(grackle_cor, method = "circle", diag = F, tl.col = "black", title = "Common grackle", mar = c(1,1,1,1))
 dev.off()
 
-# Northern cardinal - resident
-
-cardinal <- clim_hab_poptrend_z %>%
-  filter(Common_name == "Northern cardinal") %>% 
-  left_join(dplyr::select(routes, stateroute, latitude, longitude)) %>%
-  st_as_sf(coords = c("longitude", "latitude"))
-
-cardinal_lm <- lm(abundTrend ~ tmax*deltaED + tmin*deltaED + deltaProp, cardinal)
-
-cardinal_mod <- model_fits %>%
-  filter(aou == 5930)
-
-# Model effects
-ggplot(cardinal, aes(x = tmax, y = abundTrend)) + geom_point() + geom_smooth(method = "lm", se = F) +
-  labs(x = "Trend in Tmax", title = "Northern cardinal")
-ggsave("figures/four_species_eda/noca_tmax.pdf")
-
-ggplot(cardinal, aes(x = tmin, y = abundTrend)) + geom_point() + geom_smooth(method = "lm", se = F) +
-  labs(x = "Trend in Tmin", title = "Northern cardinal")
-ggsave("figures/four_species_eda/noca_tmin.pdf")
-
-# Map of abundTrend
-cardinal_map <- states_map + tm_shape(cardinal) + tm_dots(col = "abundTrend", size = 0.5) +
-  tm_layout(main.title = "Northern cardinal")
-tmap_save(cardinal_map, "figures/four_species_eda/noca_map.pdf")
-
-# correlation matrix
-cardinal_env_matrix <- clim_hab_poptrend_z %>%
-  filter(Common_name == "Northern cardinal") %>%
-  ungroup() %>%
-  dplyr::select(tmin, tmax, deltaED, deltaProp) %>%
-  as.matrix()
-
-cardinal_cor <- cor(cardinal_env_matrix, use = "pairwise.complete.obs")
-
-pdf("figures/four_species_eda/noca_cormatrix.pdf")
-corrplot::corrplot(cardinal_cor, method = "circle", diag = F, tl.col = "black", title = "Common cardinal", mar = c(1,1,1,1))
-dev.off()
-
-## Indigo bunting (negative interaction between tmin and deltaED)
-
-bunting <- clim_hab_poptrend_z %>%
-  filter(Common_name == "Indigo bunting") %>% 
-  left_join(dplyr::select(routes, stateroute, latitude, longitude)) %>%
-  st_as_sf(coords = c("longitude", "latitude"))
-
-bunting_lm <- lm(abundTrend ~ tmax*deltaED + tmin*deltaED + deltaProp, bunting)
-
-bunting_mod <- model_fits %>%
-  filter(aou == 5980)
-
-bunting$sign_ED <- ifelse(bunting$deltaED > 0, "positive ED", "negative ED")
-ggplot(bunting, aes(x = tmin, y = abundTrend)) + geom_point() + geom_smooth(method = "lm", se = F) + 
-  facet_wrap(~sign_ED) + labs(x = "Trend in Tmin", title = "Indigo bunting")
-ggsave("figures/four_species_eda/inbu_interact_tmin.pdf")
-
-bunting$sign_tmin <- ifelse(bunting$tmin > 0, "positive Tmin", "negative Tmin")
-ggplot(bunting, aes(x = deltaED, y = abundTrend)) + geom_point() + geom_smooth(method = "lm", se = F) + 
-  facet_wrap(~sign_tmin) + labs(x = "Change in edge density", title = "Indigo bunting")
-ggsave("figures/four_species_eda/inbu_interact_ed.pdf")
-
-bunting_map <- states_map + tm_shape(bunting) + tm_dots(col = "abundTrend", size = 0.5) +
-  tm_layout(main.title = "Indigo bunting")
-tmap_save(bunting_map, "figures/four_species_eda/inbu_map.pdf")
-
-bunting_env_matrix <- clim_hab_poptrend_z %>%
-  filter(Common_name == "Indigo bunting") %>%
-  ungroup() %>%
-  dplyr::select(tmin, tmax, deltaED, deltaProp) %>%
-  as.matrix()
-
-bunting_cor <- cor(bunting_env_matrix, use = "pairwise.complete.obs")
-
-pdf("figures/four_species_eda/inbu_cormatrix.pdf")
-corrplot::corrplot(bunting_cor, method = "circle", diag = F, tl.col = "black", title = "Indigo bunting", mar = c(1,1,1,1))
-dev.off()
-
-#### Range position models ####
-
-route_directions <- read.csv("traits/species_route_dist_from_centroids.csv", stringsAsFactors = F)
-
-# Group routes into north, south, center of range
-
-route_terciles <- route_directions %>%
-  left_join(range_centroids, by = c("aou")) %>%
-  left_join(dplyr::select(routes, stateroute, latitude, longitude)) %>%
-  mutate(range_direction = case_when(latitude >= n_tercile ~ "North", 
-                                    latitude <= s_tercile ~ "South",
-                                     TRUE ~ "Central")) %>%
-  group_by(aou, range_direction) %>%
-  filter(n() > 40)
-
-## Join route position with clim_hab_poptrend table
-
-clim_hab_poptrend_position <- clim_hab_poptrend_z %>%
-  filter(aou %in% route_terciles$aou) %>%
-  left_join(route_terciles, by = c("stateroute", "aou")) %>%
-  filter(!is.na(range_direction))
-
-## Individual models of Tmin and Tmax with interactions with route position
-
-model_fits_position <- clim_hab_poptrend_position %>%
-  group_by(aou, SPEC, range_direction) %>%
-  nest() %>%
-  mutate(lmFit = map(data, ~{
-    df <- .
-    lm(abundTrend ~ tmax + tmin, df, na.action = na.fail)
-  })) %>%
-  mutate(lm_broom = map(lmFit, tidy)) %>%
-  dplyr::select(aou, SPEC, range_direction, lm_broom) %>%
-  unnest()
-
-model_fits_position_fig <- model_fits_position %>%
-  filter(term != "(Intercept)") %>%
-  mutate(sig = case_when(p.value < 0.05 ~ "p < 0.05",
-                         TRUE ~ "p > 0.05")) %>%
-  mutate(term = fct_recode(term, Tmin = "tmin", Tmax = "tmax")) %>%
-  mutate(term = paste("Trend in", term)) %>%
-  mutate(range_direction = fct_relevel(range_direction, levels = c("North", "Central", "South")))
-
-# Figure
-
-ggplot(model_fits_position_fig, aes(estimate, fill = sig)) +
-  geom_histogram(bins = 40) + 
-  facet_grid(range_direction ~ term) +
-  geom_vline(aes(xintercept = mean(estimate)), lty = 2) +
-  scale_fill_manual(values = c("p < 0.05" = "skyblue3",
-                               "p > 0.05" = "gray")) +
-  labs(x = "Effect estimate",
-       y = "Number of Species",
-       fill = "") +
-  theme_bw() + 
-  theme(panel.grid.major = element_blank(), 
-        panel.grid.minor = element_blank(),
-        panel.background = element_rect(colour = "black")) +
-  theme(axis.text = element_text(size = 12),
-        strip.text = element_text(size = 12),
-        text = element_text(size = 12),
-        legend.text = element_text(size = 12))
-  
-ggsave("figures/area_sensitivity/range_position_temp_responses.pdf")
 
 
 #### Species by site matrix ####

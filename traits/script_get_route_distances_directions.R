@@ -132,7 +132,7 @@ range_centroids <- data.frame(aou = c(), filename = c(),
 for(spec in spp_map_files$aou) {
   file <- spp_map_files[spp_map_files$aou == spec, 4]
   range <- read_sf(paste0(path, file)) %>%
-    filter(SEASONAL == 1 | SEASONAL == 2 | SEASONAL == 5) %>%
+    filter(SEASONAL == 1 | SEASONAL == 2) %>%
     st_transform('+proj=longlat +ellps=GRS80 +no_defs') %>%
     st_union()
   centroid <- st_coordinates(st_centroid(range))
