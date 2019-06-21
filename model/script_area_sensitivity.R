@@ -601,7 +601,7 @@ route_terciles <- route_directions %>%
                                     latitude <= s_tercile ~ "South",
                                      TRUE ~ "Central")) %>%
   group_by(aou, range_direction) %>%
-  filter(n() > 10)
+  filter(n() > 40)
 
 ## Join route position with clim_hab_poptrend table
 
@@ -630,12 +630,16 @@ model_fits_position_fig <- model_fits_position %>%
   mutate(term = fct_recode(term, Tmin = "tmin", Tmax = "tmax")) %>%
   mutate(term = paste("Trend in", term)) %>%
   mutate(range_direction = fct_relevel(range_direction, levels = c("North", "Central", "South"))) %>%
-  filter(range_direction != "Central")
+  filter(range_direction != "Central") %>%
+  ungroup() %>%
+  filter(SPEC != "CERW") %>%
+  group_by(SPEC) %>%
+  filter(n_distinct(range_direction) == 2)
 
 # Figure
 
 ggplot(model_fits_position_fig, aes(estimate, fill = sig)) +
-  geom_histogram(bins = 40) + 
+  geom_histogram(bins = 20) + 
   facet_grid(range_direction ~ term) +
   geom_vline(aes(xintercept = mean(estimate)), lty = 2) +
   scale_fill_manual(values = c("p < 0.05" = "skyblue3",
@@ -655,9 +659,38 @@ ggplot(model_fits_position_fig, aes(estimate, fill = sig)) +
   
 ggsave("figures/area_sensitivity/range_position_temp_responses.pdf")
 
+# Figure - points
 
+trendTmin <- model_fits_position_fig %>%
+  filter(term == "Trend in Tmin") %>%
+  dplyr::select(SPEC, range_direction, estimate) %>%
+  spread(range_direction, estimate)
 
-#### Individual species EDA ####
+tmin_plot <- ggplot(trendTmin, aes(x = North, y = South)) + geom_point() + 
+  geom_hline(yintercept = 0, lty = 2) + 
+  geom_vline(xintercept = 0, lty = 2) + 
+  labs(title = "Response to trend in Tmin",
+       y = "Southern range tercile",
+       x = "Northern range tercile") +
+  ylim(-0.2, 0.2)
+
+trendTmax <- model_fits_position_fig %>%
+  filter(term == "Trend in Tmax") %>%
+  dplyr::select(SPEC, range_direction, estimate) %>%
+  spread(range_direction, estimate)
+
+tmax_plot <- ggplot(trendTmax, aes(x = North, y = South)) + geom_point() + 
+  geom_hline(yintercept = 0, lty = 2) + 
+  geom_vline(xintercept = 0, lty = 2) + 
+  labs(title = "Response to trend in Tmax",
+       y = "Southern range tercile",
+       x = "Northern range tercile") +
+  ylim(-0.2, 0.2)
+
+plot_grid(tmin_plot, tmax_plot, nrow =1)
+ggsave("figures/area_sensitivity/range_position_temp_responses_scatter.pdf")
+
+#### Individual species explanation figure ####
 
 us.proj <- readOGR("\\\\BioArk/hurlbertlab/DiCecco/nlcd_frag_proj_shapefiles/BCRs_contiguous_us/BCRs_contiguous_us.shp")
 
@@ -665,14 +698,134 @@ states <- us.proj[, -(1:2)]
 
 states_map <- tm_shape(states) + tm_fill(col = "gray63") + tm_borders(col = "gray63")
 
-# Redstart, Veery, Common cardinal, Northern Cardinal
 # Case studies on these species - how correlated are ENV variables at the routes they occur on? 
 
+## Additive species
 # Brown headed cowbird: positive to ED, positive to Tmin
+
+cowbird <- clim_hab_poptrend_z %>%
+  filter(Common_name == "Brown-headed cowbird") %>% 
+  left_join(dplyr::select(routes, stateroute, latitude, longitude)) %>%
+  st_as_sf(coords = c("longitude", "latitude"))
+
+cowbird_mod <- model_fits %>%
+  filter(aou == 4950)
+
+ggplot(cowbird, aes(x = deltaED, y = abundTrend)) + geom_point() + geom_smooth(method = "lm", se = F) +
+  labs(x = "Change in edge density", title = "Brown-headed cowbird")
+ggsave("figures/four_species_eda/bhco_dED.pdf")
+
+ggplot(cowbird, aes(x = tmin, y = abundTrend)) + geom_point() + geom_smooth(method = "lm", se = F) +
+  labs(x = "Trend in Tmin", title = "Brown-headed cowbird")
+ggsave("figures/four_species_eda/bhco_tmin.pdf")
+
+cowbird_map <- states_map + tm_shape(cowbird) + tm_dots(col = "abundTrend", size = 0.5) +
+  tm_layout(main.title = "Brown-headed cowbird")
+tmap_save(cowbird_map, "figures/four_species_eda/bhco_map.pdf")
+
+cowbird_env_matrix <- clim_hab_poptrend_z %>%
+  filter(Common_name == "Brown-headed cowbird") %>%
+  ungroup() %>%
+  dplyr::select(tmin, tmax, deltaED, deltaProp) %>%
+  as.matrix()
+
+cowbird_cor <- cor(cowbird_env_matrix, use = "pairwise.complete.obs")
+
+pdf("figures/four_species_eda/bhco_cormatrix.pdf")
+corrplot::corrplot(cowbird_cor, method = "circle", diag = F, tl.col = "black", title = "Brown-headed cowbird", mar = c(1,1,1,1))
+dev.off()
+
+cowbird_one <- ggplot(cowbird, aes(x = deltaED, y = abundTrend)) + geom_point() + 
+  geom_smooth(method = "lm", se = F, col = "dodgerblue") +
+  labs(x = "Change in edge density", y = "Abundance trend")
+
+cowbird_two <- ggplot(cowbird, aes(x = tmin, y = abundTrend)) + geom_point() + 
+  geom_smooth(method = "lm", se = F, col = "dodgerblue") +
+  labs(x = "Change in edge density", y = "")
+
+cowbird_multipanel <- plot_grid(cowbird_one, cowbird_two, nrow = 1)
 
 # Red-headed woodpecker: positive to ED, negative to propFor, positive to Tmin
 
-# BHVI - interaction between deltaED and Tmin (could also try CAWA or MAWA)
+woodpecker <- clim_hab_poptrend_z %>%
+  filter(Common_name == "Red-headed woodpecker") %>% 
+  left_join(dplyr::select(routes, stateroute, latitude, longitude)) %>%
+  st_as_sf(coords = c("longitude", "latitude"))
+
+woodpecker_mod <- model_fits %>%
+  filter(aou == 4060)
+
+ggplot(woodpecker, aes(x = deltaED, y = abundTrend)) + geom_point() + geom_smooth(method = "lm", se = F) +
+  labs(x = "Change in edge density", title = "Red-headed woodpecker")
+ggsave("figures/four_species_eda/rhwo_dED.pdf")
+
+ggplot(woodpecker, aes(x = deltaProp, y = abundTrend)) + geom_point() + geom_smooth(method = "lm", se = F) +
+labs(x = "Change in forest cover", title = "Red-headed woodpecker")
+ggsave("figures/four_species_eda/rhwo_dForest.pdf")
+
+ggplot(woodpecker, aes(x = tmin, y = abundTrend)) + geom_point() + geom_smooth(method = "lm", se = F) +
+labs(x = "Trend in Tmin", title = "Red-headed woodpecker")
+ggsave("figures/four_species_eda/rhwo_tmin.pdf")
+
+woodpecker_map <- states_map + tm_shape(woodpecker) + tm_dots(col = "abundTrend", size = 0.5) +
+  tm_layout(main.title = "Red-headed woodpecker")
+tmap_save(woodpecker_map, "figures/four_species_eda/rhwo_map.pdf")
+
+woodpecker_env_matrix <- clim_hab_poptrend_z %>%
+  filter(Common_name == "Red-headed woodpecker") %>%
+  ungroup() %>%
+  dplyr::select(tmin, tmax, deltaED, deltaProp) %>%
+  as.matrix()
+
+woodpecker_cor <- cor(woodpecker_env_matrix, use = "pairwise.complete.obs")
+
+pdf("figures/four_species_eda/rhwo_cormatrix.pdf")
+corrplot::corrplot(woodpecker_cor, method = "circle", diag = F, tl.col = "black", title = "Red-headed woodpecker", mar = c(1,1,1,1))
+dev.off()
+
+
+woodpecker_one <- ggplot(woodpecker, aes(x = deltaED, y = abundTrend)) + geom_point() + geom_smooth(method = "lm", se = F, col = "dodgerblue") +
+  labs(x = "Change in edge density", y = "Abundance trend", title = "Red-headed Woodpecker")
+woodpecker_two <- ggplot(woodpecker, aes(x = deltaProp, y = abundTrend)) + geom_point() + geom_smooth(method = "lm", se = F, col = "dodgerblue") +
+  labs(x = "Change in forest cover", title = " ") + theme(axis.title.y = element_blank())
+woodpecker_three <- ggplot(woodpecker, aes(x = tmin, y = abundTrend)) + geom_point() + geom_smooth(method = "lm", se = F, col = "dodgerblue") +
+  labs(x = "Trend in Tmin", title = " ") + theme(axis.title.y = element_blank())
+
+woodpecker_multipanel <- plot_grid(woodpecker_one, woodpecker_two, woodpecker_three, nrow = 1)
+
+## Interaction species
+# BHVI - interaction between deltaED and Tmin
+
+vireo <- clim_hab_poptrend_z %>%
+  filter(Common_name == "Blue-headed vireo") %>% 
+  left_join(dplyr::select(routes, stateroute, latitude, longitude)) %>%
+  st_as_sf(coords = c("longitude", "latitude"))
+
+vireo_mod <- model_fits %>%
+  filter(aou == 6290)
+
+vireo$tmin_sign <- ifelse(vireo$tmin < 0, "negative", "positive")
+ggplot(vireo, aes(x = deltaED, y = abundTrend)) + geom_point() + geom_smooth(method = "lm", se = F) +
+  facet_wrap(~tmin_sign) +
+  labs(x = "Change in edge density", title = "Blue-headed vireo")
+ggsave("figures/four_species_eda/bhvi_dForest.pdf")
+
+vireo_map <- states_map + tm_shape(vireo) + tm_dots(col = "abundTrend", size = 0.5) +
+  tm_layout(main.title = "Blue-headed vireo")
+tmap_save(vireo_map, "figures/four_species_eda/bhvi_map.pdf")
+
+vireo_env_matrix <- clim_hab_poptrend_z %>%
+  filter(Common_name == "Blue-headed vireo") %>%
+  ungroup() %>%
+  dplyr::select(tmin, tmax, deltaED, deltaProp) %>%
+  as.matrix()
+
+vireo_cor <- cor(vireo_env_matrix, use = "pairwise.complete.obs")
+
+pdf("figures/four_species_eda/bhvi_cormatrix.pdf")
+corrplot::corrplot(vireo_cor, method = "circle", diag = F, tl.col = "black", title = "Blue-headed vireo", mar = c(1,1,1,1))
+dev.off()
+
 
 # Redstart - open woodlands, insectivore, migrant
 
@@ -688,8 +841,10 @@ ggplot(redstart, aes(x = tmin, y = abundTrend)) + geom_point() + geom_smooth(met
   labs(x = "Trend in Tmin", title = "American redstart")
 ggsave("figures/four_species_eda/amre_tmin.pdf")
 
-ggplot(redstart, aes(x = deltaProp, y = abundTrend)) + geom_point() + geom_smooth(method = "lm", se = F) +
-  labs(x = "Change in forest cover", title = "American redstart")
+redstart$tmax_sign <- ifelse(redstart$tmax < 0, "negative", "positive")
+ggplot(redstart, aes(x = deltaED, y = abundTrend)) + geom_point() + geom_smooth(method = "lm", se = F) +
+  facet_wrap(~tmax_sign) +
+  labs(x = "Change in edge density", title = "American redstart")
 ggsave("figures/four_species_eda/amre_dForest.pdf")
 
 redstart_map <- states_map + tm_shape(redstart) + tm_dots(col = "abundTrend", size = 0.5) +
@@ -708,52 +863,20 @@ pdf("figures/four_species_eda/amre_cormatrix.pdf")
 corrplot::corrplot(redstart_cor, method = "circle", diag = F, tl.col = "black", title = "American redstart", mar = c(1,1,1,1))
 dev.off()
 
+redstart_one <- ggplot(redstart, aes(x = tmin, y = abundTrend)) + geom_point() + geom_smooth(method = "lm", se = F, col = "forestgreen") +
+  labs(x = "Trend in Tmin", y = "Abundance trend", title = "American Redstart")
 
+redstart$tmax_sign <- ifelse(redstart$tmax < 0, "-3.25 < Z-Tmax < 0", "0 < Z-Tmax < 2.65")
+redstart_two <- ggplot(redstart, aes(x = deltaED, y = abundTrend)) + geom_point() + geom_smooth(method = "lm", se = F, col= "forestgreen") +
+  facet_wrap(~tmax_sign) +
+  labs(x = "Change in edge density", y = "")
 
-# Common grackle - resident
+redstart_multipanel <- plot_grid(redstart_one, redstart_two, nrow = 1, rel_widths = c(0.3, 0.6))
 
-grackle <- clim_hab_poptrend_z %>%
-  filter(Common_name == "Common grackle") %>% 
-  left_join(dplyr::select(routes, stateroute, latitude, longitude)) %>%
-  st_as_sf(coords = c("longitude", "latitude"))
+### Figure for MS: Cowbird, Woodpecker, Redstart
 
-grackle_lm <- lm(abundTrend ~ tmax*deltaED + tmin*deltaED + deltaProp, grackle)
-
-grackle_mod <- model_fits %>%
-  filter(aou == 5110)
-
-# Model effects
-ggplot(grackle, aes(x = deltaED, y = abundTrend)) + geom_point() + geom_smooth(method = "lm", se = F) +
-  labs(x = "Change in edge density", title = "Common grackle")
-ggsave("figures/four_species_eda/cogr_dED.pdf")
-
-ggplot(grackle, aes(x = tmax, y = abundTrend)) + geom_point() + geom_smooth(method = "lm", se = F) +
-  labs(x = "Trend in Tmax", title = "Common grackle")
-ggsave("figures/four_species_eda/cogr_tmax.pdf")
-
-ggplot(grackle, aes(x = tmin, y = abundTrend)) + geom_point() + geom_smooth(method = "lm", se = F) +
-  labs(x = "Trend in Tmin", title = "Common grackle")
-ggsave("figures/four_species_eda/cogr_tmin.pdf")
-
-# Map of abundTrend
-grackle_map <- states_map + tm_shape(grackle) + tm_dots(col = "abundTrend", size = 0.5) +
-  tm_layout(main.title = "Common grackle")
-tmap_save(grackle_map, "figures/four_species_eda/cogr_map.pdf")
-
-# correlation matrix
-grackle_env_matrix <- clim_hab_poptrend_z %>%
-  filter(Common_name == "Common grackle") %>%
-  ungroup() %>%
-  dplyr::select(tmin, tmax, deltaED, deltaProp) %>%
-  as.matrix()
-
-grackle_cor <- cor(grackle_env_matrix, use = "pairwise.complete.obs")
-
-pdf("figures/four_species_eda/cogr_cormatrix.pdf")
-corrplot::corrplot(grackle_cor, method = "circle", diag = F, tl.col = "black", title = "Common grackle", mar = c(1,1,1,1))
-dev.off()
-
-
+indiv_spp_multi <- plot_grid(woodpecker_multipanel, redstart_multipanel, nrow = 2)
+ggsave("figures/area_sensitivity/indiv_spp_multipanel.pdf", indiv_spp_multi, units = "in", width = 9, height = 6)
 
 #### Species by site matrix ####
 spp_site <- clim_hab_poptrend_mixedmod %>%

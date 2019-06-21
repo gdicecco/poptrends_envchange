@@ -60,7 +60,7 @@ route_ed <- frags %>%
   summarize(ED = sum(total.edge)/sum(total.area)) %>%
   spread(key = "year", value = "ED") %>%
   group_by(stateroute) %>%
-  summarize(deltaED = `2011` - `1992`)
+  summarize(deltaED = `2016` - `1992`)
 
 # Climate data
 setwd("C:/Users/gdicecco/Desktop/git/NLCD_fragmentation/climate/")
@@ -183,7 +183,7 @@ forest_ed <- frags %>%
   filter(legend == "Forest") %>%
   dplyr::select(stateroute, year, edge.density) %>%
   spread(key = "year", value = "edge.density") %>%
-  mutate(deltaED = `2011` - `1992`) %>%
+  mutate(deltaED = `2016` - `1992`) %>%
   filter(stateroute %in% routes.short$stateroute) %>%
   left_join(dplyr::select(routes, stateroute, latitude, longitude)) %>%
   st_as_sf(coords = c("longitude", "latitude"))
@@ -198,7 +198,7 @@ forest_prop <- frags %>%
   filter(legend == "Forest") %>%
   dplyr::select(stateroute, year, prop.landscape) %>%
   spread(key = "year", value = "prop.landscape") %>%
-  mutate(deltaPL = `2011` - `1992`) %>%
+  mutate(deltaPL = `2016` - `1992`) %>%
   filter(stateroute %in% routes.short$stateroute) %>%
   left_join(dplyr::select(routes, stateroute, latitude, longitude)) %>%
   st_as_sf(coords = c("longitude", "latitude"))
@@ -243,7 +243,7 @@ urban_ed <- frags %>%
   filter(legend == "Urban") %>%
   dplyr::select(stateroute, year, edge.density) %>%
   spread(key = "year", value = "edge.density") %>%
-  mutate(deltaED = `2011` - `1992`) %>%
+  mutate(deltaED = `2016` - `1992`) %>%
   filter(stateroute %in% routes.short$stateroute) %>%
   left_join(dplyr::select(routes, stateroute, latitude, longitude)) %>%
   st_as_sf(coords = c("longitude", "latitude"))
@@ -258,7 +258,7 @@ urban_prop <- frags %>%
   filter(legend == "Urban") %>%
   dplyr::select(stateroute, year, prop.landscape) %>%
   spread(key = "year", value = "prop.landscape") %>%
-  mutate(deltaPL = `2011` - `1992`) %>%
+  mutate(deltaPL = `2016` - `1992`) %>%
   filter(stateroute %in% routes.short$stateroute) %>%
   left_join(dplyr::select(routes, stateroute, latitude, longitude)) %>%
   st_as_sf(coords = c("longitude", "latitude"))
@@ -309,7 +309,7 @@ grass_ed <- frags %>%
   filter(legend == "Grasslands") %>%
   dplyr::select(stateroute, year, edge.density) %>%
   spread(key = "year", value = "edge.density") %>%
-  mutate(deltaED = `2011` - `2001`) %>%
+  mutate(deltaED = `2016` - `2001`) %>%
   filter(stateroute %in% routes.short$stateroute) %>%
   left_join(dplyr::select(routes, stateroute, latitude, longitude)) %>%
   st_as_sf(coords = c("longitude", "latitude"))
@@ -325,7 +325,7 @@ grass_prop <- frags %>%
   filter(legend == "Grasslands") %>%
   dplyr::select(stateroute, year, prop.landscape) %>%
   spread(key = "year", value = "prop.landscape") %>%
-  mutate(deltaPL = `2011` - `2001`) %>%
+  mutate(deltaPL = `2016` - `2001`) %>%
   filter(stateroute %in% routes.short$stateroute) %>%
   left_join(dplyr::select(routes, stateroute, latitude, longitude)) %>%
   st_as_sf(coords = c("longitude", "latitude"))
@@ -422,7 +422,7 @@ print(g.legend, vp = viewport(0.22, 0.15, width = 0.25, height = 0.25))
 
 route_trends_forest
 
-setwd("C:/Users/gdicecco/Desktop/git/NLCD_fragmentation/figures/")
+setwd("C:/Users/gdicecco/Desktop/git/NLCD_fragmentation/figures/route_eda/")
 
 ## Package ncf: distance-band spatial weights
 # ED
