@@ -425,20 +425,10 @@ route_trends_forest
 setwd("C:/Users/gdicecco/Desktop/git/NLCD_fragmentation/figures/route_eda/")
 
 ## Package ncf: distance-band spatial weights
-# ED
-
-land.cor <- correlog(route_trends_forest$longitude, route_trends_forest$latitude, route_trends_forest$deltaED_landscape,
-                    increment = 250, latlon = T, na.rm = T)
-
-pdf("landscapeED_correlogram.pdf")
-plot(land.cor, main = "Landscape edge density", xlab = "Distance (mean-of-class) km", ylab = "Moran's I")
-abline(h = 0, lty = 2)
-plot(tmax.cor, add = T, col = "red")
-dev.off()
 
 # Forest fragmentation
 
-for.cor <- correlog(route_trends_forest$longitude, route_trends_forest$latitude, route_trends_forest$deltaED_forest,
+for.cor <- correlog(route_trends_forest$longitude, route_trends_forest$latitude, route_trends_forest$deltaED,
                     increment = 250, latlon = T, na.rm = T)
 
 pdf("forED_correlogram.pdf")
@@ -453,7 +443,7 @@ cov.cor <- correlog(route_trends_forest$longitude, route_trends_forest$latitude,
 
 # Trend in tmax
 
-tmax.cor <- correlog(route_trends_forest$longitude, route_trends_forest$latitude, route_trends_forest$tmax,
+tmax.cor <- correlog(route_trends_forest$longitude, route_trends_forest$latitude,route_trends_forest$tmax,
                     increment = 250, latlon = T, na.rm = T)
 
 pdf("tmax_correlogram.pdf")
@@ -471,27 +461,17 @@ plot(tmin.cor, main = "Tmin", xlab = "Distance (mean-of-class) km", ylab = "Mora
 abline(h = 0, lty = 2)
 dev.off()
 
-# Trend in ppt
-
-ppt.cor <- correlog(route_trends_forest$longitude, route_trends_forest$latitude, route_trends_forest$ppt,
-                    increment = 250, latlon = T, na.rm = T)
-
-pdf("ppt_correlogram.pdf")
-plot(ppt.cor, main = "PPT", xlab = "Distance (mean-of-class) km")
-abline(h = 0, lty = 2)
-dev.off()
 
 ## Combine on one plot
 
-env.cor <- data.frame(mean.of.class = land.cor$mean.of.class, 
+env.cor <- data.frame(mean.of.class = for.cor$mean.of.class, 
                       forestCover = cov.cor$correlation,
                       forestED = for.cor$correlation,
                       tmin = tmin.cor$correlation,
-                      tmax = tmax.cor$correlation,
-                      ppt = ppt.cor$correlation) %>%
+                      tmax = tmax.cor$correlation) %>%
   filter(mean.of.class > 0, mean.of.class < 4100)
 
-env.long <- tidyr::gather(env.cor[, 1:6], key = variable, value = correlation, 2:6)
+env.long <- tidyr::gather(env.cor[, 1:5], key = variable, value = correlation, 2:5)
 
 theme_set(theme_classic())
 ggplot(env.long, aes(x = mean.of.class, y = correlation, col = variable)) + 
