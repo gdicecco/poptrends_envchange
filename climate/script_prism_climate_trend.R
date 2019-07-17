@@ -62,7 +62,8 @@ routePRISM <- raster::extract(prism, xy, df = T) %>%
 routePRISM %<>% mutate(env = word(prismFile, start = 2, sep = "_")) %>%
   mutate(date = word(prismFile, start = 5, sep = "_")) %>%
   mutate(year = substr(date, 1, 4)) %>%
-  mutate(month = substr(date, 5, 6))
+  mutate(month = substr(date, 5, 6)) %>%
+  filter(month != "")
 
 setwd("\\\\Bioark.bio.unc.edu\\hurlbertlab\\DiCecco\\data\\")
 write.csv(routePRISM, "bbs_routes_breeding_season_climate.csv", row.names = F)
@@ -75,6 +76,7 @@ library(purrr)
 
 climate_trends <- routePRISM %>%
   left_join(select(routes_subs, latitude, longitude, bcr, stateroute), by = c("longitude" = "longitude", "latitude" = "latitude")) %>%
+  filter(month >= 5, month <= 7) %>%
   group_by(stateroute, env, year) %>%
   mutate(breedingAvg = mean(val)) %>%
   group_by(stateroute, env) %>%
