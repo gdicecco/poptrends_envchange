@@ -91,7 +91,70 @@ counts.subs <- counts %>%
   filter(year >= 1990, year < 2017)
 # 1513 routes
 
+# first year observers
+
+first_year <- function(obsns) {
+  first_yrs <- c()
+  for(i in 1:length(obsns)) {
+    ob <- obsns[i]
+    obs <- obsns[1:i]
+    first_yrs <- c(first_yrs, ifelse(length(obs[obs == ob]) == 1, 1, 0))
+  }
+  return(first_yrs)
+}
+
+obs_years <- weather %>%
+  group_by(stateroute) %>%
+  arrange(year) %>%
+  nest() %>%
+  mutate(first_yr = purrr::map(data, ~{
+    df <- .
+    first_year(df$obsn)
+  })) %>%
+  unnest() %>%
+  dplyr::select(stateroute, year, first_yr)
+
 # abundance trends read in
+
+abund_trend <- counts.subs %>%
+  left_join(obs_years, by = c('stateroute', 'year')) %>%
+  group_by(aou, stateroute) %>%
+  nest() %>%
+  mutate(lmFit = map(data, ~{
+    df <- .
+    df.short <- df %>%
+      dplyr::select(year, first_yr, speciestotal) %>%
+      unique()
+    glm(speciestotal ~ year + first_yr, family = poisson, data = df.short)
+  })) %>%
+  mutate(nObs = map_dbl(data, ~{
+    df <- .
+    nrow(df)
+  })) %>%
+  mutate(lm_broom = map(lmFit, tidy)) %>%
+  mutate(abundTrend = map_dbl(lm_broom, ~{
+    df <- .
+    df$estimate[2]
+  })) %>%
+  mutate(trendInt = map_dbl(lm_broom, ~{
+    df <- .
+    df$estimate[1]
+  })) %>%
+  mutate(trendPval = map_dbl(lm_broom, ~{
+    df <- .
+    df$p.value[2]
+  })) 
+
+hist(abund_trend$abundTrend)
+hist(abund_trend$nObs)
+
+abund_trend <- abund_trend %>%
+  filter(nObs > 9) %>%
+  dplyr::select(-data, -lmFit, -lm_broom)
+
+setwd("\\\\BioArk\\hurlbertlab\\DiCecco\\data\\")
+write.csv(abund_trend, "BBS_abundance_trends.csv", row.names = F)
+
 setwd("\\\\BioArk\\hurlbertlab\\DiCecco\\data\\")
 setwd("/Volumes/hurlbertlab/DiCecco/data/")
 abund_trend <- read.csv("BBS_abundance_trends.csv", stringsAsFactors = F) %>%
