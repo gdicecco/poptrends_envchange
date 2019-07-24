@@ -14,6 +14,7 @@ library(forcats)
 library(MuMIn)
 library(nlme)
 library(grid)
+library(spdep)
 
 ### Read in data #####
 
@@ -519,7 +520,7 @@ forest_z <- data.frame(stateroute = forest$stateroute,
                        deltaProp = z(forest$deltaProp))
 
 climate_wide_z <- climate_wide %>%
-  mutate_at(.vars = c("ppt", "tmin", "tmax"),
+  mutate_at(.vars = c("tmin", "tmax"),
             .funs = z)
 
 clim_hab_poptrend_z <- abund_trend %>%
@@ -533,22 +534,95 @@ clim_hab_poptrend_z <- abund_trend %>%
 
 # Models by species
 
+# Make spatial weights matrix
+# Coordinates of BBS routes
+
+coords_bbs <- clim_hab_poptrend_z %>%
+  ungroup() %>%
+  dplyr::select(stateroute) %>%
+  distinct() %>%
+  left_join(routes) %>%
+  dplyr::select(stateroute, longitude, latitude)
+
+coords_mat <- as.matrix(coords_bbs[, -1])
+
+# Calculate nearest neighbors and make spatial neighborhood
+k0 <- knearneigh(coords_mat, longlat=T, k=1)
+k1 <- knn2nb(k0)
+
+# Find maximum neighbor distance and use this distance to define neighborhoods
+max.d <- max(unlist(nbdists(k1, coords_mat, longlat=T)))
+nb0.birds <- dnearneigh(coords_mat, 0, max.d, longlat=T)
+plot(nb0.birds, coords_mat)
+
+# Using a distance threshold of 100km
+nb1.birds <- dnearneigh(coords_mat,1,100,longlat=T)
+plot(nb1.birds, coords_mat)
+
+# Create spatial weights based on linear distance decay
+glist.birds <- nbdists(nb0.birds, coords_mat, longlat=T)
+glist.birds <- lapply(glist.birds, function(x) 1-(x/ceiling(max.d))) # Round up max.d so that all point get weights
+wt.birds <- nb2listw(nb0.birds, style='B', glist=glist.birds)
+
+hist(unlist(wt.birds$weights))
+
+# Spatial CAR models by species
+
 model_fits <- clim_hab_poptrend_z %>%
   group_by(aou, SPEC) %>%
   nest() %>%
   mutate(lmFit = map(data, ~{
     df <- .
-    lm(abundTrend ~ tmax*deltaED + tmin*deltaED + deltaProp, df, na.action = na.fail)
+    
+    # get species weights matrix
+    
+    # Coordinates of BBS routes
+    
+    coords_bbs <- df %>%
+      ungroup() %>%
+      dplyr::select(stateroute) %>%
+      distinct() %>%
+      left_join(routes) %>%
+      dplyr::select(stateroute, longitude, latitude)
+    
+    coords_mat <- as.matrix(coords_bbs[, -1])
+    
+    # Calculate nearest neighbors and make spatial neighborhood
+    k0 <- knearneigh(coords_mat, longlat=T, k=1)
+    k1 <- knn2nb(k0)
+    
+    # Find maximum neighbor distance and use this distance to define neighborhoods
+    max.d <- max(unlist(nbdists(k1, coords_mat, longlat=T)))
+    nb0.birds <- dnearneigh(coords_mat, 0, max.d, longlat=T)
+    plot(nb0.birds, coords_mat)
+    
+    # Using a distance threshold of 100km
+    nb1.birds <- dnearneigh(coords_mat,1,100,longlat=T)
+    plot(nb1.birds, coords_mat)
+    
+    # Create spatial weights based on linear distance decay
+    glist.birds <- nbdists(nb0.birds, coords_mat, longlat=T)
+    glist.birds <- lapply(glist.birds, function(x) 1-(x/ceiling(max.d))) # Round up max.d so that all point get weights
+    wt.birds <- nb2listw(nb0.birds, style='B', glist=glist.birds)
+    
+    spautolm(abundTrend ~ tmax*deltaED + tmin*deltaED + deltaProp, data = df, wt.birds, na.action = na.fail, family = "CAR")
   })) %>%
   mutate(nObs = map_dbl(data, ~{
     df <- .
     nrow(df)
+  }))  %>%
+  mutate(lm_broom = map(lmFit,  ~{
+    mod <- .
+    sum <- summary(mod)
+    df <- as.data.frame(sum$Coef)
+    df$term = row.names(df)
+    df
   })) %>%
-  mutate(lm_broom = map(lmFit, tidy)) %>%
   dplyr::select(aou, SPEC, nObs, lm_broom) %>%
   unnest() %>%
   filter(nObs > 40) %>%
   filter(term != "(Intercept)") %>%
+  rename(std.error = `Std. Error`, z.value = `z value`, p.value = `Pr(>|z|)`) %>%
   mutate(sig = case_when(p.value < 0.05 ~ "p < 0.05",
                          TRUE ~ "p > 0.05"))
 
@@ -560,10 +634,10 @@ range(model_fits$nObs) # 1 spp at 38, only one below 40
 # Figure: distributions of effect sizes by species
 
 density_plot <- function(variable, label) {
-  ggplot(filter(model_fits, term == variable), aes(x = estimate, fill = sig)) + 
+  ggplot(filter(model_fits, term == variable), aes(x = Estimate, fill = sig)) + 
     geom_histogram(bins = 20) + 
-    geom_vline(aes(xintercept = mean(estimate)), lty = 2, cex = 1) + 
-    labs(x = label, y = "Number of Species", fill = "") +
+    geom_vline(aes(xintercept = mean(Estimate)), lty = 2, cex = 1) + 
+    labs(x = label, y = "Species", fill = "") +
     scale_fill_manual(values = c("p < 0.05" = "skyblue3",
                                  "p > 0.05" = "gray"))
 }
@@ -603,7 +677,7 @@ spp_traits <- spp_breadths %>%
   filter(!is.na(term)) %>%
   mutate(trait_mod = map(data, ~{
     df <- .
-    lm(estimate ~  volume + propFor + migclass + Foraging, data = df)
+    lm(Estimate ~  volume + propFor + migclass + Foraging, data = df)
   }),
   tidy = map(trait_mod, ~{
     mod <- .
@@ -619,41 +693,12 @@ spp_traits <- spp_breadths %>%
 #write.csv(spp_traits, "model/spp_trait_model_output.csv", row.names = F)
 
 spp_traits_pred <- spp_traits %>%
-  filter(p.value < 0.1)
-
-# trait figure
-
-model_traits <- model_fits %>%
-  left_join(forest_traits)
-
-# tmin residents
-
-mig_tmin <- ggplot(filter(model_traits, term == "tmin"), aes(x = fct_reorder(SPEC, estimate), y = estimate, col = migclass)) + 
-  geom_hline(yintercept = 0, lty = 2) + 
-  geom_point(size = 3) + 
-  geom_errorbar(aes(ymin = estimate - 1.96*std.error, ymax = estimate + 1.96*std.error), size = 0.75) + 
-  scale_color_manual(values = c("neotrop" = "skyblue3", "resid" = "seagreen3", "short" = "royalblue3"),
-                     labels = c("neotrop" = "Neotropical", "resid" = "Resident", "short" = "Short distance")) +
-  labs(x = "Species", y = "Effect of Tmin", color = "Migratory class") +
-  theme(axis.text.x = element_text(angle = 45, hjust = 1, size = 12), legend.position = c(0.01, 0.85))
-
-# deltaED short distance migrants
-
-mig_deltaED <- ggplot(filter(model_traits, term == "deltaED"), aes(x = fct_reorder(SPEC, estimate), y = estimate, col = migclass)) + 
-  geom_hline(yintercept = 0, lty = 2) + 
-  geom_point(size = 3) + 
-  geom_errorbar(aes(ymin = estimate - 1.96*std.error, ymax = estimate + 1.96*std.error), size = 0.75) + 
-  scale_color_manual(values = c("neotrop" = "skyblue3", "resid" = "seagreen3", "short" = "royalblue3"),
-                     labels = c("neotrop" = "Neotropical", "resid" = "Resident", "short" = "Short distance")) +
-  labs(x = "Species", y = "Effect of change in ED", color = "Migratory class") +
-  theme(axis.text.x = element_text(angle = 45, hjust = 1, size = 12), legend.position = "none")
-
-plot_grid(mig_tmin, mig_deltaED, nrow = 2, labels = c("A", "B"))
-ggsave("figures/area_sensitivity/migclass_effects.pdf", units = "in", width = 14, height = 10)
+  filter(p.value < 0.05)
 
 #### Range position models ####
 
 range_centroids <- read.csv("traits/species_Brange_centroids.csv", stringsAsFactors = F)
+route_directions <- read.csv('traits/species_route_dist_from_centroids.csv', stringsAsFactors = F)
 
 # Group routes into north, south, center of range
 
@@ -671,7 +716,10 @@ route_terciles <- route_directions %>%
 clim_hab_poptrend_position <- clim_hab_poptrend_z %>%
   filter(aou %in% route_terciles$aou) %>%
   left_join(route_terciles, by = c("stateroute", "aou")) %>%
-  filter(!is.na(range_direction))
+  filter(!is.na(range_direction)) %>%
+  group_by(aou, range_direction) %>%
+  mutate(n = n()) %>%
+  filter(n > 40)
 
 ## Individual models of Tmin and Tmax with interactions with route position
 
@@ -680,11 +728,56 @@ model_fits_position <- clim_hab_poptrend_position %>%
   nest() %>%
   mutate(lmFit = map(data, ~{
     df <- .
-    lm(abundTrend ~ tmax + tmin, df, na.action = na.fail)
+    
+    # get species weights matrix
+    
+    # Coordinates of BBS routes
+    
+    coords_bbs <- df %>%
+      ungroup() %>%
+      dplyr::select(stateroute) %>%
+      distinct() %>%
+      left_join(routes) %>%
+      dplyr::select(stateroute, longitude, latitude)
+    
+    coords_mat <- as.matrix(coords_bbs[, -1])
+    
+    # Calculate nearest neighbors and make spatial neighborhood
+    k0 <- knearneigh(coords_mat, longlat=T, k=1)
+    k1 <- knn2nb(k0)
+    
+    # Find maximum neighbor distance and use this distance to define neighborhoods
+    max.d <- max(unlist(nbdists(k1, coords_mat, longlat=T)))
+    nb0.birds <- dnearneigh(coords_mat, 0, max.d, longlat=T)
+    plot(nb0.birds, coords_mat)
+    
+    # Using a distance threshold of 100km
+    nb1.birds <- dnearneigh(coords_mat,1,100,longlat=T)
+    plot(nb1.birds, coords_mat)
+    
+    # Create spatial weights based on linear distance decay
+    glist.birds <- nbdists(nb0.birds, coords_mat, longlat=T)
+    glist.birds <- lapply(glist.birds, function(x) 1-(x/ceiling(max.d))) # Round up max.d so that all point get weights
+    wt.birds <- nb2listw(nb0.birds, style='B', glist=glist.birds)
+    
+    spautolm(abundTrend ~ tmax + tmin, data = df, wt.birds, na.action = na.fail, family = "CAR")
   })) %>%
-  mutate(lm_broom = map(lmFit, tidy)) %>%
-  dplyr::select(aou, SPEC, range_direction, lm_broom) %>%
-  unnest()
+  mutate(nObs = map_dbl(data, ~{
+    df <- .
+    nrow(df)
+  }))  %>%
+  mutate(lm_broom = map(lmFit,  ~{
+    mod <- .
+    sum <- summary(mod)
+    df <- as.data.frame(sum$Coef)
+    df$term = row.names(df)
+    df
+  })) %>%
+  dplyr::select(aou, SPEC, range_direction, nObs, lm_broom) %>%
+  unnest() %>%
+  rename(std.error = `Std. Error`, z.value = `z value`, p.value = `Pr(>|z|)`) 
+
+write.csv(model_fits_position, "model/range_position_model_tables.csv", row.names = F)
 
 model_fits_position_fig <- model_fits_position %>%
   filter(term != "(Intercept)") %>%
@@ -697,19 +790,21 @@ model_fits_position_fig <- model_fits_position %>%
   ungroup() %>%
   filter(SPEC != "CERW") %>%
   group_by(SPEC) %>%
-  filter(n_distinct(range_direction) == 2)
+  filter(n_distinct(range_direction) == 2) %>%
+  group_by(range_direction, term) %>%
+  mutate(meanEst = mean(Estimate, na.rm =T))
 
 # Figure
 
-ggplot(model_fits_position_fig, aes(estimate, fill = sig)) +
-  geom_histogram(bins = 20) + 
+ggplot(model_fits_position_fig, aes(Estimate, fill = sig)) +
+  geom_histogram(bins = 15) + 
   facet_grid(range_direction ~ term) +
-  geom_vline(aes(xintercept = mean(estimate)), lty = 2) +
+  geom_vline(aes(xintercept = meanEst), lty = 2, cex = 1) +
   scale_fill_manual(values = c("p < 0.05" = "skyblue3",
                                "p > 0.05" = "gray")) +
   scale_x_continuous(breaks = c(0, 5, 10)) +
   labs(x = "Effect estimate",
-       y = "Number of Species",
+       y = "Species",
        fill = "") +
   theme_bw() + 
   theme(panel.grid.major = element_blank(), 
@@ -726,8 +821,8 @@ ggsave("figures/area_sensitivity/range_position_temp_responses.pdf")
 
 trendTmin <- model_fits_position_fig %>%
   filter(term == "Trend in Tmin") %>%
-  dplyr::select(SPEC, range_direction, estimate) %>%
-  spread(range_direction, estimate)
+  dplyr::select(SPEC, range_direction, Estimate) %>%
+  spread(range_direction, Estimate)
 
 tmin_plot <- ggplot(trendTmin, aes(x = North, y = South)) + geom_point() + 
   geom_hline(yintercept = 0, lty = 2) + 
@@ -735,12 +830,12 @@ tmin_plot <- ggplot(trendTmin, aes(x = North, y = South)) + geom_point() +
   labs(title = "Response to trend in Tmin",
        y = "Southern range tercile",
        x = "Northern range tercile") +
-  ylim(-0.2, 0.2)
+  ylim(-0.025, 0.025)
 
 trendTmax <- model_fits_position_fig %>%
   filter(term == "Trend in Tmax") %>%
-  dplyr::select(SPEC, range_direction, estimate) %>%
-  spread(range_direction, estimate)
+  dplyr::select(SPEC, range_direction, Estimate) %>%
+  spread(range_direction, Estimate)
 
 tmax_plot <- ggplot(trendTmax, aes(x = North, y = South)) + geom_point() + 
   geom_hline(yintercept = 0, lty = 2) + 
@@ -748,7 +843,7 @@ tmax_plot <- ggplot(trendTmax, aes(x = North, y = South)) + geom_point() +
   labs(title = "Response to trend in Tmax",
        y = "Southern range tercile",
        x = "Northern range tercile") +
-  ylim(-0.2, 0.2)
+  ylim(-0.025, 0.025)
 
 plot_grid(tmin_plot, tmax_plot, nrow =1)
 ggsave("figures/area_sensitivity/range_position_temp_responses_scatter.pdf")
@@ -764,182 +859,180 @@ states_map <- tm_shape(states) + tm_fill(col = "gray63") + tm_borders(col = "gra
 # Case studies on these species - how correlated are ENV variables at the routes they occur on? 
 
 ## Additive species
-# Brown headed cowbird: positive to ED, positive to Tmin
 
-cowbird <- clim_hab_poptrend_z %>%
-  filter(Common_name == "Brown-headed cowbird") %>% 
+# ACFL: positive to increase in forest cover, positive to increase in Tmax
+
+flycatcher <- clim_hab_poptrend_z %>%
+  filter(Common_name == "Acadian flycatcher") %>%
   left_join(dplyr::select(routes, stateroute, latitude, longitude)) %>%
   st_as_sf(coords = c("longitude", "latitude"))
 
-cowbird_mod <- model_fits %>%
-  filter(aou == 4950)
+flycatcher_mod <- model_fits %>%
+  filter(aou == 4650)
 
-ggplot(cowbird, aes(x = deltaED, y = abundTrend)) + geom_point() + geom_smooth(method = "lm", se = F) +
-  labs(x = "Change in edge density", title = "Brown-headed cowbird")
-ggsave("figures/four_species_eda/bhco_dED.pdf")
+ggplot(flycatcher, aes(x = abundTrend, y = deltaProp)) + geom_point() + geom_smooth(method = "lm")
 
-ggplot(cowbird, aes(x = tmin, y = abundTrend)) + geom_point() + geom_smooth(method = "lm", se = F) +
-  labs(x = "Trend in Tmin", title = "Brown-headed cowbird")
-ggsave("figures/four_species_eda/bhco_tmin.pdf")
+ggplot(flycatcher, aes(x = abundTrend, y = tmax)) + geom_point() + geom_smooth(method = "lm")
 
-cowbird_map <- states_map + tm_shape(cowbird) + tm_dots(col = "abundTrend", size = 0.5) +
-  tm_layout(main.title = "Brown-headed cowbird")
-tmap_save(cowbird_map, "figures/four_species_eda/bhco_map.pdf")
+flycatcher_map <- states_map + tm_shape(flycatcher) + tm_dots(col = "abundTrend", size = 0.5)
 
-cowbird_env_matrix <- clim_hab_poptrend_z %>%
-  filter(Common_name == "Brown-headed cowbird") %>%
+flycatcher_env_matrix <- clim_hab_poptrend_z %>%
+  filter(Common_name == "Acadian flycatcher") %>%
   ungroup() %>%
   dplyr::select(tmin, tmax, deltaED, deltaProp) %>%
   as.matrix()
 
-cowbird_cor <- cor(cowbird_env_matrix, use = "pairwise.complete.obs")
+flycatcher_cor <- cor(flycatcher_env_matrix, use = "pairwise.complete.obs")
 
-pdf("figures/four_species_eda/bhco_cormatrix.pdf")
-corrplot::corrplot(cowbird_cor, method = "circle", diag = F, tl.col = "black", title = "Brown-headed cowbird", mar = c(1,1,1,1))
-dev.off()
+flycatcher_one <- ggplot(flycatcher, aes(x = deltaProp, y = abundTrend)) + geom_point() + 
+  geom_smooth(method = "lm", se = F, col = "forestgreen") +
+  labs(x = "Change in forest cover", y = "Abundance trend", title = "Acadian flycatcher") +
+  theme(plot.title = element_text(hjust = 0))
 
-cowbird_one <- ggplot(cowbird, aes(x = deltaED, y = abundTrend)) + geom_point() + 
-  geom_smooth(method = "lm", se = F, col = "dodgerblue") +
-  labs(x = "Change in edge density", y = "Abundance trend")
+flycatcher_two <- ggplot(flycatcher, aes(x = tmax, y = abundTrend)) + geom_point() + 
+  geom_smooth(method = "lm", se = F, col = "forestgreen") +
+  labs(x = "Trend in maximum temperature", y = "")
 
-cowbird_two <- ggplot(cowbird, aes(x = tmin, y = abundTrend)) + geom_point() + 
-  geom_smooth(method = "lm", se = F, col = "dodgerblue") +
-  labs(x = "Change in edge density", y = "")
+flycatcher_multipanel <- plot_grid(flycatcher_one, flycatcher_two, nrow = 1)
 
-cowbird_multipanel <- plot_grid(cowbird_one, cowbird_two, nrow = 1)
+# BLJA: positive to increase in ED, negative to increase in Tmin
 
-# Red-headed woodpecker: positive to ED, negative to propFor, positive to Tmin
-
-woodpecker <- clim_hab_poptrend_z %>%
-  filter(Common_name == "Red-headed woodpecker") %>% 
+jay <- clim_hab_poptrend_z %>%
+  filter(Common_name == "Blue jay") %>%
   left_join(dplyr::select(routes, stateroute, latitude, longitude)) %>%
   st_as_sf(coords = c("longitude", "latitude"))
 
-woodpecker_mod <- model_fits %>%
-  filter(aou == 4060)
+jay_mod <- model_fits %>%
+  filter(aou == 4770)
 
-ggplot(woodpecker, aes(x = deltaED, y = abundTrend)) + geom_point() + geom_smooth(method = "lm", se = F) +
-  labs(x = "Change in edge density", title = "Red-headed woodpecker")
-ggsave("figures/four_species_eda/rhwo_dED.pdf")
+ggplot(jay, aes(x = abundTrend, y = deltaED)) + geom_point() + geom_smooth(method = "lm")
 
-ggplot(woodpecker, aes(x = deltaProp, y = abundTrend)) + geom_point() + geom_smooth(method = "lm", se = F) +
-labs(x = "Change in forest cover", title = "Red-headed woodpecker")
-ggsave("figures/four_species_eda/rhwo_dForest.pdf")
+ggplot(jay, aes(x = abundTrend, y = tmin)) + geom_point() + geom_smooth(method = "lm")
 
-ggplot(woodpecker, aes(x = tmin, y = abundTrend)) + geom_point() + geom_smooth(method = "lm", se = F) +
-labs(x = "Trend in Tmin", title = "Red-headed woodpecker")
-ggsave("figures/four_species_eda/rhwo_tmin.pdf")
+jay_map <- states_map + tm_shape(jay) + tm_dots(col = "abundTrend", size = 0.5)
 
-woodpecker_map <- states_map + tm_shape(woodpecker) + tm_dots(col = "abundTrend", size = 0.5) +
-  tm_layout(main.title = "Red-headed woodpecker")
-tmap_save(woodpecker_map, "figures/four_species_eda/rhwo_map.pdf")
-
-woodpecker_env_matrix <- clim_hab_poptrend_z %>%
-  filter(Common_name == "Red-headed woodpecker") %>%
+jay_env_matrix <- clim_hab_poptrend_z %>%
+  filter(Common_name == "Blue jay") %>%
   ungroup() %>%
   dplyr::select(tmin, tmax, deltaED, deltaProp) %>%
   as.matrix()
 
-woodpecker_cor <- cor(woodpecker_env_matrix, use = "pairwise.complete.obs")
+jay_cor <- cor(jay_env_matrix, use = "pairwise.complete.obs")
 
-pdf("figures/four_species_eda/rhwo_cormatrix.pdf")
-corrplot::corrplot(woodpecker_cor, method = "circle", diag = F, tl.col = "black", title = "Red-headed woodpecker", mar = c(1,1,1,1))
-dev.off()
+jay_one <- ggplot(jay, aes(x = deltaED, y = abundTrend)) + geom_point() + 
+  geom_smooth(method = "lm", se = F, col = "dodgerblue") +
+  labs(x = "Change in edge density", y = "Abundance trend", title = "Blue jay") + theme(plot.title = element_text(hjust = 0))
+
+jay_two <- ggplot(jay, aes(x = tmin, y = abundTrend)) + geom_point() + 
+  geom_smooth(method = "lm", se = F, col = "dodgerblue") +
+  labs(x = "Trend in minimum temperature", y = "")
+
+jay_multipanel <- plot_grid(jay_one, jay_two, nrow = 1)
 
 
-woodpecker_one <- ggplot(woodpecker, aes(x = deltaED, y = abundTrend)) + geom_point() + geom_smooth(method = "lm", se = F, col = "dodgerblue") +
-  labs(x = "Change in edge density", y = "Abundance trend", title = "Red-headed Woodpecker")
-woodpecker_two <- ggplot(woodpecker, aes(x = deltaProp, y = abundTrend)) + geom_point() + geom_smooth(method = "lm", se = F, col = "dodgerblue") +
-  labs(x = "Change in forest cover", title = " ") + theme(axis.title.y = element_blank())
-woodpecker_three <- ggplot(woodpecker, aes(x = tmin, y = abundTrend)) + geom_point() + geom_smooth(method = "lm", se = F, col = "dodgerblue") +
-  labs(x = "Trend in Tmin", title = " ") + theme(axis.title.y = element_blank())
+## Interactive species
 
-woodpecker_multipanel <- plot_grid(woodpecker_one, woodpecker_two, woodpecker_three, nrow = 1)
+# VEER?
 
-## Interaction species
-# BHVI - interaction between deltaED and Tmin
-
-vireo <- clim_hab_poptrend_z %>%
-  filter(Common_name == "Blue-headed vireo") %>% 
+veery <- clim_hab_poptrend_z %>%
+  filter(Common_name == "Veery") %>%
   left_join(dplyr::select(routes, stateroute, latitude, longitude)) %>%
   st_as_sf(coords = c("longitude", "latitude"))
 
-vireo_mod <- model_fits %>%
-  filter(aou == 6290)
+veery_mod <- model_fits %>%
+  filter(aou == 7560)
 
-vireo$tmin_sign <- ifelse(vireo$tmin < 0, "negative", "positive")
-ggplot(vireo, aes(x = deltaED, y = abundTrend)) + geom_point() + geom_smooth(method = "lm", se = F) +
+ggplot(veery, aes(x = abundTrend, y = deltaED)) + geom_point() + geom_smooth(method = "lm")
+
+veery$tmin_sign <- ifelse(veery$tmin < 0, "negative", "positive")
+ggplot(veery, aes(x = deltaED, y = abundTrend)) + geom_point() + geom_smooth(method = "lm", se = F) +
   facet_wrap(~tmin_sign) +
-  labs(x = "Change in edge density", title = "Blue-headed vireo")
-ggsave("figures/four_species_eda/bhvi_dForest.pdf")
+  labs(x = "Change in edge density")
 
-vireo_map <- states_map + tm_shape(vireo) + tm_dots(col = "abundTrend", size = 0.5) +
-  tm_layout(main.title = "Blue-headed vireo")
-tmap_save(vireo_map, "figures/four_species_eda/bhvi_map.pdf")
+veery_map <- states_map + tm_shape(veery) + tm_dots(col = "abundTrend", size = 0.5)
 
-vireo_env_matrix <- clim_hab_poptrend_z %>%
-  filter(Common_name == "Blue-headed vireo") %>%
+veery_env_matrix <- clim_hab_poptrend_z %>%
+  filter(Common_name == "Veery") %>%
   ungroup() %>%
   dplyr::select(tmin, tmax, deltaED, deltaProp) %>%
   as.matrix()
 
-vireo_cor <- cor(vireo_env_matrix, use = "pairwise.complete.obs")
+veery_cor <- cor(veery_env_matrix, use = "pairwise.complete.obs")
 
-pdf("figures/four_species_eda/bhvi_cormatrix.pdf")
-corrplot::corrplot(vireo_cor, method = "circle", diag = F, tl.col = "black", title = "Blue-headed vireo", mar = c(1,1,1,1))
-dev.off()
+# WBNU?
 
-
-# Redstart - open woodlands, insectivore, migrant
-
-redstart <- clim_hab_poptrend_z %>%
-  filter(Common_name == "American redstart") %>% 
+nuthatch <- clim_hab_poptrend_z %>%
+  filter(Common_name == "White-breasted nuthatch") %>%
   left_join(dplyr::select(routes, stateroute, latitude, longitude)) %>%
   st_as_sf(coords = c("longitude", "latitude"))
 
-redstart_mod <- model_fits %>%
-  filter(aou == 6870)
+nuthatch_mod <- model_fits %>%
+  filter(aou == 7270)
 
-ggplot(redstart, aes(x = tmin, y = abundTrend)) + geom_point() + geom_smooth(method = "lm", se = F) +
-  labs(x = "Trend in Tmin", title = "American redstart")
-ggsave("figures/four_species_eda/amre_tmin.pdf")
+ggplot(nuthatch, aes(x = abundTrend, y = deltaED)) + geom_point() + geom_smooth(method = "lm")
 
-redstart$tmax_sign <- ifelse(redstart$tmax < 0, "negative", "positive")
-ggplot(redstart, aes(x = deltaED, y = abundTrend)) + geom_point() + geom_smooth(method = "lm", se = F) +
+ggplot(nuthatch, aes(x = abundTrend, y = tmax)) + geom_point() + geom_smooth(method = "lm")
+
+nuthatch$tmax_sign <- ifelse(nuthatch$tmax < 0, "negative", "positive")
+ggplot(nuthatch, aes(x = deltaED, y = abundTrend)) + geom_point() + geom_smooth(method = "lm", se = F) +
   facet_wrap(~tmax_sign) +
-  labs(x = "Change in edge density", title = "American redstart")
-ggsave("figures/four_species_eda/amre_dForest.pdf")
+  labs(x = "Change in edge density")
 
-redstart_map <- states_map + tm_shape(redstart) + tm_dots(col = "abundTrend", size = 0.5) +
-  tm_layout(main.title = "American redstart")
-tmap_save(redstart_map, "figures/four_species_eda/amre_map.pdf")
+nuthatch_map <- states_map + tm_shape(nuthatch) + tm_dots(col = "abundTrend", size = 0.5)
 
-redstart_env_matrix <- clim_hab_poptrend_z %>%
-  filter(Common_name == "American redstart") %>%
+nuthatch_env_matrix <- clim_hab_poptrend_z %>%
+  filter(Common_name == "White-breasted nuthatch") %>%
   ungroup() %>%
   dplyr::select(tmin, tmax, deltaED, deltaProp) %>%
   as.matrix()
 
-redstart_cor <- cor(redstart_env_matrix, use = "pairwise.complete.obs")
+nuthatch_cor <- cor(nuthatch_env_matrix, use = "pairwise.complete.obs")
 
-pdf("figures/four_species_eda/amre_cormatrix.pdf")
-corrplot::corrplot(redstart_cor, method = "circle", diag = F, tl.col = "black", title = "American redstart", mar = c(1,1,1,1))
-dev.off()
+# SUTA
 
-redstart_one <- ggplot(redstart, aes(x = tmin, y = abundTrend)) + geom_point() + geom_smooth(method = "lm", se = F, col = "forestgreen") +
-  labs(x = "Trend in Tmin", y = "Abundance trend", title = "American Redstart")
+tanager <- clim_hab_poptrend_z %>%
+  filter(Common_name == "Summer tanager") %>%
+  left_join(dplyr::select(routes, stateroute, latitude, longitude)) %>%
+  st_as_sf(coords = c("longitude", "latitude"))
 
-redstart$tmax_sign <- ifelse(redstart$tmax < 0, "-3.25 < Z-Tmax < 0", "0 < Z-Tmax < 2.65")
-redstart_two <- ggplot(redstart, aes(x = deltaED, y = abundTrend)) + geom_point() + geom_smooth(method = "lm", se = F, col= "forestgreen") +
+tanager_mod <- model_fits %>%
+  filter(aou == 6100)
+
+ggplot(tanager, aes(x = abundTrend, y = deltaED)) + geom_point() + geom_smooth(method = "lm")
+
+tanager$tmax_sign <- ifelse(tanager$tmax < 0, "negative", "positive")
+ggplot(tanager, aes(x = deltaED, y = abundTrend)) + geom_point() + geom_smooth(method = "lm", se = F) +
+  facet_wrap(~tmax_sign) +
+  labs(x = "Change in edge density")
+
+tanager_map <- states_map + tm_shape(tanager) + tm_dots(col = "abundTrend", size = 0.5)
+
+tanager_env_matrix <- clim_hab_poptrend_z %>%
+  filter(Common_name == "Summer tanager") %>%
+  ungroup() %>%
+  dplyr::select(tmin, tmax, deltaED, deltaProp) %>%
+  as.matrix()
+
+tanager_cor <- cor(tanager_env_matrix, use = "pairwise.complete.obs")
+
+tanager_one <- ggplot(tanager, aes(x = tmin, y = abundTrend)) + geom_point() +
+  geom_smooth(method = "lm", se = F, col = "firebrick") +
+  labs(x = "Trend in Tmin", y = "Abundance trend") +
+  ggtitle("Summer tanager") + theme(plot.title = element_text(hjust = 0))
+
+tanager$tmax_sign <- ifelse(tanager$tmax < 0, "-2.39 < Z-Tmax < 0", "0 < Z-Tmax < 1.57")
+tanager_two <- ggplot(tanager, aes(x = deltaED, y = abundTrend)) + geom_point() + 
+  geom_smooth(method = "lm", se = F, col= "firebrick") +
   facet_wrap(~tmax_sign) +
   labs(x = "Change in edge density", y = "")
 
-redstart_multipanel <- plot_grid(redstart_one, redstart_two, nrow = 1, rel_widths = c(0.3, 0.6))
+tanager_multipanel <- plot_grid(tanager_one, tanager_two, nrow = 1, rel_widths = c(0.4, 0.6))
 
-### Figure for MS: Cowbird, Woodpecker, Redstart
+## Figure for MS: Acadian flycatcher, Blue jay, Summer Tanager
 
-indiv_spp_multi <- plot_grid(woodpecker_multipanel, redstart_multipanel, nrow = 2)
-ggsave("figures/area_sensitivity/indiv_spp_multipanel.pdf", indiv_spp_multi, units = "in", width = 9, height = 6)
+indiv_spp_multi <- plot_grid(flycatcher_multipanel, jay_multipanel, tanager_multipanel, nrow = 3)
+ggsave("figures/area_sensitivity/indiv_spp_multipanel.pdf", indiv_spp_multi, units = "in", width = 9, height = 9)
+
 
 #### Species by site matrix ####
 spp_site <- clim_hab_poptrend_mixedmod %>%
