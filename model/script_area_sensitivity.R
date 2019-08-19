@@ -94,67 +94,67 @@ counts.subs <- counts %>%
 
 # first year observers
 
-first_year <- function(obsns) {
-  first_yrs <- c()
-  for(i in 1:length(obsns)) {
-    ob <- obsns[i]
-    obs <- obsns[1:i]
-    first_yrs <- c(first_yrs, ifelse(length(obs[obs == ob]) == 1, 1, 0))
-  }
-  return(first_yrs)
-}
+#first_year <- function(obsns) {
+#  first_yrs <- c()
+#  for(i in 1:length(obsns)) {
+#    ob <- obsns[i]
+#    obs <- obsns[1:i]
+#    first_yrs <- c(first_yrs, ifelse(length(obs[obs == ob]) == 1, 1, 0))
+#  }
+#  return(first_yrs)
+#}
 
-obs_years <- weather %>%
-  group_by(stateroute) %>%
-  arrange(year) %>%
-  nest() %>%
-  mutate(first_yr = purrr::map(data, ~{
-    df <- .
-    first_year(df$obsn)
-  })) %>%
-  unnest() %>%
-  dplyr::select(stateroute, year, first_yr)
+#obs_years <- weather %>%
+#  group_by(stateroute) %>%
+#  arrange(year) %>%
+#  nest() %>%
+#  mutate(first_yr = purrr::map(data, ~{
+#    df <- .
+#    first_year(df$obsn)
+#  })) %>%
+#  unnest() %>%
+#  dplyr::select(stateroute, year, first_yr)
 
 # abundance trends read in
 
-abund_trend <- counts.subs %>%
-  left_join(obs_years, by = c('stateroute', 'year')) %>%
-  group_by(aou, stateroute) %>%
-  nest() %>%
-  mutate(lmFit = map(data, ~{
-    df <- .
-    df.short <- df %>%
-      dplyr::select(year, first_yr, speciestotal) %>%
-      unique()
-    glm(speciestotal ~ year + first_yr, family = poisson, data = df.short)
-  })) %>%
-  mutate(nObs = map_dbl(data, ~{
-    df <- .
-    nrow(df)
-  })) %>%
-  mutate(lm_broom = map(lmFit, tidy)) %>%
-  mutate(abundTrend = map_dbl(lm_broom, ~{
-    df <- .
-    df$estimate[2]
-  })) %>%
-  mutate(trendInt = map_dbl(lm_broom, ~{
-    df <- .
-    df$estimate[1]
-  })) %>%
-  mutate(trendPval = map_dbl(lm_broom, ~{
-    df <- .
-    df$p.value[2]
-  })) 
+#abund_trend <- counts.subs %>%
+#  left_join(obs_years, by = c('stateroute', 'year')) %>%
+#  group_by(aou, stateroute) %>%
+#  nest() %>%
+#  mutate(lmFit = map(data, ~{
+#    df <- .
+#    df.short <- df %>%
+#      dplyr::select(year, first_yr, speciestotal) %>%
+#      unique()
+#    glm(speciestotal ~ year + first_yr, family = poisson, data = df.short)
+#  })) %>%
+#  mutate(nObs = map_dbl(data, ~{
+#    df <- .
+#    nrow(df)
+#  })) %>%
+#  mutate(lm_broom = map(lmFit, tidy)) %>%
+#  mutate(abundTrend = map_dbl(lm_broom, ~{
+#    df <- .
+#    df$estimate[2]
+#  })) %>%
+#  mutate(trendInt = map_dbl(lm_broom, ~{
+#    df <- .
+#    df$estimate[1]
+#  })) %>%
+#  mutate(trendPval = map_dbl(lm_broom, ~{
+#    df <- .
+#    df$p.value[2]
+#  })) 
 
-hist(abund_trend$abundTrend)
-hist(abund_trend$nObs)
+#hist(abund_trend$abundTrend)
+#hist(abund_trend$nObs)
 
-abund_trend <- abund_trend %>%
-  filter(nObs > 9) %>%
-  dplyr::select(-data, -lmFit, -lm_broom)
+#abund_trend <- abund_trend %>%
+#  filter(nObs > 9) %>%
+#  dplyr::select(-data, -lmFit, -lm_broom)
 
-setwd("\\\\BioArk\\hurlbertlab\\DiCecco\\data\\")
-write.csv(abund_trend, "BBS_abundance_trends.csv", row.names = F)
+#setwd("\\\\BioArk\\hurlbertlab\\DiCecco\\data\\")
+#write.csv(abund_trend, "BBS_abundance_trends.csv", row.names = F)
 
 setwd("\\\\BioArk\\hurlbertlab\\DiCecco\\data\\")
 setwd("/Volumes/hurlbertlab/DiCecco/data/")
@@ -268,7 +268,13 @@ cor(clim_hab_poptrend$ED, clim_hab_poptrend$propForest) # -0.31
 cor(clim_hab_poptrend$deltaED, clim_hab_poptrend$deltaProp) # -0.24
 cor(dplyr::select(clim_hab_poptrend, ppt, tmin, tmax, deltaED, deltaProp, ED, propForest))
 
-# Figure 1: map of routes
+# Figure: map of routes
+
+color_scale <- data.frame(color = c(1:5), 
+                          dED_hex = c("#276419", "#7fbc41", "#e6f5d0", "#fde0ef", "#de77ae"),
+                          dProp_hex = c("#7b3294", "#c2a5cf", "#e7d4e8", "#d9f0d3", "#5aae61"),
+                          temp_hex = c("#2166AC", "#7aafcf", "#fddbc7", "#f4a582", "#b2182b"), stringsAsFactors = F)
+
 states <- us.proj[, -(1:2)]
 
 bbs_routes_forest <- us_subs_transf %>%
@@ -287,11 +293,11 @@ bbs_routes_fored <- tm_shape(states) + tm_fill(col = "gray63") + tm_borders(col 
   tm_layout(legend.show = F, title = "B", title.fontface = "bold")
 
 bbs_routes_tmin <- tm_shape(states) + tm_fill(col = "gray63") + tm_borders(col = "gray63") + 
-  tm_shape(bbs_routes_forest)  + tm_lines(col = "tmin", scale = 3, palette = "-RdBu") +
+  tm_shape(bbs_routes_forest)  + tm_lines(col = "tmin", scale = 3, breaks = c(-0.07, -0.05, 0, 0.05, 0.1, 0.2), palette = color_scale$temp_hex) +
   tm_layout(legend.show = F, title = "C", title.fontface = "bold")
 
 bbs_routes_tmax <- tm_shape(states) + tm_fill(col = "gray63") + tm_borders(col = "gray63") + 
-  tm_shape(bbs_routes_forest)  + tm_lines(col = "tmax", scale = 3, palette = "-RdBu") +
+  tm_shape(bbs_routes_forest)  + tm_lines(col = "tmax", scale = 3, palette = color_scale$temp_hex) +
   tm_layout(legend.show = F, title = "D", title.fontface = "bold")
 
 bbs_routes <- tmap_arrange(bbs_routes_forcov, bbs_routes_fored, bbs_routes_tmin, bbs_routes_tmax, nrow = 2)
@@ -299,11 +305,6 @@ bbs_routes <- tmap_arrange(bbs_routes_forcov, bbs_routes_fored, bbs_routes_tmin,
 # Histogram legends for each variable
 
 # Add color scale
-
-color_scale <- data.frame(color = c(1:5), 
-                          dED_hex = c("#276419", "#7fbc41", "#e6f5d0", "#fde0ef", "#de77ae"),
-                          dProp_hex = c("#7b3294", "#c2a5cf", "#e7d4e8", "#d9f0d3", "#5aae61"),
-                          temp_hex = c("#4393c3", "#d1e5f0", "#fddbc7", "#f4a582", "#b2182b"), stringsAsFactors = F)
 
 bbs_routes_forest_plots <- bbs_routes_forest %>%
   mutate(dED_color = case_when(
@@ -631,6 +632,8 @@ range(model_fits$nObs) # 1 spp at 38, only one below 40
 
 #write.csv(model_fits, "model/individual_species_model_tables.csv", row.names = F)
 
+model_fits <- read.csv("model/individual_species_model_tables.csv", stringsAsFactors = F)
+
 # Figure: distributions of effect sizes by species
 
 density_plot <- function(variable, label) {
@@ -652,11 +655,11 @@ tminED <- density_plot("deltaED:tmin", "Tmin:change in ED")
 legend <- get_legend(deltaED)
 
 grid_effects <- plot_grid(deltaED + theme(legend.position = "none"), 
-                          deltaProp + theme(legend.position = "none", axis.title.y = element_blank()), 
+                          deltaProp + theme(legend.position = "none") + ylab(" "), 
           tmin + theme(legend.position = "none"), 
-          tmax + theme(legend.position = "none", axis.title.y = element_blank()), 
-          tmaxED + theme(legend.position = "none"), 
-          tminED + theme(legend.position = "none", axis.title.y = element_blank()),
+          tmax + theme(legend.position = "none") + ylab(" "), 
+          tmaxED + theme(legend.position = "none") + scale_x_continuous(breaks = c(-0.01, 0, 0.01)), 
+          tminED + theme(legend.position = "none") + ylab(" "),
           nrow = 3,
           labels = c("A", "B", "C", "D", "E", "F"))
 plot_grid(grid_effects, legend, rel_widths = c(2, 0.4))
