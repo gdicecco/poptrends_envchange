@@ -65,8 +65,9 @@ routes.short <- RT1.routes %>%
 # Subset species: forest breeding birds by area sensitivity
 
 setwd("C:/Users/gdicecco/Desktop/git/NLCD_fragmentation/")
+setwd("/Users/gracedicecco/Desktop/git/NLCD_fragmentation")
 area_sensitive <- read.csv("traits/area-sensitivity-forest-birds-Bouliner1998.csv", stringsAsFactors = F)
-area_sensitive <- area_sensitive[, -c(4)]
+area_sensitive <- area_sensitive[-12, -c(4)]
 
 species$common_name_lower <- tolower(species$english_common_name)
 area_sensitive$common_name_lower <- tolower(area_sensitive$Common_name)
@@ -246,6 +247,7 @@ clim_hab_poptrend <- abund_trend %>%
 
 ##### Analysis #####
 setwd("C:/Users/gdicecco/Desktop/git/NLCD_fragmentation/")
+setwd("/Users/gracedicecco/Desktop/git/NLCD_fragmentation/")
 
 #### Route trends ####
 
@@ -781,6 +783,7 @@ model_fits_position <- clim_hab_poptrend_position %>%
   rename(std.error = `Std. Error`, z.value = `z value`, p.value = `Pr(>|z|)`) 
 
 write.csv(model_fits_position, "model/range_position_model_tables.csv", row.names = F)
+model_fits_position <- read.csv("model/range_position_model_tables.csv", stringsAsFactors = F)
 
 model_fits_position_fig <- model_fits_position %>%
   filter(term != "(Intercept)") %>%
