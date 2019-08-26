@@ -668,40 +668,6 @@ clim_hab_poptrend_z <- abund_trend %>%
   mutate(abundTrend_z = (abundTrend - mean(abundTrend, na.rm = T))/sd(abundTrend, na.rm = T)) %>%
   left_join(fourletter_codes)
 
-# Models by species
-
-# Make spatial weights matrix
-# Coordinates of BBS routes
-
-coords_bbs <- clim_hab_poptrend_z %>%
-  ungroup() %>%
-  dplyr::select(stateroute) %>%
-  distinct() %>%
-  left_join(routes) %>%
-  dplyr::select(stateroute, longitude, latitude)
-
-coords_mat <- as.matrix(coords_bbs[, -1])
-
-# Calculate nearest neighbors and make spatial neighborhood
-k0 <- knearneigh(coords_mat, longlat=T, k=1)
-k1 <- knn2nb(k0)
-
-# Find maximum neighbor distance and use this distance to define neighborhoods
-max.d <- max(unlist(nbdists(k1, coords_mat, longlat=T)))
-nb0.birds <- dnearneigh(coords_mat, 0, max.d, longlat=T)
-plot(nb0.birds, coords_mat)
-
-# Using a distance threshold of 100km
-nb1.birds <- dnearneigh(coords_mat,1,100,longlat=T)
-plot(nb1.birds, coords_mat)
-
-# Create spatial weights based on linear distance decay
-glist.birds <- nbdists(nb0.birds, coords_mat, longlat=T)
-glist.birds <- lapply(glist.birds, function(x) 1-(x/ceiling(max.d))) # Round up max.d so that all point get weights
-wt.birds <- nb2listw(nb0.birds, style='B', glist=glist.birds)
-
-hist(unlist(wt.birds$weights))
-
 # Spatial CAR models by species
 
 model_fits <- clim_hab_poptrend_z %>%
@@ -769,6 +735,47 @@ range(model_fits$nObs) # 1 spp at 38, only one below 40
 
 model_fits <- read.csv("model/individual_species_model_tables.csv", stringsAsFactors = F)
 
+# Compare CAR model with linear model results
+
+model_fits_linear <- clim_hab_poptrend_z %>%	
+  group_by(aou, SPEC) %>%	
+  nest() %>%	 
+  mutate(lmFit = purrr::map(data, ~{
+    df <- .	   
+    lm(abundTrend ~ tmax*deltaED + tmin*deltaED + deltaProp, df, na.action = na.fail)
+  })) %>%	
+  mutate(nObs = map_dbl(data, ~{	
+    df <- .	  
+    nrow(df)
+  })) %>%
+  mutate(lm_broom = purrr::map(lmFit,  ~{
+    tidy(.)
+  })) %>%
+  dplyr::select(aou, SPEC, nObs, lm_broom) %>%	 
+  unnest() %>%
+  filter(nObs > 40) %>%	 
+  filter(term != "(Intercept)")
+
+# Join with CAR
+
+for(trm in unique(model_fits_linear$term)) {
+  name <- str_remove(trm, ":")
+  linear <- filter(model_fits_linear, term == trm) %>%
+    mutate(model = "linear") %>%
+    dplyr::select(aou, SPEC, estimate, model)
+  car <- filter(model_fits, term == trm) %>%
+    mutate(model = "car") %>%
+    dplyr::select(aou, SPEC, Estimate, model) %>%
+    rename(estimate = Estimate)
+  
+  mods <- bind_rows(linear, car) %>%
+    spread(model, estimate)
+  
+  plot <- ggplot(mods, aes(x = car, y = linear)) + geom_point() + geom_abline(slope = 1) + 
+    geom_text(aes(label = SPEC), nudge_y = 0.0005)
+  ggsave(paste0("figures/area_sensitivity/", name, "_comparison.pdf"), plot)
+}
+
 # Figure: distributions of effect sizes by species
 
 density_plot <- function(variable, label) {
@@ -813,11 +820,11 @@ spp_traits <- spp_breadths %>%
   group_by(term) %>%
   nest() %>%
   filter(!is.na(term)) %>%
-  mutate(trait_mod = map(data, ~{
+  mutate(trait_mod = purrr::map(data, ~{
     df <- .
     lm(Estimate ~  volume + propFor + migclass + Foraging, data = df)
   }),
-  tidy = map(trait_mod, ~{
+  tidy = purrr::map(trait_mod, ~{
     mod <- .
     tidy(mod)
   }),
@@ -832,6 +839,25 @@ spp_traits <- spp_breadths %>%
 
 spp_traits_pred <- spp_traits %>%
   filter(p.value < 0.05)
+
+### species traits models effect plots
+
+trait_effects <- spp_breadths %>%
+  left_join(area_aous) %>%
+  left_join(correlates, by = c("aou" = "AOU")) %>%
+  left_join(model_fits)
+
+# volume v tmax
+ggplot(filter(trait_effects, term == "tmax"), aes(x = Estimate, y = volume)) + 
+  geom_point() + geom_smooth(method = "lm", se = F) +
+  labs(x = "Effect of trend in Tmax")
+ggsave("figures/area_sensitivity/trait_model_tmax_volume.pdf")
+
+# propFor v tmin
+ggplot(filter(trait_effects, term == "tmin"), aes(x = Estimate, y = propFor)) + 
+  geom_point() + geom_smooth(method = "lm", se = F) +
+  labs(x = "Effect of trend in Tmin")
+ggsave("figures/area_sensitivity/trait_model_tmin_propFor.pdf")
 
 #### Range position models ####
 
