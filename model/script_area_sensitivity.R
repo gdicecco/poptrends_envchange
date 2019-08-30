@@ -306,6 +306,7 @@ traits.short <- traits %>%
   dplyr::select(Common_name, aou, nHabitats1, nHabitats2, volume)
 
 setwd("//BioArk/HurlbertLab/DiCecco/Data/")
+setwd("/Volumes/hurlbertlab/dicecco/data/")
 correlates <- read.csv("Master_RO_Correlates_20110610.csv", stringsAsFactors = F)
 
 breedingRange <- correlates %>%
@@ -528,6 +529,7 @@ corrplot::corrplot(corr.table, method = "circle", diag = F, tl.col = "black",
                    tl.cex = 1.5, cl.cex = 1)
 dev.off()
 
+#### Species traits ####
 # Breadth of forest ED and forest cover for area and non-area sensitive species
 
 env_breadth <- clim_hab_poptrend %>%
@@ -538,14 +540,6 @@ env_breadth <- clim_hab_poptrend %>%
             std_for = sd(propForest),
             patchArea = mean(meanPatchArea),
             std_patch = sd(meanPatchArea))
-
-ed_breadth <- ggplot(env_breadth, aes(x = reorder(SPEC, ed), y = ed, color = SPEC)) +
-  geom_point() + 
-  geom_errorbar(aes(ymin = ed - 1.96*std_ed, ymax = ed + 1.96*std_ed)) +
-  theme(axis.text.x = element_text(angle = 45, hjust = 1)) +
-  labs(x = "", y = "Forest edge density") +
-  scale_color_viridis_d() +
-  theme(legend.position = "none")
 
 # Use all routes for cover_breadth
 
@@ -582,10 +576,29 @@ clim_hab_pop_allroutes <- abund_trend %>%
 env_breadth_allroutes <- clim_hab_pop_allroutes %>%
   dplyr::group_by(Area_sensitivity, SPEC, aou) %>%
   summarize(propFor = mean(propForest),
-              min_for = quantile(propForest, c(0.05))[[1]],
+            min_for = quantile(propForest, c(0.05))[[1]],
             max_for = quantile(propForest, c(0.95))[[1]],
             patchArea = mean(meanPatchArea),
             std_patch = sd(meanPatchArea))
+
+volume <- traits %>%
+  filter(aou %in% env_breadth_allroutes$aou) %>%
+  left_join(dplyr::select(env_breadth_allroutes, SPEC, aou)) %>%
+  dplyr::select(SPEC, aou, volume)
+
+spp_breadths <- env_breadth_allroutes %>%
+  dplyr::select(SPEC, aou, propFor, min_for, max_for) %>%
+  left_join(dplyr::select(env_breadth, SPEC, aou, ed, std_ed)) %>%
+  left_join(dplyr::select(traits, aou, volume))
+
+# Species traits plots
+ed_breadth <- ggplot(env_breadth, aes(x = reorder(SPEC, ed), y = ed, color = SPEC)) +
+  geom_point() + 
+  geom_errorbar(aes(ymin = ed - 1.96*std_ed, ymax = ed + 1.96*std_ed)) +
+  theme(axis.text.x = element_text(angle = 45, hjust = 1)) +
+  labs(x = "", y = "Forest edge density") +
+  scale_color_viridis_d() +
+  theme(legend.position = "none")
 
 cover_breadth <- ggplot(env_breadth_allroutes, aes(x = reorder(SPEC, propFor), y = propFor)) +
   geom_point(cex = 8) + 
@@ -597,11 +610,6 @@ cover_breadth <- ggplot(env_breadth_allroutes, aes(x = reorder(SPEC, propFor), y
         axis.text.y = element_text(size = 40),
         axis.title.x = element_blank(), axis.title.y = element_text(size = 45),
         axis.line = element_line(colour = 'black', size = 3))
-
-volume <- traits %>%
-  filter(aou %in% env_breadth_allroutes$aou) %>%
-  left_join(dplyr::select(env_breadth_allroutes, SPEC, aou)) %>%
-  dplyr::select(SPEC, aou, volume)
 
 volume_plot <- ggplot(volume, aes(x = reorder(SPEC, volume), y = volume)) +
   geom_point(cex = 8) + 
@@ -618,11 +626,6 @@ ggsave("figures/area_sensitivity/forest_breadth.tiff", units = "in", height = 13
 ggsave("figures/area_sensitivity/forest_breadth.pdf", units = "in", height = 13, width = 30)
 
 ## Correlations between forest edge density breadth, forest cover breadth, climate niche breadth
-
-spp_breadths <- env_breadth_allroutes %>%
-  dplyr::select(SPEC, aou, propFor, min_for, max_for) %>%
-  left_join(dplyr::select(env_breadth, SPEC, aou, ed, std_ed)) %>%
-  left_join(dplyr::select(traits, aou, volume))
 
 ed_cov <- ggplot(spp_breadths, aes(x = ed, y = propFor)) +
   geom_point() + 
@@ -778,19 +781,29 @@ for(trm in unique(model_fits_linear$term)) {
 
 # Figure: distributions of effect sizes by species
 
+model_fits <- model_fits %>%
+  mutate(sig = case_when(p.value < 0.05 & p.value >= 0.01 ~ "0.01 < p < 0.05",
+                         p.value < 0.01 & p.value >= 0.001 ~ "0.001 < p < 0.01",
+                         p.value < 0.001 ~ "p < 0.001",
+                         TRUE ~ "p > 0.05")) %>%
+  mutate(sig = fct_relevel(sig, c("p < 0.001", "0.001 < p < 0.01", "0.01 < p < 0.05", "p > 0.05"))) %>%
+  mutate(dir = ifelse(Estimate < 0, "Negative effect", "Positive effect"))
+
 density_plot <- function(variable, label) {
   ggplot(filter(model_fits, term == variable), aes(x = Estimate, fill = sig)) + 
     geom_histogram(bins = 20) + 
     geom_vline(aes(xintercept = mean(Estimate)), lty = 2, cex = 1) + 
     labs(x = label, y = "Species", fill = "") +
-    scale_fill_manual(values = c("p < 0.05" = "skyblue3",
+    scale_fill_manual(values = c("p < 0.001" = "#2166AC", 
+                                 "0.001 < p < 0.01" = "#67A9CF",
+                                 "0.01 < p < 0.05" = "#D1E5F0",
                                  "p > 0.05" = "gray"))
 }
 
 deltaED <- density_plot("deltaED", "Change in ED")
-deltaProp <- density_plot("deltaProp", "Change in forest cover")
+deltaProp <- density_plot("deltaProp", "Change in forest cover") + scale_y_continuous(breaks = c(0,5,10))
 tmin <- density_plot("tmin", "Trend in Tmin")
-tmax <- density_plot("tmax", "Trend in Tmax")
+tmax <- density_plot("tmax", "Trend in Tmax") + scale_y_continuous(breaks = c(0, 4, 8))
 tmaxED <- density_plot("tmax:deltaED", "Tmax:change in ED")
 tminED <- density_plot("deltaED:tmin", "Tmin:change in ED")
 
@@ -806,6 +819,39 @@ grid_effects <- plot_grid(deltaED + theme(legend.position = "none"),
           labels = c("A", "B", "C", "D", "E", "F"))
 plot_grid(grid_effects, legend, rel_widths = c(2, 0.4))
 ggsave("figures/area_sensitivity/model_effects_distributions.pdf", units = "in", height = 9, width = 8)
+
+## Supplemental figure: p value ranges for each variable
+
+pval_plot <- function(variable, label) {
+  ggplot(filter(model_fits, term == variable), aes(x = p.value, fill = dir)) + 
+    geom_histogram(bins = 20) + 
+    geom_vline(aes(xintercept = mean(p.value)), lty = 2, cex = 1) + 
+    labs(x = label, y = "Count", fill = "")  +
+    scale_x_log10() + scale_fill_manual(values = c("dodgerblue3", "firebrick2"))
+
+}
+
+options(scipen = 999)
+deltaED <- pval_plot("deltaED", "Change in ED") + scale_x_log10(breaks = c(0.00001, 0.001, 1),
+                                                                labels = c(0.00001, 0.001, 1))
+deltaProp <- pval_plot("deltaProp", "Change in forest cover") + scale_x_log10(breaks = c(0.0001, 0.01, 1),
+                                                                             labels = c(0.0001, 0.01, 1))
+tmin <- pval_plot("tmin", "Trend in Tmin") + scale_x_log10(breaks = c(0.0001, 0.01, 1),
+                                                           labels = c(0.0001, 0.01, 1))
+tmax <- pval_plot("tmax", "Trend in Tmax")
+tmaxED <- pval_plot("tmax:deltaED", "Tmax:change in ED")
+tminED <- pval_plot("deltaED:tmin", "Tmin:change in ED")
+
+grid_effects <- plot_grid(deltaED, 
+                          deltaProp + ylab(" "), 
+                          tmin, 
+                          tmax + ylab(" "), 
+                          tmaxED, 
+                          tminED + ylab(" "),
+                          nrow = 3,
+                          labels = c("A", "B", "C", "D", "E", "F"))
+plot_grid(grid_effects)
+ggsave("figures/area_sensitivity/model_pvals_distributions.pdf", units = "in", height = 9, width = 10)
 
 ## Traits and responses 
 
@@ -836,6 +882,7 @@ spp_traits <- spp_breadths %>%
   unnest()
 
 #write.csv(spp_traits, "model/spp_trait_model_output.csv", row.names = F)
+spp_traits <- read.csv("model/spp_trait_model_output.csv", stringsAsFactors = F)
 
 spp_traits_pred <- spp_traits %>%
   filter(p.value < 0.05)
@@ -848,15 +895,15 @@ trait_effects <- spp_breadths %>%
   left_join(model_fits)
 
 # volume v tmax
-ggplot(filter(trait_effects, term == "tmax"), aes(x = Estimate, y = volume)) + 
-  geom_point() + geom_smooth(method = "lm", se = F) +
-  labs(x = "Effect of trend in Tmax")
+ggplot(filter(trait_effects, term == "tmax"), aes(x = volume, y = Estimate)) + 
+  geom_text(aes(label = SPEC)) + geom_smooth(method = "lm", se = F) +
+  labs(y = "Effect of trend in Tmax", x = "Niche volume")
 ggsave("figures/area_sensitivity/trait_model_tmax_volume.pdf")
 
 # propFor v tmin
-ggplot(filter(trait_effects, term == "tmin"), aes(x = Estimate, y = propFor)) + 
-  geom_point() + geom_smooth(method = "lm", se = F) +
-  labs(x = "Effect of trend in Tmin")
+ggplot(filter(trait_effects, term == "tmin"), aes(x = propFor, y = Estimate)) + 
+  geom_text(aes(label = SPEC)) + geom_smooth(method = "lm", se = F) +
+  labs(y = "Effect of trend in Tmin", x = "Mean breeding range forest cover")
 ggsave("figures/area_sensitivity/trait_model_tmin_propFor.pdf")
 
 #### Range position models ####
@@ -946,8 +993,12 @@ model_fits_position <- read.csv("model/range_position_model_tables.csv", strings
 
 model_fits_position_fig <- model_fits_position %>%
   filter(term != "(Intercept)") %>%
-  mutate(sig = case_when(p.value < 0.05 ~ "p < 0.05",
+  mutate(sig = case_when(p.value < 0.05 & p.value >= 0.01 ~ "0.01 < p < 0.05",
+                         p.value < 0.01 & p.value >= 0.001 ~ "0.001 < p < 0.01",
+                         p.value < 0.001 ~ "p < 0.001",
                          TRUE ~ "p > 0.05")) %>%
+  mutate(sig = fct_relevel(sig, c("p < 0.001", "0.001 < p < 0.01", "0.01 < p < 0.05", "p > 0.05"))) %>%
+  mutate(dir = ifelse(Estimate > 0, "Positive effect", "Negative effect")) %>%
   mutate(term = fct_recode(term, Tmin = "tmin", Tmax = "tmax")) %>%
   mutate(term = paste("Trend in", term)) %>%
   mutate(range_direction = fct_relevel(range_direction, levels = c("North", "Central", "South"))) %>%
@@ -965,7 +1016,9 @@ ggplot(model_fits_position_fig, aes(Estimate, fill = sig)) +
   geom_histogram(bins = 15) + 
   facet_grid(range_direction ~ term) +
   geom_vline(aes(xintercept = meanEst), lty = 2, cex = 1) +
-  scale_fill_manual(values = c("p < 0.05" = "skyblue3",
+  scale_fill_manual(values = c("p < 0.001" = "#2166AC", 
+                               "0.001 < p < 0.01" = "#67A9CF",
+                               "0.01 < p < 0.05" = "#D1E5F0",
                                "p > 0.05" = "gray")) +
   scale_x_continuous(breaks = c(0, 5, 10)) +
   labs(x = "Effect estimate",
@@ -982,36 +1035,26 @@ ggplot(model_fits_position_fig, aes(Estimate, fill = sig)) +
   
 ggsave("figures/area_sensitivity/range_position_temp_responses.pdf")
 
-# Figure - points
+## Supplemental figure: p-values
 
-trendTmin <- model_fits_position_fig %>%
-  filter(term == "Trend in Tmin") %>%
-  dplyr::select(SPEC, range_direction, Estimate) %>%
-  spread(range_direction, Estimate)
+ggplot(model_fits_position_fig, aes(x = p.value, fill = dir)) +
+  geom_histogram(bins = 15) + 
+  facet_grid(range_direction ~ term) +
+  scale_x_log10(breaks = c(0.001, 0.01, 0.1, 1), labels = c(0.001, 0.01, 0.1, 1)) +
+  labs(x = "Effect p-value",
+       y = "Count",
+       fill = "") +
+  theme_bw() + 
+  theme(panel.grid.major = element_blank(), 
+        panel.grid.minor = element_blank(),
+        panel.background = element_rect(colour = "black")) +
+  theme(axis.text = element_text(size = 12),
+        strip.text = element_text(size = 12),
+        text = element_text(size = 12),
+        legend.text = element_text(size = 12)) +
+  scale_fill_manual(values = c("dodgerblue3", "firebrick2"))
 
-tmin_plot <- ggplot(trendTmin, aes(x = North, y = South)) + geom_point() + 
-  geom_hline(yintercept = 0, lty = 2) + 
-  geom_vline(xintercept = 0, lty = 2) + 
-  labs(title = "Response to trend in Tmin",
-       y = "Southern range tercile",
-       x = "Northern range tercile") +
-  ylim(-0.025, 0.025)
-
-trendTmax <- model_fits_position_fig %>%
-  filter(term == "Trend in Tmax") %>%
-  dplyr::select(SPEC, range_direction, Estimate) %>%
-  spread(range_direction, Estimate)
-
-tmax_plot <- ggplot(trendTmax, aes(x = North, y = South)) + geom_point() + 
-  geom_hline(yintercept = 0, lty = 2) + 
-  geom_vline(xintercept = 0, lty = 2) + 
-  labs(title = "Response to trend in Tmax",
-       y = "Southern range tercile",
-       x = "Northern range tercile") +
-  ylim(-0.025, 0.025)
-
-plot_grid(tmin_plot, tmax_plot, nrow =1)
-ggsave("figures/area_sensitivity/range_position_temp_responses_scatter.pdf")
+ggsave("figures/area_sensitivity/range_position_temp_pvals.pdf")
 
 #### Individual species explanation figure ####
 
