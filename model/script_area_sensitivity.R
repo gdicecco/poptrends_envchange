@@ -818,7 +818,7 @@ grid_effects <- plot_grid(deltaED + theme(legend.position = "none"),
           nrow = 3,
           labels = c("A", "B", "C", "D", "E", "F"))
 plot_grid(grid_effects, legend, rel_widths = c(2, 0.4))
-ggsave("figures/area_sensitivity/model_effects_distributions.pdf", units = "in", height = 9, width = 8)
+ggsave("figures/area_sensitivity/model_effects_distributions.pdf", units = "in", height = 9, width = 10)
 
 ## Supplemental figure: p value ranges for each variable
 
