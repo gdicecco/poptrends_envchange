@@ -1056,190 +1056,74 @@ ggplot(model_fits_position_fig, aes(x = p.value, fill = dir)) +
 
 ggsave("figures/area_sensitivity/range_position_temp_pvals.pdf")
 
-#### Individual species explanation figure ####
+#### Strongest species response for each predictor ####
 
-us.proj <- readOGR("\\\\BioArk/hurlbertlab/DiCecco/nlcd_frag_proj_shapefiles/BCRs_contiguous_us/BCRs_contiguous_us.shp")
+# MODO - deltaED
 
-states <- us.proj[, -(1:2)]
+dove <-  clim_hab_poptrend_z %>%
+  filter(Common_name == "Mourning dove")
 
-states_map <- tm_shape(states) + tm_fill(col = "gray63") + tm_borders(col = "gray63")
+dove_plot <- ggplot(dove, aes(x = deltaED, y = abundTrend)) + geom_point() + 
+  geom_smooth(method = "lm", se = F) +
+  labs(x = "Change in edge density", y = "Abundance trend", title = "Mourning dove")
 
-# Case studies on these species - how correlated are ENV variables at the routes they occur on? 
+# EAWP - deltaProp
 
-## Additive species
+pewee <- clim_hab_poptrend_z %>%
+  filter(Common_name == "Eastern wood-pewee") 
 
-# ACFL: positive to increase in forest cover, positive to increase in Tmax
+pewee_plot <- ggplot(pewee, aes(x = deltaProp, y = abundTrend)) + geom_point() + 
+  geom_smooth(method = "lm", se = F) +
+  labs(x = "Change in forest cover", y = "", title = "Eastern wood-pewee")
+ 
+# EATO - tmax
 
-flycatcher <- clim_hab_poptrend_z %>%
-  filter(Common_name == "Acadian flycatcher") %>%
-  left_join(dplyr::select(routes, stateroute, latitude, longitude)) %>%
-  st_as_sf(coords = c("longitude", "latitude"))
+towhee <- clim_hab_poptrend_z %>%
+  filter(Common_name == "Eastern towhee")
 
-flycatcher_mod <- model_fits %>%
-  filter(aou == 4650)
+towhee_plot <- ggplot(towhee, aes(x = tmax, y = abundTrend)) + geom_point() + 
+  geom_smooth(method = "lm", se = F) +
+  labs(x = "Trend in Tmax", y = "", title = "Eastern towhee")
 
-ggplot(flycatcher, aes(x = abundTrend, y = deltaProp)) + geom_point() + geom_smooth(method = "lm")
+# RBWO - tmin
 
-ggplot(flycatcher, aes(x = abundTrend, y = tmax)) + geom_point() + geom_smooth(method = "lm")
+woodpecker <- clim_hab_poptrend_z %>%
+  filter(Common_name == "Red-bellied woodpecker")
 
-flycatcher_map <- states_map + tm_shape(flycatcher) + tm_dots(col = "abundTrend", size = 0.5)
+woodpecker_plot <- ggplot(woodpecker, aes(x = tmin, y = abundTrend)) + geom_point() +
+  geom_smooth(method = "lm", se = F) +
+  labs(x = "Trend in Tmin", y = "Abundance trend", title = "Red-bellied woodpecker")
 
-flycatcher_env_matrix <- clim_hab_poptrend_z %>%
-  filter(Common_name == "Acadian flycatcher") %>%
-  ungroup() %>%
-  dplyr::select(tmin, tmax, deltaED, deltaProp) %>%
-  as.matrix()
-
-flycatcher_cor <- cor(flycatcher_env_matrix, use = "pairwise.complete.obs")
-
-flycatcher_one <- ggplot(flycatcher, aes(x = deltaProp, y = abundTrend)) + geom_point() + 
-  geom_smooth(method = "lm", se = F, col = "forestgreen") +
-  labs(x = "Change in forest cover", y = "Abundance trend", title = "Acadian flycatcher") +
-  theme(plot.title = element_text(hjust = 0))
-
-flycatcher_two <- ggplot(flycatcher, aes(x = tmax, y = abundTrend)) + geom_point() + 
-  geom_smooth(method = "lm", se = F, col = "forestgreen") +
-  labs(x = "Trend in maximum temperature", y = "")
-
-flycatcher_multipanel <- plot_grid(flycatcher_one, flycatcher_two, nrow = 1)
-
-# BLJA: positive to increase in ED, negative to increase in Tmin
-
-jay <- clim_hab_poptrend_z %>%
-  filter(Common_name == "Blue jay") %>%
-  left_join(dplyr::select(routes, stateroute, latitude, longitude)) %>%
-  st_as_sf(coords = c("longitude", "latitude"))
-
-jay_mod <- model_fits %>%
-  filter(aou == 4770)
-
-ggplot(jay, aes(x = abundTrend, y = deltaED)) + geom_point() + geom_smooth(method = "lm")
-
-ggplot(jay, aes(x = abundTrend, y = tmin)) + geom_point() + geom_smooth(method = "lm")
-
-jay_map <- states_map + tm_shape(jay) + tm_dots(col = "abundTrend", size = 0.5)
-
-jay_env_matrix <- clim_hab_poptrend_z %>%
-  filter(Common_name == "Blue jay") %>%
-  ungroup() %>%
-  dplyr::select(tmin, tmax, deltaED, deltaProp) %>%
-  as.matrix()
-
-jay_cor <- cor(jay_env_matrix, use = "pairwise.complete.obs")
-
-jay_one <- ggplot(jay, aes(x = deltaED, y = abundTrend)) + geom_point() + 
-  geom_smooth(method = "lm", se = F, col = "dodgerblue") +
-  labs(x = "Change in edge density", y = "Abundance trend", title = "Blue jay") + theme(plot.title = element_text(hjust = 0))
-
-jay_two <- ggplot(jay, aes(x = tmin, y = abundTrend)) + geom_point() + 
-  geom_smooth(method = "lm", se = F, col = "dodgerblue") +
-  labs(x = "Trend in minimum temperature", y = "")
-
-jay_multipanel <- plot_grid(jay_one, jay_two, nrow = 1)
-
-
-## Interactive species
-
-# VEER?
-
-veery <- clim_hab_poptrend_z %>%
-  filter(Common_name == "Veery") %>%
-  left_join(dplyr::select(routes, stateroute, latitude, longitude)) %>%
-  st_as_sf(coords = c("longitude", "latitude"))
-
-veery_mod <- model_fits %>%
-  filter(aou == 7560)
-
-ggplot(veery, aes(x = abundTrend, y = deltaED)) + geom_point() + geom_smooth(method = "lm")
-
-veery$tmin_sign <- ifelse(veery$tmin < 0, "negative", "positive")
-ggplot(veery, aes(x = deltaED, y = abundTrend)) + geom_point() + geom_smooth(method = "lm", se = F) +
-  facet_wrap(~tmin_sign) +
-  labs(x = "Change in edge density")
-
-veery_map <- states_map + tm_shape(veery) + tm_dots(col = "abundTrend", size = 0.5)
-
-veery_env_matrix <- clim_hab_poptrend_z %>%
-  filter(Common_name == "Veery") %>%
-  ungroup() %>%
-  dplyr::select(tmin, tmax, deltaED, deltaProp) %>%
-  as.matrix()
-
-veery_cor <- cor(veery_env_matrix, use = "pairwise.complete.obs")
-
-# WBNU?
-
-nuthatch <- clim_hab_poptrend_z %>%
-  filter(Common_name == "White-breasted nuthatch") %>%
-  left_join(dplyr::select(routes, stateroute, latitude, longitude)) %>%
-  st_as_sf(coords = c("longitude", "latitude"))
-
-nuthatch_mod <- model_fits %>%
-  filter(aou == 7270)
-
-ggplot(nuthatch, aes(x = abundTrend, y = deltaED)) + geom_point() + geom_smooth(method = "lm")
-
-ggplot(nuthatch, aes(x = abundTrend, y = tmax)) + geom_point() + geom_smooth(method = "lm")
-
-nuthatch$tmax_sign <- ifelse(nuthatch$tmax < 0, "negative", "positive")
-ggplot(nuthatch, aes(x = deltaED, y = abundTrend)) + geom_point() + geom_smooth(method = "lm", se = F) +
-  facet_wrap(~tmax_sign) +
-  labs(x = "Change in edge density")
-
-nuthatch_map <- states_map + tm_shape(nuthatch) + tm_dots(col = "abundTrend", size = 0.5)
-
-nuthatch_env_matrix <- clim_hab_poptrend_z %>%
-  filter(Common_name == "White-breasted nuthatch") %>%
-  ungroup() %>%
-  dplyr::select(tmin, tmax, deltaED, deltaProp) %>%
-  as.matrix()
-
-nuthatch_cor <- cor(nuthatch_env_matrix, use = "pairwise.complete.obs")
-
-# SUTA
+# SUTA - deltaED:tmax
 
 tanager <- clim_hab_poptrend_z %>%
-  filter(Common_name == "Summer tanager") %>%
-  left_join(dplyr::select(routes, stateroute, latitude, longitude)) %>%
-  st_as_sf(coords = c("longitude", "latitude"))
-
-tanager_mod <- model_fits %>%
-  filter(aou == 6100)
-
-ggplot(tanager, aes(x = abundTrend, y = deltaED)) + geom_point() + geom_smooth(method = "lm")
-
-tanager$tmax_sign <- ifelse(tanager$tmax < 0, "negative", "positive")
-ggplot(tanager, aes(x = deltaED, y = abundTrend)) + geom_point() + geom_smooth(method = "lm", se = F) +
-  facet_wrap(~tmax_sign) +
-  labs(x = "Change in edge density")
-
-tanager_map <- states_map + tm_shape(tanager) + tm_dots(col = "abundTrend", size = 0.5)
-
-tanager_env_matrix <- clim_hab_poptrend_z %>%
-  filter(Common_name == "Summer tanager") %>%
-  ungroup() %>%
-  dplyr::select(tmin, tmax, deltaED, deltaProp) %>%
-  as.matrix()
-
-tanager_cor <- cor(tanager_env_matrix, use = "pairwise.complete.obs")
-
-tanager_one <- ggplot(tanager, aes(x = tmin, y = abundTrend)) + geom_point() +
-  geom_smooth(method = "lm", se = F, col = "firebrick") +
-  labs(x = "Trend in Tmin", y = "Abundance trend") +
-  ggtitle("Summer tanager") + theme(plot.title = element_text(hjust = 0))
+  filter(Common_name == "Summer tanager") 
 
 tanager$tmax_sign <- ifelse(tanager$tmax < 0, "-2.39 < Z-Tmax < 0", "0 < Z-Tmax < 1.57")
-tanager_two <- ggplot(tanager, aes(x = deltaED, y = abundTrend)) + geom_point() + 
-  geom_smooth(method = "lm", se = F, col= "firebrick") +
+tanager <- ggplot(tanager, aes(x = deltaED, y = abundTrend)) + geom_point() + 
+  geom_smooth(method = "lm", se = F) +
   facet_wrap(~tmax_sign) +
-  labs(x = "Change in edge density", y = "")
+  theme(panel.spacing = unit(4, "lines")) +
+  labs(x = "Change in edge density", y = "Abundance trend", title = "Summer tanager")
 
-tanager_multipanel <- plot_grid(tanager_one, tanager_two, nrow = 1, rel_widths = c(0.4, 0.6))
+# CACH - deltaED:tmin
 
-## Figure for MS: Acadian flycatcher, Blue jay, Summer Tanager
+chickadee <- clim_hab_poptrend_z %>%
+  filter(Common_name == "Carolina chickadee") 
 
-indiv_spp_multi <- plot_grid(flycatcher_multipanel, jay_multipanel, tanager_multipanel, nrow = 3)
-ggsave("figures/area_sensitivity/indiv_spp_multipanel.pdf", indiv_spp_multi, units = "in", width = 9, height = 9)
+chickadee$tmin_sign <- ifelse(chickadee$tmin < 0, "-1.93 < Z-Tmin < 0", "0 < Z-Tmin < 2.30")
+chickadee <- ggplot(chickadee, aes(x = deltaED, y = abundTrend)) + geom_point() + 
+  geom_smooth(method = "lm", se = F) +
+  facet_wrap(~tmin_sign) +
+  theme(panel.spacing = unit(4, "lines")) +
+  labs(x = "Change in edge density", y = "Abundance trend", title = "Carolina chickadee")
+
+## Figure for MS
+
+indiv_spp_add <- plot_grid(dove_plot, pewee_plot, woodpecker_plot, towhee_plot, nrow = 2, labels = c("A", "B", "C", "D"))
+indiv_spp_multi <- plot_grid(indiv_spp_add, tanager, chickadee, nrow = 3, rel_heights = c(0.5, 0.25, 0.25),
+                             labels = c(" ", "E", "F"))
+ggsave("figures/area_sensitivity/indiv_spp_multipanel.pdf", indiv_spp_multi, units = "in", width = 8, height = 12)
 
 
 #### Species by site matrix ####
