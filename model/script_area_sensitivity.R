@@ -297,6 +297,10 @@ obs_effects <- abund_trend_sig %>%
   arrange(desc(obs_prop))
 write.csv(obs_effects, "model/obs_effect_rankings.csv", row.names = F)
 
+# Range centroid for each species - map of effect sizes for each predictor
+
+# Mean predictor values for each BCR
+
 # Trait data
 setwd("C:/Users/gdicecco/Desktop/git/NLCD_fragmentation/")
 setwd("/Users/gracedicecco/Desktop/git/NLCD_fragmentation/")
@@ -495,7 +499,7 @@ tmin_hist <- ggplot(bbs_routes_forest_plots, aes(x = tmin, fill = as.factor(tmin
 
 tmax_hist <- ggplot(bbs_routes_forest_plots, aes(x = tmax, fill = as.factor(tmax_color))) + geom_histogram(bins = 30) +
   labs(title = "Trend in Tmax") +
-  scale_y_continuous(breaks = c(0, 100, 200)) +
+  scale_y_continuous(breaks = c(0, 100, 200)) + scale_x_continuous(breaks = c(-0.1, 0, 0.1)) +
   scale_fill_manual(values = color_scale$temp_hex) +
   theme(text = element_text(size = 12), axis.text = element_text(size = 10),
         axis.title.x = element_blank(), axis.title.y = element_blank(), legend.position = "none")
@@ -800,7 +804,7 @@ density_plot <- function(variable, label) {
                                  "p > 0.05" = "gray"))
 }
 
-deltaED <- density_plot("deltaED", "Change in ED")
+deltaED <- density_plot("deltaED", "Change in edge density")
 deltaProp <- density_plot("deltaProp", "Change in forest cover") + scale_y_continuous(breaks = c(0,5,10))
 tmin <- density_plot("tmin", "Trend in Tmin")
 tmax <- density_plot("tmax", "Trend in Tmax") + scale_y_continuous(breaks = c(0, 4, 8))
@@ -832,7 +836,7 @@ pval_plot <- function(variable, label) {
 }
 
 options(scipen = 999)
-deltaED <- pval_plot("deltaED", "Change in ED") + scale_x_log10(breaks = c(0.00001, 0.001, 1),
+deltaED <- pval_plot("deltaED", "Change in edge density") + scale_x_log10(breaks = c(0.00001, 0.001, 1),
                                                                 labels = c(0.00001, 0.001, 1))
 deltaProp <- pval_plot("deltaProp", "Change in forest cover") + scale_x_log10(breaks = c(0.0001, 0.01, 1),
                                                                              labels = c(0.0001, 0.01, 1))
@@ -842,15 +846,17 @@ tmax <- pval_plot("tmax", "Trend in Tmax")
 tmaxED <- pval_plot("tmax:deltaED", "Tmax:change in ED")
 tminED <- pval_plot("deltaED:tmin", "Tmin:change in ED")
 
-grid_effects <- plot_grid(deltaED, 
-                          deltaProp + ylab(" "), 
-                          tmin, 
-                          tmax + ylab(" "), 
-                          tmaxED, 
-                          tminED + ylab(" "),
+legend <- get_legend(tmin)
+
+grid_effects <- plot_grid(deltaED + theme(legend.position = "none"), 
+                          deltaProp + ylab(" ") + theme(legend.position = "none"), 
+                          tmin + theme(legend.position = "none"), 
+                          tmax + ylab(" ") + theme(legend.position = "none"), 
+                          tmaxED + theme(legend.position = "none"), 
+                          tminED + ylab(" ") + theme(legend.position = "none"),
                           nrow = 3,
                           labels = c("A", "B", "C", "D", "E", "F"))
-plot_grid(grid_effects)
+plot_grid(grid_effects, legend, rel_widths = c(2, 0.4))
 ggsave("figures/area_sensitivity/model_pvals_distributions.pdf", units = "in", height = 9, width = 10)
 
 ## Traits and responses 
@@ -1020,7 +1026,7 @@ ggplot(model_fits_position_fig, aes(Estimate, fill = sig)) +
                                "0.001 < p < 0.01" = "#67A9CF",
                                "0.01 < p < 0.05" = "#D1E5F0",
                                "p > 0.05" = "gray")) +
-  scale_x_continuous(breaks = c(0, 5, 10)) +
+  scale_y_continuous(breaks = c(0:5)) +
   labs(x = "Effect estimate",
        y = "Species",
        fill = "") +
@@ -1106,24 +1112,12 @@ tanager <- ggplot(tanager, aes(x = deltaED, y = abundTrend)) + geom_point() +
   theme(panel.spacing = unit(4, "lines")) +
   labs(x = "Change in edge density", y = "Abundance trend", title = "Summer tanager")
 
-# CACH - deltaED:tmin
-
-chickadee <- clim_hab_poptrend_z %>%
-  filter(Common_name == "Carolina chickadee") 
-
-chickadee$tmin_sign <- ifelse(chickadee$tmin < 0, "-1.93 < Z-Tmin < 0", "0 < Z-Tmin < 2.30")
-chickadee <- ggplot(chickadee, aes(x = deltaED, y = abundTrend)) + geom_point() + 
-  geom_smooth(method = "lm", se = F) +
-  facet_wrap(~tmin_sign) +
-  theme(panel.spacing = unit(4, "lines")) +
-  labs(x = "Change in edge density", y = "Abundance trend", title = "Carolina chickadee")
-
 ## Figure for MS
 
 indiv_spp_add <- plot_grid(dove_plot, pewee_plot, woodpecker_plot, towhee_plot, nrow = 2, labels = c("A", "B", "C", "D"))
-indiv_spp_multi <- plot_grid(indiv_spp_add, tanager, chickadee, nrow = 3, rel_heights = c(0.5, 0.25, 0.25),
+indiv_spp_multi <- plot_grid(indiv_spp_add, tanager, nrow = 2, rel_heights = c(0.66, 0.33),
                              labels = c(" ", "E", "F"))
-ggsave("figures/area_sensitivity/indiv_spp_multipanel.pdf", indiv_spp_multi, units = "in", width = 8, height = 12)
+ggsave("figures/area_sensitivity/indiv_spp_multipanel.pdf", indiv_spp_multi, units = "in", width = 9, height = 10)
 
 
 #### Species by site matrix ####
