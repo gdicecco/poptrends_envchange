@@ -62,7 +62,7 @@ routes.short <- RT1.routes %>%
   filter(n >= 5)
 # 1513 routes
 
-# Subset species: forest breeding birds by area sensitivity
+# Subset species: forest breeding birds
 
 setwd("C:/Users/gdicecco/Desktop/git/NLCD_fragmentation/")
 setwd("/Users/gracedicecco/Desktop/git/NLCD_fragmentation")
@@ -594,6 +594,17 @@ spp_breadths <- env_breadth_allroutes %>%
   dplyr::select(SPEC, aou, propFor, min_for, max_for) %>%
   left_join(dplyr::select(env_breadth, SPEC, aou, ed, std_ed)) %>%
   left_join(dplyr::select(traits, aou, volume))
+
+# Species table for MS supplement
+
+spp_table_traits <- correlates %>%
+  dplyr::select(AOU, CommonName, migclass, Foraging) %>%
+  left_join(spp_breadths, by = c("AOU" = "aou")) %>%
+  filter(!is.na(SPEC), SPEC != "CERW") %>%
+  ungroup() %>%
+  dplyr::select(AOU, CommonName, SPEC, migclass, Foraging, propFor, volume)
+
+write.csv(spp_table_traits, "traits/forest_spp_traits_MS.csv", row.names = F)
 
 # Species traits plots
 ed_breadth <- ggplot(env_breadth, aes(x = reorder(SPEC, ed), y = ed, color = SPEC)) +
