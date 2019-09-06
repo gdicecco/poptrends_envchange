@@ -297,10 +297,6 @@ obs_effects <- abund_trend_sig %>%
   arrange(desc(obs_prop))
 write.csv(obs_effects, "model/obs_effect_rankings.csv", row.names = F)
 
-# Range centroid for each species - map of effect sizes for each predictor
-
-# Mean predictor values for each BCR
-
 # Trait data
 setwd("C:/Users/gdicecco/Desktop/git/NLCD_fragmentation/")
 setwd("/Users/gracedicecco/Desktop/git/NLCD_fragmentation/")
@@ -383,6 +379,9 @@ clim_hab_poptrend <- abund_trend %>%
   group_by(aou) %>% 
   mutate(abundTrend_z = (abundTrend - mean(abundTrend, na.rm = T))/sd(abundTrend, na.rm = T))
 
+# shapefile of US/BCRs
+us.proj <- readOGR("\\\\BioArk/hurlbertlab/DiCecco/nlcd_frag_proj_shapefiles/BCRs_contiguous_us/BCRs_contiguous_us.shp")
+
 ##### Analysis #####
 setwd("C:/Users/gdicecco/Desktop/git/NLCD_fragmentation/")
 setwd("/Users/gracedicecco/Desktop/git/NLCD_fragmentation/")
@@ -392,8 +391,6 @@ setwd("/Users/gracedicecco/Desktop/git/NLCD_fragmentation/")
 # Plot of routes used
 
 forest_routes <- us_subs[us_subs$rteno %in% forest_ed$stateroute, ]
-
-us.proj <- readOGR("\\\\BioArk/hurlbertlab/DiCecco/nlcd_frag_proj_shapefiles/BCRs_contiguous_us/BCRs_contiguous_us.shp")
 
 us_subs_transf <- spTransform(forest_routes, crs(us.proj))
 
@@ -922,6 +919,60 @@ ggplot(filter(trait_effects, term == "tmin"), aes(x = propFor, y = Estimate)) +
   geom_text(aes(label = SPEC)) + geom_smooth(method = "lm", se = F) +
   labs(y = "Effect of trend in Tmin", x = "Mean breeding range forest cover")
 ggsave("figures/area_sensitivity/trait_model_tmin_propFor.pdf")
+
+# Range centroid for each species - map of effect sizes for each predictor
+
+species_centroids <- counts.subs %>%
+  ungroup() %>%
+  filter(aou %in% model_fits$aou) %>%
+  group_by(aou) %>%
+  distinct(stateroute, latitude, longitude) %>%
+  summarize(centroid_lon = mean(longitude), centroid_lat = mean(latitude)) %>%
+  st_as_sf(coords = c("centroid_lon", "centroid_lat"))
+
+terms <- unique(model_fits$term)[1:4]
+
+for(trm in terms) {
+  df <- model_fits %>%
+    filter(term == trm)
+  
+  species_centroids_efx <- species_centroids %>%
+    left_join(df, by = "aou") %>%
+    mutate(dot_size = abs(Estimate))
+  
+  map <- tm_shape(us.proj) + tm_fill() + tm_shape(species_centroids_efx) + 
+    tm_dots(col = "dir", size = "dot_size", palette = "RdBu", scale = 2, alpha = 0.7) +
+    tm_layout(main.title = trm)
+  tmap_save(map, paste0("figures/", trm, "_effects_map_spp_centroids.pdf"))
+}
+
+# Mean predictor values for each BCR
+
+bcr_sf <- us.proj %>%
+  st_as_sf() %>%
+  filter(WATER == 3) %>%
+  dplyr::select(BCR, BCRNAME) %>%
+  group_by(BCR) %>%
+  summarize(bcrname = unique(BCRNAME))
+
+bcr_env_trends <- forest %>%
+  dplyr::select(stateroute, deltaED, deltaProp) %>%
+  left_join(climate_wide) %>%
+  left_join(routes, by = "stateroute") %>%
+  dplyr::select(stateroute, bcr, deltaED, deltaProp, tmax, tmin) %>%
+  group_by(bcr) %>%
+  summarize_at(c("deltaED", "deltaProp", "tmax", "tmin"), mean, na.rm = T)
+
+bcr_trends_sf <- bcr_sf %>%
+  left_join(bcr_env_trends, by = c("BCR" = "bcr"))
+
+deltaED <- tm_shape(bcr_trends_sf) + tm_borders() + tm_fill(col = "deltaED", palette = "-PiYG")
+deltaProp <- tm_shape(bcr_trends_sf) + tm_borders() + tm_fill(col = "deltaProp", palette = "PRGn")
+tmin <- tm_shape(bcr_trends_sf) + tm_borders() + tm_fill(col = "tmin", palette = "Reds")
+tmax <- tm_shape(bcr_trends_sf) + tm_borders() + tm_fill(col = "tmax", palette = "-RdBu")
+
+trends <- tmap_arrange(deltaProp, deltaED, tmin, tmax, nrow = 2)
+tmap_save(trends, "figures/bcr_env_trends.pdf")
 
 #### Range position models ####
 
