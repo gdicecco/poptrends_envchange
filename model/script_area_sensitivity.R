@@ -90,6 +90,7 @@ fourletter_codes <- dplyr::select(area_aous, aou, SPEC)
 counts.subs <- counts %>%
   filter(aou %in% area_aous$aou) %>%
   merge(filter(RT1.routes, stateroute %in% routes.short$stateroute), by = c("stateroute", "year")) %>%
+  filter(rpid == 101) %>%
   filter(year >= 1990, year < 2017)
 # 1513 routes
 
@@ -186,116 +187,6 @@ abund_trend_sig <- abund_trend %>%
                                obsPval >= 0.01 & obsPval < 0.05 ~ "0.01 < p < 0.05",
                                obsPval >= 0.001 & obsPval < 0.01 ~ "0.001 < p < 0.01",
                                obsPval < 0.001 ~ "p < 0.001"))
-
-setwd("C:/Users/gdicecco/Desktop/git/NLCD_fragmentation/")
-
-# Histogram of abundance trends colored by p value significance level
-
-ggplot(abund_trend_sig, aes(x = abundTrend, 
-                            fill = fct_relevel(abund_class, c("p < 0.001",
-                                                              "0.001 < p < 0.01", 
-                                                              "0.01 < p < 0.05", 
-                                                              "p > 0.05")))) + 
-  geom_histogram(bins = 20) + 
-  labs(fill = "", x = "Abundance trend", y = "Count") + 
-  scale_fill_viridis_d()
-ggsave("figures/area_sensitivity/hist_abundTrend_sig.pdf")
-
-# Individual maps for species of abundance trends in range
-
-us.proj <- readOGR("\\\\BioArk/hurlbertlab/DiCecco/nlcd_frag_proj_shapefiles/BCRs_contiguous_us/BCRs_contiguous_us.shp")
-states <- us.proj[, -(1:2)]
-
-abund_trend_map <- abund_trend %>%
-  left_join(routes) %>%
-  st_as_sf(coords = c("longitude", "latitude"))
-
-pdf("figures/area_sensitivity/species_abundance_maps.pdf")
-for(spp in unique(abund_trend$aou)) {
-  df <- filter(abund_trend_map, aou == spp)
-  spec <- fourletter_codes$SPEC[fourletter_codes$aou == spp]
-
-  print(tm_shape(states) + tm_polygons(col = 'white') + tm_shape(df) + tm_dots(col = "abundTrend", palette = "RdBu", size = 1) +
-    tm_layout(title = spec))
-}
-dev.off()
-
-# Individual species maps - average by state
-
-states_sf <- read_sf("\\\\BioArk\\Hurlbertlab\\GIS\\geography\\ne_50m_admin_1_states_provinces_lakes\\ne_50m_admin_1_states_provinces_lakes.shp") %>%
-  filter(sr_adm0_a3 == "USA") %>%
-  dplyr::select(adm1_code) %>%
-  filter(adm1_code != "USA-3563" & adm1_code != "USA-3517")
-crs <- st_crs(states_sf)
-
-pdf("figures/area_sensitivity/species_abundance_maps_states.pdf")
-for(spp in unique(abund_trend$aou)) {
-
-  spec <- fourletter_codes$SPEC[fourletter_codes$aou == spp]
-  
-  abund_states <- abund_trend_map %>%
-    filter(aou == spp) %>%
-    st_set_crs(crs) %>%
-    st_join(states_sf) %>%
-    group_by(adm1_code) %>%
-    summarize(meanTrend = mean(abundTrend, na.rm = T))
-  
-  abund_states_df <- data.frame(adm1_code = abund_states$adm1_code, meanTrend = abund_states$meanTrend)
-  
-  abund_states_polygon <- states_sf %>%
-    left_join(abund_states_df)
-  
-  print(tm_shape(abund_states_polygon) + tm_borders() + 
-          tm_fill(col= "meanTrend", palette = "RdBu") + tm_layout(title = spec))
- 
-}
-dev.off()
-
-# For one species with not that many routes - show counts vs. time
-
-bhvi <- filter(abund_trend, aou == 6290, nObs > 9)
-
-pdf("figures/area_sensitivity/abundance_trends_bhvi.pdf")
-for(strte in bhvi$stateroute) {
-  df <- filter(bhvi, stateroute == strte)
-  glm <- df$lmFit[[1]]
-  df.count <- df$data[[1]]
-  df.count$predict <- predict(glm, newdata = df.count, type = "response")
-  plot <- ggplot(df.count, aes(x = year, y = speciestotal)) + geom_point() + 
-    geom_smooth(method = "glm", se = F, method.args = list(family = "poisson"))
-    
-  print(plot)
-
-  }
-dev.off()
-
-# Histogram of first year observer effect colored by p value significance level
-
-ggplot(abund_trend_sig, aes(x = obsTrend, 
-                            fill = fct_relevel(obs_class, c("p < 0.001",
-                                                              "0.001 < p < 0.01", 
-                                                              "0.01 < p < 0.05", 
-                                                              "p > 0.05")))) + 
-  geom_histogram(bins = 20) + 
-  labs(fill = "", x = "First year observer effect", y = "Count") + 
-  scale_fill_viridis_d()
-ggsave("figures/area_sensitivity/hist_obsEffect_sig.pdf")
-
-# Which species most commonly show observer effects?
-
-presences <- counts.subs %>%
-  group_by(aou) %>%
-  summarize(range_size = n_distinct(stateroute))
-
-obs_effects <- abund_trend_sig %>% 
-  filter(!is.na(obs_class), obsPval < 0.05) %>%
-  group_by(aou) %>%
-  count() %>%
-  left_join(presences) %>%
-  left_join(fourletter_codes) %>%
-  mutate(obs_prop = n/range_size) %>%
-  arrange(desc(obs_prop))
-write.csv(obs_effects, "model/obs_effect_rankings.csv", row.names = F)
 
 # Trait data
 setwd("C:/Users/gdicecco/Desktop/git/NLCD_fragmentation/")
@@ -737,59 +628,18 @@ model_fits <- clim_hab_poptrend_z %>%
   })) %>%
   dplyr::select(aou, SPEC, nObs, lm_broom) %>%
   unnest() %>%
-  filter(nObs > 40) %>%
+  filter(nObs > 40) %>% # 1 spp at 38, only one below 40
   filter(term != "(Intercept)") %>%
   rename(std.error = `Std. Error`, z.value = `z value`, p.value = `Pr(>|z|)`) %>%
   mutate(sig = case_when(p.value < 0.05 ~ "p < 0.05",
                          TRUE ~ "p > 0.05"))
 
-range(model_fits$nObs) # 1 spp at 38, only one below 40
+range(model_fits$nObs) 
 # 67 species
 
 #write.csv(model_fits, "model/individual_species_model_tables.csv", row.names = F)
 
 model_fits <- read.csv("model/individual_species_model_tables.csv", stringsAsFactors = F)
-
-# Compare CAR model with linear model results
-
-model_fits_linear <- clim_hab_poptrend_z %>%	
-  group_by(aou, SPEC) %>%	
-  nest() %>%	 
-  mutate(lmFit = purrr::map(data, ~{
-    df <- .	   
-    lm(abundTrend ~ tmax*deltaED + tmin*deltaED + deltaProp, df, na.action = na.fail)
-  })) %>%	
-  mutate(nObs = map_dbl(data, ~{	
-    df <- .	  
-    nrow(df)
-  })) %>%
-  mutate(lm_broom = purrr::map(lmFit,  ~{
-    tidy(.)
-  })) %>%
-  dplyr::select(aou, SPEC, nObs, lm_broom) %>%	 
-  unnest() %>%
-  filter(nObs > 40) %>%	 
-  filter(term != "(Intercept)")
-
-# Join with CAR
-
-for(trm in unique(model_fits_linear$term)) {
-  name <- str_remove(trm, ":")
-  linear <- filter(model_fits_linear, term == trm) %>%
-    mutate(model = "linear") %>%
-    dplyr::select(aou, SPEC, estimate, model)
-  car <- filter(model_fits, term == trm) %>%
-    mutate(model = "car") %>%
-    dplyr::select(aou, SPEC, Estimate, model) %>%
-    rename(estimate = Estimate)
-  
-  mods <- bind_rows(linear, car) %>%
-    spread(model, estimate)
-  
-  plot <- ggplot(mods, aes(x = car, y = linear)) + geom_point() + geom_abline(slope = 1) + 
-    geom_text(aes(label = SPEC), nudge_y = 0.0005)
-  ggsave(paste0("figures/area_sensitivity/", name, "_comparison.pdf"), plot)
-}
 
 # Figure: distributions of effect sizes by species
 
@@ -1056,7 +906,7 @@ model_fits_position <- clim_hab_poptrend_position %>%
   unnest() %>%
   rename(std.error = `Std. Error`, z.value = `z value`, p.value = `Pr(>|z|)`) 
 
-write.csv(model_fits_position, "model/range_position_model_tables.csv", row.names = F)
+#write.csv(model_fits_position, "model/range_position_model_tables.csv", row.names = F)
 model_fits_position <- read.csv("model/range_position_model_tables.csv", stringsAsFactors = F)
 
 model_fits_position_fig <- model_fits_position %>%
