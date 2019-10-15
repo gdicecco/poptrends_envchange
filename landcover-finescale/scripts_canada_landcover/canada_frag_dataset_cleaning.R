@@ -5,9 +5,10 @@ library(sf)
 library(tmap)
 
 setwd("\\\\BioArk\\hurlbertlab\\DiCecco\\data\\")
+setwd("/Volumes/hurlbertlab/DiCecco/data/")
 canada <- read.csv("fragmentation_indices_canada.csv", stringsAsFactors = F) # 870 routes
 
-route_zones <- nlcd %>% 
+route_zones <- canada %>% 
   dplyr::select(year, stateroute, file) %>% 
   group_by(year, stateroute) %>% 
   summarize(n_zones = as.factor(n_distinct(file)))
@@ -16,6 +17,7 @@ zone_duplicates <- route_zones %>%
   filter(n_zones == 2) # 80
 
 setwd("\\\\BioArk\\hurlbertlab\\databases\\bbs\\2017\\")
+setwd("/Volumes/hurlbertlab/databases/bbs/2017/")
 routes <- read.csv("bbs_routes_20170712.csv", stringsAsFactors = F) %>%
   mutate(stateroute = statenum*1000 + route) %>%
   dplyr::select(stateroute, latitude, longitude)
