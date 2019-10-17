@@ -23,9 +23,11 @@ library(units)
 setwd("\\\\Bioark.bio.unc.edu/hurlbertlab/DiCecco/nlcd_frag_proj_shapefiles/")
 
 ca_routes <- read_sf("bbs_canada_route_areas.shp") %>%
-  dplyr::select(rteno, RTENAME, STATUS, geometry)
+  dplyr::select(rteno, RTENAME, STATUS, geometry) %>%
+  mutate(country = "Canada")
 us_routes <- read_sf("bbsroutes_5km_buffer.shp") %>%
-  dplyr::select(rteno, RTENAME, STATUS, geometry)
+  dplyr::select(rteno, RTENAME, STATUS, geometry) %>%
+  mutate(country = "US")
 
 na_routes <- rbind(ca_routes, us_routes)
 
@@ -95,7 +97,7 @@ for(y in years) {
 }
 
 setwd("\\\\Bioark.bio.unc.edu\\hurlbertlab\\DiCecco\\data\\")
-write.csv(routeDAYMET, "bbs_routes_breeding_season_climate.csv", row.names = F)
+#write.csv(routeDAYMET, "bbs_routes_breeding_season_climate.csv", row.names = F)
 
 routeDAYMET <- read.csv("bbs_routes_breeding_season_climate.csv", stringsAsFactors = F)
 
@@ -103,16 +105,27 @@ routeDAYMET <- read.csv("bbs_routes_breeding_season_climate.csv", stringsAsFacto
 library(broom)
 library(purrr)
 
+route_countries <- na_routes %>%
+  dplyr::select(rteno, country) %>%
+  st_set_geometry(NULL)
+
 climate_trends <- routeDAYMET %>%
   gather(key = "env", value = "val", c("tmax", "tmin")) %>%
   dplyr::select(-ID) %>%
-  group_by(stateroute, env, year) %>%
+  left_join(route_countries, by = c("stateroute" = "rteno")) %>%
+  group_by(country, stateroute, env, year) %>%
   summarize(breedingAvg = mean(val)) %>%
   group_by(stateroute, env) %>%
   nest() %>%
   mutate(lmFit = purrr::map(data, ~{
     df <- .
-    lm(breedingAvg ~ year, df)
+    country <- unique(df$country)
+    if(country == "Canada") {
+      lm(breedingAvg ~ year, filter(df, year >= 1990 & year <= 2010))
+    } else {
+      lm(breedingAvg ~ year, filter(df, year >= 1992 & year <= 2016))
+    }
+    
   })) %>%
   mutate(lm_broom = purrr::map(lmFit, tidy)) %>%
   mutate(climateTrend = map_dbl(lm_broom, ~{
