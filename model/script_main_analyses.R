@@ -734,8 +734,8 @@ model_fits <- model_fits %>%
   mutate(sig = fct_relevel(sig, c("p < 0.001", "0.001 < p < 0.01", "0.01 < p < 0.05", "p > 0.05"))) %>%
   mutate(dir = ifelse(Estimate < 0, "Negative effect", "Positive effect"))
 
-density_plot <- function(variable, label) {
-  ggplot(filter(model_fits, term == variable), aes(x = Estimate, fill = sig)) + 
+density_plot <- function(df, variable, label) {
+  ggplot(filter(df, term == variable), aes(x = Estimate, fill = sig)) + 
     geom_histogram(bins = 20) + 
     geom_vline(aes(xintercept = mean(Estimate)), lty = 2, cex = 1) + 
     labs(x = label, y = "Species", fill = "") +
@@ -745,12 +745,12 @@ density_plot <- function(variable, label) {
                                  "p > 0.05" = "gray"))
 }
 
-deltaED <- density_plot("deltaED", "Change in edge density")
-deltaProp <- density_plot("deltaProp", "Change in forest cover") + scale_x_continuous(breaks = c(-0.01, 0, 0.01))
-tmin <- density_plot("tmin", "Trend in Tmin")
-tmax <- density_plot("tmax", "Trend in Tmax")
-tmaxED <- density_plot("tmax:deltaED", "Tmax:change in ED")
-tminED <- density_plot("deltaED:tmin", "Tmin:change in ED")
+deltaED <- density_plot(model_fits, "deltaED", "Change in edge density")
+deltaProp <- density_plot(model_fits, "deltaProp", "Change in forest cover") + scale_x_continuous(breaks = c(-0.01, 0, 0.01))
+tmin <- density_plot(model_fits, "tmin", "Trend in Tmin")
+tmax <- density_plot(model_fits, "tmax", "Trend in Tmax")
+tmaxED <- density_plot(model_fits, "tmax:deltaED", "Tmax:change in ED")
+tminED <- density_plot(model_fits, "deltaED:tmin", "Tmin:change in ED")
 
 legend <- get_legend(deltaED)
 
@@ -767,8 +767,8 @@ ggsave("figures/main_analysis_figs/model_effects_distributions.pdf", units = "in
 
 ## Supplemental figure: p value ranges for each variable
 
-pval_plot <- function(variable, label) {
-  ggplot(filter(model_fits, term == variable), aes(x = p.value, fill = dir)) + 
+pval_plot <- function(df, variable, label) {
+  ggplot(filter(df, term == variable), aes(x = p.value, fill = dir)) + 
     geom_histogram(bins = 20) + 
     geom_vline(aes(xintercept = mean(p.value)), lty = 2, cex = 1) + 
     labs(x = label, y = "Count", fill = "")  +
@@ -777,15 +777,15 @@ pval_plot <- function(variable, label) {
 }
 
 options(scipen = 999)
-deltaED <- pval_plot("deltaED", "Change in edge density") + scale_x_log10(breaks = c(0.00001, 0.001, 1),
+deltaED <- pval_plot(model_fits, "deltaED", "Change in edge density") + scale_x_log10(breaks = c(0.00001, 0.001, 1),
                                                                 labels = c(0.00001, 0.001, 1))
-deltaProp <- pval_plot("deltaProp", "Change in forest cover") + scale_x_log10(breaks = c(0.0001, 0.01, 1),
+deltaProp <- pval_plot(model_fits, "deltaProp", "Change in forest cover") + scale_x_log10(breaks = c(0.0001, 0.01, 1),
                                                                              labels = c(0.0001, 0.01, 1))
-tmin <- pval_plot("tmin", "Trend in Tmin") + scale_x_log10(breaks = c(0.0001, 0.01, 1),
+tmin <- pval_plot(model_fits, "tmin", "Trend in Tmin") + scale_x_log10(breaks = c(0.0001, 0.01, 1),
                                                            labels = c(0.0001, 0.01, 1))
-tmax <- pval_plot("tmax", "Trend in Tmax")
-tmaxED <- pval_plot("tmax:deltaED", "Tmax:change in ED")
-tminED <- pval_plot("deltaED:tmin", "Tmin:change in ED")
+tmax <- pval_plot(model_fits, "tmax", "Trend in Tmax")
+tmaxED <- pval_plot(model_fits, "tmax:deltaED", "Tmax:change in ED")
+tminED <- pval_plot(model_fits, "deltaED:tmin", "Tmin:change in ED")
 
 legend <- get_legend(tmin)
 
@@ -875,85 +875,73 @@ for(trm in terms) {
 
 #### Range position models ####
 
-range_centroids <- read.csv("traits/species_Brange_centroids.csv", stringsAsFactors = F)
-route_directions <- read.csv('traits/species_route_dist_from_centroids.csv', stringsAsFactors = F)
+## Mean breeding season temperature on BBS routes
 
-# Group routes into north, south, center of range
-
-route_terciles <- route_directions %>%
-  left_join(range_centroids, by = c("aou")) %>%
-  left_join(dplyr::select(routes, stateroute, latitude, longitude)) %>%
-  mutate(range_direction = case_when(latitude >= n_tercile ~ "North", 
-                                    latitude <= s_tercile ~ "South",
-                                     TRUE ~ "Central")) %>%
-  group_by(aou, range_direction) %>%
-  filter(n() > 40)
+route_climate <- read.csv("climate/bbs_routes_breeding_season_climate.csv", stringsAsFactors = F) %>%
+  group_by(stateroute) %>%
+  summarize(mean_tmax = mean(tmax),
+            mean_tmin = mean(tmin))
 
 ## Join route position with clim_hab_poptrend table
 
-clim_hab_poptrend_position <- clim_hab_poptrend_z %>%
-  filter(aou %in% route_terciles$aou) %>%
-  left_join(route_terciles, by = c("stateroute", "aou")) %>%
-  filter(!is.na(range_direction)) %>%
-  group_by(aou, range_direction) %>%
-  mutate(n = n()) %>%
-  filter(n > 40)
+clim_hab_poptrend_means <- clim_hab_poptrend_z %>%
+  left_join(route_climate)
 
-## Individual models of Tmin and Tmax with interactions with route position
+## Individual models of Tmin and Tmax with interactions with breeding season mean Tmin and Tmax over study period
 
-model_fits_position <- clim_hab_poptrend_position %>%
-  group_by(aou, SPEC, range_direction) %>%
-  nest() %>%
-  mutate(lmFit = map(data, ~{
-    df <- .
-    
-    # get species weights matrix
-    
-    # Coordinates of BBS routes
-    
-    coords_bbs <- df %>%
-      ungroup() %>%
-      dplyr::select(stateroute) %>%
-      distinct() %>%
-      left_join(routes) %>%
-      dplyr::select(stateroute, longitude, latitude)
-    
-    coords_mat <- as.matrix(coords_bbs[, -1])
-    
-    # Calculate nearest neighbors and make spatial neighborhood
-    k0 <- knearneigh(coords_mat, longlat=T, k=1)
-    k1 <- knn2nb(k0)
-    
-    # Find maximum neighbor distance and use this distance to define neighborhoods
-    max.d <- max(unlist(nbdists(k1, coords_mat, longlat=T)))
-    nb0.birds <- dnearneigh(coords_mat, 0, max.d, longlat=T)
-    plot(nb0.birds, coords_mat)
-    
-    # Using a distance threshold of 100km
-    nb1.birds <- dnearneigh(coords_mat,1,100,longlat=T)
-    plot(nb1.birds, coords_mat)
-    
-    # Create spatial weights based on linear distance decay
-    glist.birds <- nbdists(nb0.birds, coords_mat, longlat=T)
-    glist.birds <- lapply(glist.birds, function(x) 1-(x/ceiling(max.d))) # Round up max.d so that all point get weights
-    wt.birds <- nb2listw(nb0.birds, style='B', glist=glist.birds)
-    
-    spautolm(abundTrend ~ tmax + tmin, data = df, wt.birds, na.action = na.fail, family = "CAR")
-  })) %>%
-  mutate(nObs = map_dbl(data, ~{
-    df <- .
-    nrow(df)
-  }))  %>%
-  mutate(lm_broom = map(lmFit,  ~{
-    mod <- .
-    sum <- summary(mod)
-    df <- as.data.frame(sum$Coef)
-    df$term = row.names(df)
-    df
-  })) %>%
-  dplyr::select(aou, SPEC, range_direction, nObs, lm_broom) %>%
-  unnest() %>%
-  rename(std.error = `Std. Error`, z.value = `z value`, p.value = `Pr(>|z|)`) 
+# model_fits_position <- clim_hab_poptrend_means %>%
+#   group_by(aou, SPEC) %>%
+#   nest() %>%
+#   mutate(lmFit = map(data, ~{
+#     df <- .
+#     
+#     # get species weights matrix
+#     
+#     # Coordinates of BBS routes
+#     
+#     coords_bbs <- df %>%
+#       ungroup() %>%
+#       dplyr::select(stateroute) %>%
+#       distinct() %>%
+#       left_join(routes) %>%
+#       dplyr::select(stateroute, longitude, latitude)
+#     
+#     coords_mat <- as.matrix(coords_bbs[, -1])
+#     
+#     # Calculate nearest neighbors and make spatial neighborhood
+#     k0 <- knearneigh(coords_mat, longlat=T, k=1)
+#     k1 <- knn2nb(k0)
+#     
+#     # Find maximum neighbor distance and use this distance to define neighborhoods
+#     max.d <- max(unlist(nbdists(k1, coords_mat, longlat=T)))
+#     nb0.birds <- dnearneigh(coords_mat, 0, max.d, longlat=T)
+#     plot(nb0.birds, coords_mat)
+#     
+#     # Using a distance threshold of 100km
+#     nb1.birds <- dnearneigh(coords_mat,1,100,longlat=T)
+#     plot(nb1.birds, coords_mat)
+#     
+#     # Create spatial weights based on linear distance decay
+#     glist.birds <- nbdists(nb0.birds, coords_mat, longlat=T)
+#     glist.birds <- lapply(glist.birds, function(x) 1-(x/ceiling(max.d))) # Round up max.d so that all point get weights
+#     wt.birds <- nb2listw(nb0.birds, style='B', glist=glist.birds)
+#     
+#     spautolm(abundTrend ~ tmax*mean_tmax + tmin*mean_tmin, data = df, wt.birds, na.action = na.fail, family = "CAR")
+#   })) %>%
+#   mutate(nObs = map_dbl(data, ~{
+#     df <- .
+#     nrow(df)
+#   }))  %>%
+#   mutate(lm_broom = map(lmFit,  ~{
+#     mod <- .
+#     sum <- summary(mod)
+#     df <- as.data.frame(sum$Coef)
+#     df$term = row.names(df)
+#     df
+#   })) %>%
+#   dplyr::select(aou, SPEC, nObs, lm_broom) %>%
+#   unnest() %>%
+#   rename(std.error = `Std. Error`, z.value = `z value`, p.value = `Pr(>|z|)`) 
 
 #write.csv(model_fits_position, "model/range_position_model_tables.csv", row.names = F)
 model_fits_position <- read.csv("model/range_position_model_tables.csv", stringsAsFactors = F)
@@ -966,62 +954,52 @@ model_fits_position_fig <- model_fits_position %>%
                          TRUE ~ "p > 0.05")) %>%
   mutate(sig = fct_relevel(sig, c("p < 0.001", "0.001 < p < 0.01", "0.01 < p < 0.05", "p > 0.05"))) %>%
   mutate(dir = ifelse(Estimate > 0, "Positive effect", "Negative effect")) %>%
-  mutate(term = fct_recode(term, Tmin = "tmin", Tmax = "tmax")) %>%
-  mutate(term = paste("Trend in", term)) %>%
-  mutate(range_direction = fct_relevel(range_direction, levels = c("North", "Central", "South"))) %>%
-  filter(range_direction != "Central") %>%
   ungroup() %>%
-  filter(SPEC != "CERW") %>%
-  group_by(SPEC) %>%
-  filter(n_distinct(range_direction) == 2) %>%
-  group_by(range_direction, term) %>%
-  mutate(meanEst = mean(Estimate, na.rm =T))
+  filter(SPEC != "CERW")
 
 # Figure
 
-ggplot(model_fits_position_fig, aes(Estimate, fill = sig)) +
-  geom_histogram(bins = 15) + 
-  facet_grid(range_direction ~ term) +
-  geom_vline(aes(xintercept = meanEst), lty = 2, cex = 1) +
-  scale_fill_manual(values = c("p < 0.001" = "#2166AC", 
-                               "0.001 < p < 0.01" = "#67A9CF",
-                               "0.01 < p < 0.05" = "#D1E5F0",
-                               "p > 0.05" = "gray")) +
-  scale_y_continuous(breaks = c(0:5)) +
-  labs(x = "Effect estimate",
-       y = "Species",
-       fill = "") +
-  theme_bw() + 
-  theme(panel.grid.major = element_blank(), 
-        panel.grid.minor = element_blank(),
-        panel.background = element_rect(colour = "black")) +
-  theme(axis.text = element_text(size = 12),
-        strip.text = element_text(size = 12),
-        text = element_text(size = 12),
-        legend.text = element_text(size = 12))
+tmax_plot <- density_plot(model_fits_position_fig, "tmax", "Trend in Tmax")
+tmin_plot <- density_plot(model_fits_position_fig, "tmin", "Trend in Tmin")
+tmax_mean_plot <- density_plot(model_fits_position_fig, "mean_tmax", "Mean Tmax")
+tmin_mean_plot <- density_plot(model_fits_position_fig, "mean_tmin", "Mean Tmin")
+tmax_int_plot <- density_plot(model_fits_position_fig, "tmax:mean_tmax", "Interaction: trend in Tmax & mean Tmax")
+tmin_int_plot <- density_plot(model_fits_position_fig, "tmin:mean_tmin", "Interaction: trend in Tmin & mean Tmin")
   
-ggsave("figures/main_analysis_figs/range_position_temp_responses.pdf")
+legend <- get_legend(tmax_plot)
+
+temp_effects <- plot_grid(tmax_plot + theme(legend.position = "none"), 
+                          tmin_plot + theme(legend.position = "none") + ylab(" "), 
+                          tmax_mean_plot + theme(legend.position = "none"), 
+                          tmin_mean_plot + theme(legend.position = "none") + ylab(" "), 
+                          tmax_int_plot + theme(legend.position = "none"), 
+                          tmin_int_plot + theme(legend.position = "none") + ylab(" "),
+                          nrow = 3,
+                          labels = c("A", "B", "C", "D", "E", "F"))
+plot_grid(temp_effects, legend, rel_widths = c(2, 0.4))
+ggsave("figures/main_analysis_figs/range_position_temp_responses.pdf", units = "in", height = 9, width = 10)
 
 ## Supplemental figure: p-values
 
-ggplot(model_fits_position_fig, aes(x = p.value, fill = dir)) +
-  geom_histogram(bins = 15) + 
-  facet_grid(range_direction ~ term) +
-  scale_x_log10(breaks = c(0.001, 0.01, 0.1, 1), labels = c(0.001, 0.01, 0.1, 1)) +
-  labs(x = "Effect p-value",
-       y = "Count",
-       fill = "") +
-  theme_bw() + 
-  theme(panel.grid.major = element_blank(), 
-        panel.grid.minor = element_blank(),
-        panel.background = element_rect(colour = "black")) +
-  theme(axis.text = element_text(size = 12),
-        strip.text = element_text(size = 12),
-        text = element_text(size = 12),
-        legend.text = element_text(size = 12)) +
-  scale_fill_manual(values = c("dodgerblue3", "firebrick2"))
+tmax_plot <- pval_plot(model_fits_position_fig, "tmax", "Trend in Tmax")
+tmin_plot <- pval_plot(model_fits_position_fig, "tmin", "Trend in Tmin")
+tmax_mean_plot <- pval_plot(model_fits_position_fig, "mean_tmax", "Mean Tmax")
+tmin_mean_plot <- pval_plot(model_fits_position_fig, "mean_tmin", "Mean Tmin")
+tmax_int_plot <- pval_plot(model_fits_position_fig, "tmax:mean_tmax", "Interaction: trend in Tmax & mean Tmax")
+tmin_int_plot <- pval_plot(model_fits_position_fig, "tmin:mean_tmin", "Interaction: trend in Tmin & mean Tmin")
 
-ggsave("figures/main_analysis_figs/range_position_temp_pvals.pdf")
+legend <- get_legend(tmax_plot)
+
+temp_effects <- plot_grid(tmax_plot + theme(legend.position = "none"), 
+                          tmin_plot + theme(legend.position = "none") + ylab(" "), 
+                          tmax_mean_plot + theme(legend.position = "none"), 
+                          tmin_mean_plot + theme(legend.position = "none") + ylab(" "), 
+                          tmax_int_plot + theme(legend.position = "none"), 
+                          tmin_int_plot + theme(legend.position = "none") + ylab(" "),
+                          nrow = 3,
+                          labels = c("A", "B", "C", "D", "E", "F"))
+plot_grid(temp_effects, legend, rel_widths = c(2, 0.4))
+ggsave("figures/main_analysis_figs/range_position_temp_pvals.pdf", units = "in", height = 9, width = 10)
 
 #### Strongest species response for each predictor ####
 

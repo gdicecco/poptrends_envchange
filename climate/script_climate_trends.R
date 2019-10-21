@@ -96,7 +96,7 @@ for(y in years) {
   routeDAYMET <- rbind(routeDAYMET, tmp)
 }
 
-setwd("\\\\Bioark.bio.unc.edu\\hurlbertlab\\DiCecco\\data\\")
+setwd("C:/Users/gdicecco/Desktop/git/NLCD_fragmentation/climate/")
 #write.csv(routeDAYMET, "bbs_routes_breeding_season_climate.csv", row.names = F)
 
 routeDAYMET <- read.csv("bbs_routes_breeding_season_climate.csv", stringsAsFactors = F)
