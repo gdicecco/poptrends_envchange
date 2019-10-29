@@ -395,7 +395,7 @@ cor(dplyr::select(clim_hab_poptrend, tmin, tmax, deltaED, deltaProp, ED, propFor
 color_scale <- data.frame(color = c(1:4), 
                           dED_hex = c("#5aae61", "#e6f5d0", "#fde0ef", "#de77ae"),
                           dProp_hex = c("#7b3294", "#c2a5cf", "#d9f0d3", "#5aae61"),
-                          temp_hex = c("#FDDBC7", "#F4A582", "#D6604D", "#b2182b"), stringsAsFactors = F)
+                          temp_hex = c("#92C5DE", "#FDDBC7", "#EF8A62", "#B2182B"), stringsAsFactors = F)
 
 bbs_routes_forest <- forest_transf %>%
   st_as_sf() %>%
@@ -415,12 +415,12 @@ bbs_routes_fored <- tm_shape(na_map) + tm_fill(col = "gray63") + tm_borders(col 
 
 bbs_routes_tmin <- tm_shape(na_map) + tm_fill(col = "gray63") + tm_borders(col = "gray63") + 
   tm_shape(bbs_routes_forest)  + 
-  tm_lines(col = "tmin", scale = 3, breaks = quantile(bbs_routes_forest$tmin), palette = color_scale$temp_hex) +
+  tm_lines(col = "tmin", scale = 3, breaks = quantile(bbs_routes_forest$tmin, na.rm = T), palette = color_scale$temp_hex) +
   tm_layout(legend.show = F, title = "C", title.fontface = "bold")
 
 bbs_routes_tmax <- tm_shape(na_map) + tm_fill(col = "gray63") + tm_borders(col = "gray63") + 
   tm_shape(bbs_routes_forest)  + 
-  tm_lines(col = "tmax", scale = 3, breaks = quantile(bbs_routes_forest$tmax), palette = color_scale$temp_hex) +
+  tm_lines(col = "tmax", scale = 3, breaks = quantile(bbs_routes_forest$tmax, na.rm = T), palette = color_scale$temp_hex) +
   tm_layout(legend.show = F, title = "D", title.fontface = "bold")
 
 bbs_routes <- tmap_arrange(bbs_routes_forcov, bbs_routes_fored, bbs_routes_tmin, bbs_routes_tmax, nrow = 2)
@@ -432,8 +432,8 @@ bbs_routes <- tmap_arrange(bbs_routes_forcov, bbs_routes_fored, bbs_routes_tmin,
 
 dED_quant <- quantile(bbs_routes_forest$deltaED)
 dProp_quant <- quantile(bbs_routes_forest$deltaProp)
-tmin_quant <- quantile(bbs_routes_forest$tmin)
-tmax_quant <- quantile(bbs_routes_forest$tmax)
+tmin_quant <- quantile(bbs_routes_forest$tmin, na.rm = T)
+tmax_quant <- quantile(bbs_routes_forest$tmax, na.rm = T)
 
 quantile_group <- function(quantiles, value) {
   case_when(
@@ -658,66 +658,66 @@ clim_hab_poptrend_z <- abund_trend %>%
   left_join(fourletter_codes)
 
 # Spatial CAR models by species
-# 
-# model_fits <- clim_hab_poptrend_z %>%
-#   group_by(aou, SPEC) %>%
-#   nest() %>%
-#   mutate(lmFit = map(data, ~{
-#     df <- .
-#     
-#     # get species weights matrix
-#     
-#     # Coordinates of BBS routes
-#     
-#     coords_bbs <- df %>%
-#       ungroup() %>%
-#       dplyr::select(stateroute) %>%
-#       distinct() %>%
-#       left_join(routes) %>%
-#       dplyr::select(stateroute, longitude, latitude)
-#     
-#     coords_mat <- as.matrix(coords_bbs[, -1])
-#     
-#     # Calculate nearest neighbors and make spatial neighborhood
-#     k0 <- knearneigh(coords_mat, longlat=T, k=1)
-#     k1 <- knn2nb(k0)
-#     
-#     # Find maximum neighbor distance and use this distance to define neighborhoods
-#     max.d <- max(unlist(nbdists(k1, coords_mat, longlat=T)))
-#     nb0.birds <- dnearneigh(coords_mat, 0, max.d, longlat=T)
-#     plot(nb0.birds, coords_mat)
-#     
-#     # Using a distance threshold of 100km
-#     nb1.birds <- dnearneigh(coords_mat,1,100,longlat=T)
-#     plot(nb1.birds, coords_mat)
-#     
-#     # Create spatial weights based on linear distance decay
-#     glist.birds <- nbdists(nb0.birds, coords_mat, longlat=T)
-#     glist.birds <- lapply(glist.birds, function(x) 1-(x/ceiling(max.d))) # Round up max.d so that all point get weights
-#     wt.birds <- nb2listw(nb0.birds, style='B', glist=glist.birds)
-#     
-#     spautolm(abundTrend ~ tmax*deltaED + tmin*deltaED + deltaProp, data = df, wt.birds, na.action = na.fail, family = "CAR")
-#   })) %>%
-#   mutate(nObs = map_dbl(data, ~{
-#     df <- .
-#     nrow(df)
-#   }))  %>%
-#   mutate(lm_broom = map(lmFit,  ~{
-#     mod <- .
-#     sum <- summary(mod)
-#     df <- as.data.frame(sum$Coef)
-#     df$term = row.names(df)
-#     df
-#   })) %>%
-#   dplyr::select(aou, SPEC, nObs, lm_broom) %>%
-#   unnest() %>%
-#   filter(nObs > 40) %>% # 1 spp at 38, only one below 40
-#   filter(term != "(Intercept)") %>%
-#   rename(std.error = `Std. Error`, z.value = `z value`, p.value = `Pr(>|z|)`) %>%
-#   mutate(sig = case_when(p.value < 0.05 ~ "p < 0.05",
-#                          TRUE ~ "p > 0.05"))
-# 
-# range(model_fits$nObs) 
+
+model_fits <- clim_hab_poptrend_z %>%
+  group_by(aou, SPEC) %>%
+  nest() %>%
+  mutate(lmFit = map(data, ~{
+    df <- .
+
+    # get species weights matrix
+
+    # Coordinates of BBS routes
+
+    coords_bbs <- df %>%
+      ungroup() %>%
+      dplyr::select(stateroute) %>%
+      distinct() %>%
+      left_join(routes) %>%
+      dplyr::select(stateroute, longitude, latitude)
+
+    coords_mat <- as.matrix(coords_bbs[, -1])
+
+    # Calculate nearest neighbors and make spatial neighborhood
+    k0 <- knearneigh(coords_mat, longlat=T, k=1)
+    k1 <- knn2nb(k0)
+
+    # Find maximum neighbor distance and use this distance to define neighborhoods
+    max.d <- max(unlist(nbdists(k1, coords_mat, longlat=T)))
+    nb0.birds <- dnearneigh(coords_mat, 0, max.d, longlat=T)
+    plot(nb0.birds, coords_mat)
+
+    # Using a distance threshold of 100km
+    nb1.birds <- dnearneigh(coords_mat,1,100,longlat=T)
+    plot(nb1.birds, coords_mat)
+
+    # Create spatial weights based on linear distance decay
+    glist.birds <- nbdists(nb0.birds, coords_mat, longlat=T)
+    glist.birds <- lapply(glist.birds, function(x) 1-(x/ceiling(max.d))) # Round up max.d so that all point get weights
+    wt.birds <- nb2listw(nb0.birds, style='B', glist=glist.birds)
+
+    spautolm(abundTrend ~ tmax*deltaED + tmin*deltaED + deltaProp, data = df, wt.birds, na.action = na.fail, family = "CAR")
+  })) %>%
+  mutate(nObs = map_dbl(data, ~{
+    df <- .
+    nrow(df)
+  }))  %>%
+  mutate(lm_broom = map(lmFit,  ~{
+    mod <- .
+    sum <- summary(mod)
+    df <- as.data.frame(sum$Coef)
+    df$term = row.names(df)
+    df
+  })) %>%
+  dplyr::select(aou, SPEC, nObs, lm_broom) %>%
+  unnest() %>%
+  filter(nObs > 40) %>% # 1 spp at 38, only one below 40
+  filter(term != "(Intercept)") %>%
+  rename(std.error = `Std. Error`, z.value = `z value`, p.value = `Pr(>|z|)`) %>%
+  mutate(sig = case_when(p.value < 0.05 ~ "p < 0.05",
+                         TRUE ~ "p > 0.05"))
+
+range(model_fits$nObs)
 # 67 species
 
 #write.csv(model_fits, "model/individual_species_model_tables.csv", row.names = F)
@@ -781,8 +781,7 @@ deltaED <- pval_plot(model_fits, "deltaED", "Change in edge density") + scale_x_
                                                                 labels = c(0.00001, 0.001, 1))
 deltaProp <- pval_plot(model_fits, "deltaProp", "Change in forest cover") + scale_x_log10(breaks = c(0.0001, 0.01, 1),
                                                                              labels = c(0.0001, 0.01, 1))
-tmin <- pval_plot(model_fits, "tmin", "Trend in Tmin") + scale_x_log10(breaks = c(0.0001, 0.01, 1),
-                                                           labels = c(0.0001, 0.01, 1))
+tmin <- pval_plot(model_fits, "tmin", "Trend in Tmin")
 tmax <- pval_plot(model_fits, "tmax", "Trend in Tmax")
 tmaxED <- pval_plot(model_fits, "tmax:deltaED", "Tmax:change in ED")
 tminED <- pval_plot(model_fits, "deltaED:tmin", "Tmin:change in ED")
@@ -806,29 +805,29 @@ forest_traits <- spp_breadths %>%
   left_join(area_aous) %>%
   left_join(correlates, by = c("aou" = "AOU"))
 
-# spp_traits <- spp_breadths %>%
-#   left_join(area_aous) %>%
-#   left_join(correlates, by = c("aou" = "AOU")) %>%
-#   left_join(model_fits) %>%
-#   group_by(term) %>%
-#   nest() %>%
-#   filter(!is.na(term)) %>%
-#   mutate(trait_mod = purrr::map(data, ~{
-#     df <- .
-#     lm(Estimate ~  volume + propFor + migclass + Foraging, data = df)
-#   }),
-#   tidy = purrr::map(trait_mod, ~{
-#     mod <- .
-#     tidy(mod)
-#   }),
-#   r2 = map_dbl(trait_mod, ~{
-#     mod <- .
-#     glance(mod)$r.squared
-#   })) %>%
-#   dplyr::select(term, tidy, r2) %>%
-#   unnest()
-# 
-# write.csv(spp_traits, "model/spp_trait_model_output.csv", row.names = F)
+spp_traits <- spp_breadths %>%
+  left_join(area_aous) %>%
+  left_join(correlates, by = c("aou" = "AOU")) %>%
+  left_join(model_fits) %>%
+  group_by(term) %>%
+  nest() %>%
+  filter(!is.na(term)) %>%
+  mutate(trait_mod = purrr::map(data, ~{
+    df <- .
+    lm(Estimate ~  volume + propFor + migclass + Foraging, data = df)
+  }),
+  tidy = purrr::map(trait_mod, ~{
+    mod <- .
+    tidy(mod)
+  }),
+  r2 = map_dbl(trait_mod, ~{
+    mod <- .
+    glance(mod)$r.squared
+  })) %>%
+  dplyr::select(term, tidy, r2) %>%
+  unnest()
+
+write.csv(spp_traits, "model/spp_trait_model_output.csv", row.names = F)
 spp_traits <- read.csv("model/spp_trait_model_output.csv", stringsAsFactors = F)
 
 spp_traits_pred <- spp_traits %>%
@@ -889,61 +888,61 @@ clim_hab_poptrend_means <- clim_hab_poptrend_z %>%
 
 ## Individual models of Tmin and Tmax with interactions with breeding season mean Tmin and Tmax over study period
 
-# model_fits_position <- clim_hab_poptrend_means %>%
-#   group_by(aou, SPEC) %>%
-#   nest() %>%
-#   mutate(lmFit = map(data, ~{
-#     df <- .
-#     
-#     # get species weights matrix
-#     
-#     # Coordinates of BBS routes
-#     
-#     coords_bbs <- df %>%
-#       ungroup() %>%
-#       dplyr::select(stateroute) %>%
-#       distinct() %>%
-#       left_join(routes) %>%
-#       dplyr::select(stateroute, longitude, latitude)
-#     
-#     coords_mat <- as.matrix(coords_bbs[, -1])
-#     
-#     # Calculate nearest neighbors and make spatial neighborhood
-#     k0 <- knearneigh(coords_mat, longlat=T, k=1)
-#     k1 <- knn2nb(k0)
-#     
-#     # Find maximum neighbor distance and use this distance to define neighborhoods
-#     max.d <- max(unlist(nbdists(k1, coords_mat, longlat=T)))
-#     nb0.birds <- dnearneigh(coords_mat, 0, max.d, longlat=T)
-#     plot(nb0.birds, coords_mat)
-#     
-#     # Using a distance threshold of 100km
-#     nb1.birds <- dnearneigh(coords_mat,1,100,longlat=T)
-#     plot(nb1.birds, coords_mat)
-#     
-#     # Create spatial weights based on linear distance decay
-#     glist.birds <- nbdists(nb0.birds, coords_mat, longlat=T)
-#     glist.birds <- lapply(glist.birds, function(x) 1-(x/ceiling(max.d))) # Round up max.d so that all point get weights
-#     wt.birds <- nb2listw(nb0.birds, style='B', glist=glist.birds)
-#     
-#     spautolm(abundTrend ~ tmax*mean_tmax + tmin*mean_tmin, data = df, wt.birds, na.action = na.fail, family = "CAR")
-#   })) %>%
-#   mutate(nObs = map_dbl(data, ~{
-#     df <- .
-#     nrow(df)
-#   }))  %>%
-#   mutate(lm_broom = map(lmFit,  ~{
-#     mod <- .
-#     sum <- summary(mod)
-#     df <- as.data.frame(sum$Coef)
-#     df$term = row.names(df)
-#     df
-#   })) %>%
-#   dplyr::select(aou, SPEC, nObs, lm_broom) %>%
-#   unnest() %>%
-#   rename(std.error = `Std. Error`, z.value = `z value`, p.value = `Pr(>|z|)`) 
+ model_fits_position <- clim_hab_poptrend_means %>%
+   group_by(aou, SPEC) %>%
+   nest() %>%
+   mutate(lmFit = map(data, ~{
+     df <- .
 
-#write.csv(model_fits_position, "model/range_position_model_tables.csv", row.names = F)
+     # get species weights matrix
+
+     # Coordinates of BBS routes
+
+     coords_bbs <- df %>%
+       ungroup() %>%
+       dplyr::select(stateroute) %>%
+       distinct() %>%
+       left_join(routes) %>%
+       dplyr::select(stateroute, longitude, latitude)
+
+     coords_mat <- as.matrix(coords_bbs[, -1])
+
+     # Calculate nearest neighbors and make spatial neighborhood
+     k0 <- knearneigh(coords_mat, longlat=T, k=1)
+     k1 <- knn2nb(k0)
+
+     # Find maximum neighbor distance and use this distance to define neighborhoods
+     max.d <- max(unlist(nbdists(k1, coords_mat, longlat=T)))
+     nb0.birds <- dnearneigh(coords_mat, 0, max.d, longlat=T)
+     plot(nb0.birds, coords_mat)
+
+     # Using a distance threshold of 100km
+     nb1.birds <- dnearneigh(coords_mat,1,100,longlat=T)
+     plot(nb1.birds, coords_mat)
+
+     # Create spatial weights based on linear distance decay
+     glist.birds <- nbdists(nb0.birds, coords_mat, longlat=T)
+     glist.birds <- lapply(glist.birds, function(x) 1-(x/ceiling(max.d))) # Round up max.d so that all point get weights
+     wt.birds <- nb2listw(nb0.birds, style='B', glist=glist.birds)
+
+     spautolm(abundTrend ~ tmax*mean_tmax + tmin*mean_tmin, data = df, wt.birds, na.action = na.fail, family = "CAR")
+   })) %>%
+   mutate(nObs = map_dbl(data, ~{
+     df <- .
+     nrow(df)
+   }))  %>%
+   mutate(lm_broom = map(lmFit,  ~{
+     mod <- .
+     sum <- summary(mod)
+     df <- as.data.frame(sum$Coef)
+     df$term = row.names(df)
+     df
+   })) %>%
+   dplyr::select(aou, SPEC, nObs, lm_broom) %>%
+   unnest() %>%
+   rename(std.error = `Std. Error`, z.value = `z value`, p.value = `Pr(>|z|)`)
+
+write.csv(model_fits_position, "model/range_position_model_tables.csv", row.names = F)
 model_fits_position <- read.csv("model/range_position_model_tables.csv", stringsAsFactors = F)
 
 model_fits_position_fig <- model_fits_position %>%
@@ -959,47 +958,31 @@ model_fits_position_fig <- model_fits_position %>%
 
 # Figure
 
-tmax_plot <- density_plot(model_fits_position_fig, "tmax", "Trend in Tmax")
-tmin_plot <- density_plot(model_fits_position_fig, "tmin", "Trend in Tmin")
-tmax_mean_plot <- density_plot(model_fits_position_fig, "mean_tmax", "Mean Tmax")
-tmin_mean_plot <- density_plot(model_fits_position_fig, "mean_tmin", "Mean Tmin")
 tmax_int_plot <- density_plot(model_fits_position_fig, "tmax:mean_tmax", "Interaction: trend in Tmax & mean Tmax")
 tmin_int_plot <- density_plot(model_fits_position_fig, "tmin:mean_tmin", "Interaction: trend in Tmin & mean Tmin")
   
-legend <- get_legend(tmax_plot)
+legend <- get_legend(tmax_int_plot)
 
-temp_effects <- plot_grid(tmax_plot + theme(legend.position = "none"), 
-                          tmin_plot + theme(legend.position = "none") + ylab(" "), 
-                          tmax_mean_plot + theme(legend.position = "none"), 
-                          tmin_mean_plot + theme(legend.position = "none") + ylab(" "), 
-                          tmax_int_plot + theme(legend.position = "none"), 
+temp_effects <- plot_grid(tmax_int_plot + theme(legend.position = "none"), 
                           tmin_int_plot + theme(legend.position = "none") + ylab(" "),
-                          nrow = 3,
-                          labels = c("A", "B", "C", "D", "E", "F"))
+                          nrow = 1,
+                          labels = c("A", "B"))
 plot_grid(temp_effects, legend, rel_widths = c(2, 0.4))
-ggsave("figures/main_analysis_figs/range_position_temp_responses.pdf", units = "in", height = 9, width = 10)
+ggsave("figures/main_analysis_figs/range_position_temp_responses.pdf", units = "in", height = 3, width = 10)
 
 ## Supplemental figure: p-values
 
-tmax_plot <- pval_plot(model_fits_position_fig, "tmax", "Trend in Tmax")
-tmin_plot <- pval_plot(model_fits_position_fig, "tmin", "Trend in Tmin")
-tmax_mean_plot <- pval_plot(model_fits_position_fig, "mean_tmax", "Mean Tmax")
-tmin_mean_plot <- pval_plot(model_fits_position_fig, "mean_tmin", "Mean Tmin")
 tmax_int_plot <- pval_plot(model_fits_position_fig, "tmax:mean_tmax", "Interaction: trend in Tmax & mean Tmax")
 tmin_int_plot <- pval_plot(model_fits_position_fig, "tmin:mean_tmin", "Interaction: trend in Tmin & mean Tmin")
 
-legend <- get_legend(tmax_plot)
+legend <- get_legend(tmax_int_plot)
 
-temp_effects <- plot_grid(tmax_plot + theme(legend.position = "none"), 
-                          tmin_plot + theme(legend.position = "none") + ylab(" "), 
-                          tmax_mean_plot + theme(legend.position = "none"), 
-                          tmin_mean_plot + theme(legend.position = "none") + ylab(" "), 
-                          tmax_int_plot + theme(legend.position = "none"), 
+temp_effects <- plot_grid(tmax_int_plot + theme(legend.position = "none"), 
                           tmin_int_plot + theme(legend.position = "none") + ylab(" "),
-                          nrow = 3,
-                          labels = c("A", "B", "C", "D", "E", "F"))
+                          nrow = 1,
+                          labels = c("A", "B"))
 plot_grid(temp_effects, legend, rel_widths = c(2, 0.4))
-ggsave("figures/main_analysis_figs/range_position_temp_pvals.pdf", units = "in", height = 9, width = 10)
+ggsave("figures/main_analysis_figs/range_position_temp_pvals.pdf", units = "in", height = 3, width = 10)
 
 #### Strongest species response for each predictor ####
 
