@@ -69,11 +69,6 @@ write.csv(prism_df, "climate/bbs_routes_breeding_season_climate_prism.csv", row.
 
 routePRISM <- read.csv("climate/bbs_routes_breeding_season_climate_prism.csv", stringsAsFactors = F)
 
-routeDAYMET <- read.csv("climate/bbs_routes_breeding_season_climate.csv", stringsAsFactors = F)
-
-compare_df <- routePRISM %>%
-  left_join(routeDAYMET, by = c("stateroute", "year"))
-
 # Calculate climate trend at each route
 library(broom)
 library(purrr)

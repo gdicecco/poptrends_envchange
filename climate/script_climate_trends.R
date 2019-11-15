@@ -15,6 +15,7 @@ library(raster)
 library(ncdf4)
 library(lubridate)
 library(units)
+library(purrr)
 
 ## Get BBS routes
 
@@ -32,6 +33,21 @@ us_routes <- read_sf("bbsroutes_5km_buffer.shp") %>%
 na_routes <- rbind(ca_routes, us_routes)
 
 ## Get daymet data for north america
+
+# Function: get average temperature for one BBS route polygon
+
+daymetMean <- function(stateroute) {
+  rte <- filter(na_routes_transf, rteno == stateroute)
+  
+  daymet_crop <- raster::crop(daymet_mean, rte)
+  daymet_mask <- raster::mask(daymet_crop, rte)
+  
+  local_extract <- raster::extract(daymet_mask, rte, fun = mean, na.rm = T)
+  
+  return(local_extract)
+}
+
+possibly_daymetMean <- possibly(daymetMean, otherwise = NA)
 
 setwd("C:/Users/gdicecco/Desktop/")
 
@@ -61,7 +77,8 @@ for(y in years) {
     
     na_routes_transf <- st_transform(na_routes, "+proj=lcc +datum=WGS84 +lon_0=-100 +lat_0=42.5 +x_0=0 +y_0=0 +units=km +lat_1=25 +lat_2=60 +ellps=WGS84 +towgs84=0,0,0")
     
-    routeclim <- raster::extract(daymet_mean, na_routes_transf, fun = mean, na.rm = T, df = T)
+    routeclim <- data.frame(stateroute = na_routes_transf$rteno) %>%
+      mutate(mean_temp = purrr::map(na_routes_transf$rteno, possibly_daymetMean))
     
     write.csv(routeclim, paste0("C:/Users/gdicecco/Desktop/daymet_out/", f, ".csv"), row.names = F)
     print(f)
@@ -74,33 +91,44 @@ for(y in years) {
 }
 
 # Read in indiv year files
-# ID with stateroute
-
-route_ids <- data.frame(ID = row.names(na_routes), stateroute = na_routes$rteno)
-route_ids$ID <- as.integer(route_ids$ID)
-
-routeDAYMET <- data.frame(ID = c(), stateroute = c(), tmin = c(), tmax = c(), year = c())
+# Join together
 
 dir <- "C:/Users/gdicecco/Desktop/daymet_out/"
+
+routeDAYMET <- data.frame(stateroute = c(), year = c(), mean_tmax = c(), mean_tmin = c())
 
 for(y in years) {
   files <- list.files(dir)
   files_y <- files[grepl(y, files)]
   
-  tmax <- read.csv(paste0(dir, files_y[grepl("tmax", files_y)]))
-  tmin <- read.csv(paste0(dir, files_y[grepl("tmin", files_y)]))
+  tmax <- read.csv(paste0(dir, files_y[grepl("tmax", files_y)])) %>%
+    group_by(stateroute) %>%
+    summarize(mean_tmax = mean(mean_temp, na.rm = T))
+  tmin <- read.csv(paste0(dir, files_y[grepl("tmin", files_y)])) %>%
+    group_by(stateroute) %>%
+    summarize(mean_tmin = mean(mean_temp, na.rm = T))
   
-  tmp <- data.frame(ID = tmax$ID, tmax = tmax$layer, tmin = tmin$layer, year = y) %>%
-    left_join(route_ids)
+  tmp <- tmax %>%
+    left_join(tmin) %>%
+    mutate(year = y)
   print(nrow(tmp))
   
   routeDAYMET <- rbind(routeDAYMET, tmp)
 }
 
 setwd("C:/Users/gdicecco/Desktop/git/NLCD_fragmentation/climate/")
-#write.csv(routeDAYMET, "bbs_routes_breeding_season_climate.csv", row.names = F)
+# write.csv(routeDAYMET, "bbs_routes_breeding_season_climate.csv", row.names = F)
 
 routeDAYMET <- read.csv("bbs_routes_breeding_season_climate.csv", stringsAsFactors = F)
+
+# Confirm DAYMET means match PRISM
+routePRISM <- read.csv("bbs_routes_breeding_season_climate_prism.csv", stringsAsFactors = F)
+
+compare_climate <- routeDAYMET %>%
+  left_join(routePRISM, by = c("stateroute", "year"))
+
+cor(compare_climate$mean_tmax, compare_climate$tmax, use = "pairwise.complete.obs")
+cor(compare_climate$mean_tmin, compare_climate$tmin, use = "pairwise.complete.obs")
 
 # Calculate climate trend at each route
 library(broom)
