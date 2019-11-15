@@ -78,7 +78,7 @@ for(y in years) {
     na_routes_transf <- st_transform(na_routes, "+proj=lcc +datum=WGS84 +lon_0=-100 +lat_0=42.5 +x_0=0 +y_0=0 +units=km +lat_1=25 +lat_2=60 +ellps=WGS84 +towgs84=0,0,0")
     
     routeclim <- data.frame(stateroute = na_routes_transf$rteno) %>%
-      mutate(mean_temp = purrr::map(na_routes_transf$rteno, possibly_daymetMean))
+      mutate(mean_temp = purrr::map(stateroute, possibly_daymetMean))
     
     write.csv(routeclim, paste0("C:/Users/gdicecco/Desktop/daymet_out/", f, ".csv"), row.names = F)
     print(f)
