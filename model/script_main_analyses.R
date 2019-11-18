@@ -519,6 +519,7 @@ env_breadth <- clim_hab_poptrend %>%
 # Use all routes for cover_breadth
 
 ## Breadth of forest cover for all routes
+#### ADD CANADIAN ROUTES
 forest_ed_allroutes <- frags %>%
   left_join(newcode, by = c("class" = "code")) %>%
   group_by(stateroute, year) %>%
@@ -530,17 +531,19 @@ forest_ed_allroutes <- frags %>%
             meanPatchArea = mean.patch.area) %>%
   filter(year == 2016)
 
-forest_deltaP_allroutes <- frags %>% # 2314 routes
-  left_join(newcode, by = c("class" = "code")) %>%
+forest_ed_canada <- frags_ca %>%
+  left_join(canada_code, by = c("class" = "code")) %>%
+  group_by(stateroute, year) %>%
+  mutate(sum.area = sum(total.area)) %>%
   filter(legend == "Forest") %>%
   group_by(stateroute, year) %>%
-  summarize(propForest = prop.landscape) %>%
-  spread(key = "year", value = "propForest") %>%
-  group_by(stateroute) %>%
-  summarize(deltaProp = `2016` - `1992`)
+  summarize(ED = total.edge/sum.area,
+            propForest = prop.landscape,
+            meanPatchArea = mean.patch.area) %>%
+  filter(year == 2010)
 
 forest_allroutes <- forest_ed_allroutes %>%
-  left_join(forest_deltaP_allroutes)
+  bind_rows(forest_ed_canada)
 
 clim_hab_pop_allroutes <- abund_trend %>%
   left_join(dplyr::select(traits.short, -Common_name)) %>%
@@ -631,7 +634,7 @@ vol_cov <- ggplot(spp_breadths, aes(x = volume, y = propFor)) +
 plot_grid(ed_cov, ed_vol, vol_cov, nrow = 2)
 ggsave("figures/main_analysis_figs/traits_covariation.tiff", units = "in", height = 8, width = 8)
 
-cor(spp_breadths[, c(4,7,9)]) # edxpropFor = -0.61, edxVolume = 0.13, volumexPropFor = -0.60
+cor(spp_breadths[, c(4,7,9)]) # edxpropFor = -0.59, edxVolume = 0.08, volumexPropFor = -0.56
 
 #### Individual models ####
 # of climate + frag + loss + climate:frag + climate:loss for species
@@ -718,7 +721,7 @@ model_fits <- clim_hab_poptrend_z %>%
 range(model_fits$nObs)
 # 67 species
 
-#write.csv(model_fits, "model/individual_species_model_tables.csv", row.names = F)
+# write.csv(model_fits, "model/individual_species_model_tables.csv", row.names = F)
 
 model_fits <- read.csv("model/individual_species_model_tables.csv", stringsAsFactors = F)
 
@@ -777,8 +780,7 @@ pval_plot <- function(df, variable, label) {
 options(scipen = 999)
 deltaED <- pval_plot(model_fits, "deltaED", "Change in edge density") + scale_x_log10(breaks = c(0.00001, 0.001, 1),
                                                                 labels = c(0.00001, 0.001, 1))
-deltaProp <- pval_plot(model_fits, "deltaProp", "Change in forest cover") + scale_x_log10(breaks = c(0.0001, 0.01, 1),
-                                                                             labels = c(0.0001, 0.01, 1))
+deltaProp <- pval_plot(model_fits, "deltaProp", "Change in forest cover")
 tmin <- pval_plot(model_fits, "tmin", "Trend in Tmin")
 tmax <- pval_plot(model_fits, "tmax", "Trend in Tmax")
 tmaxED <- pval_plot(model_fits, "tmax:deltaED", "Tmax:change in ED")
@@ -825,7 +827,7 @@ spp_traits <- spp_breadths %>%
   dplyr::select(term, tidy, r2) %>%
   unnest()
 
-write.csv(spp_traits, "model/spp_trait_model_output.csv", row.names = F)
+# write.csv(spp_traits, "model/spp_trait_model_output.csv", row.names = F)
 spp_traits <- read.csv("model/spp_trait_model_output.csv", stringsAsFactors = F)
 
 spp_traits_pred <- spp_traits %>%
@@ -838,11 +840,18 @@ trait_effects <- spp_breadths %>%
   left_join(correlates, by = c("aou" = "AOU")) %>%
   left_join(model_fits)
 
-# propFor v tmax
-ggplot(filter(trait_effects, term == "tmax"), aes(x = propFor, y = Estimate)) + 
+# propFor v deltaED
+ggplot(filter(trait_effects, term == "deltaED"), aes(x = propFor, y = Estimate)) + 
   geom_text(aes(label = SPEC)) + geom_smooth(method = "lm", se = F) +
-  labs(y = "Effect of trend in Tmax", x = "Mean proportion forest cover")
-ggsave("figures/main_analysis_figs/trait_model_tmax_propFor.pdf")
+  labs(y = "Effect of change in forest edge density", x = "Mean proportion forest cover")
+ggsave("figures/main_analysis_figs/trait_model_deltaED_propFor.pdf")
+
+# volume v tmin
+
+ggplot(filter(trait_effects, term == "tmin"), aes(x = volume, y = Estimate)) + 
+  geom_text(aes(label = SPEC)) + geom_smooth(method = "lm", se = F) +
+  labs(y = "Effect of trend in Tmin", x = "Climatic niche breadth")
+ggsave("figures/main_analysis_figs/trait_model_tmin_volume.pdf")
 
 # Range centroid for each species - map of effect sizes for each predictor
 
@@ -876,8 +885,8 @@ for(trm in terms) {
 
 route_climate <- read.csv("climate/bbs_routes_breeding_season_climate.csv", stringsAsFactors = F) %>%
   group_by(stateroute) %>%
-  summarize(mean_tmax = mean(tmax),
-            mean_tmin = mean(tmin))
+  summarize(mean_tmax = mean(mean_tmax),
+            mean_tmin = mean(mean_tmin))
 
 ## Join route position with clim_hab_poptrend table
 
@@ -940,7 +949,7 @@ clim_hab_poptrend_means <- clim_hab_poptrend_z %>%
    unnest() %>%
    rename(std.error = `Std. Error`, z.value = `z value`, p.value = `Pr(>|z|)`)
 
-write.csv(model_fits_position, "model/range_position_model_tables.csv", row.names = F)
+# write.csv(model_fits_position, "model/range_position_model_tables.csv", row.names = F)
 model_fits_position <- read.csv("model/range_position_model_tables.csv", stringsAsFactors = F)
 
 model_fits_position_fig <- model_fits_position %>%
@@ -984,58 +993,58 @@ ggsave("figures/main_analysis_figs/range_position_temp_pvals.pdf", units = "in",
 
 #### Strongest species response for each predictor ####
 
-# WEWA - deltaED
+# NOFL - deltaED
 
-wormeating <-  clim_hab_poptrend_z %>%
-  filter(Common_name == "Worm-eating warbler")
+flicker <-  clim_hab_poptrend_z %>%
+  filter(Common_name == "Northern flicker")
 
-worm_plot <- ggplot(wormeating, aes(x = deltaED, y = abundTrend)) + geom_point() + 
+flicker_plot <- ggplot(flicker, aes(x = deltaED, y = abundTrend)) + geom_point() + 
   geom_smooth(method = "lm", se = F) +
-  labs(x = "Change in edge density", y = "Abundance trend", title = "Worm-eating warbler")
+  labs(x = "Change in edge density", y = "Abundance trend", title = "Northern flicker")
 
-# BRCR - deltaProp
+# INBU - deltaProp
 
-creeper <- clim_hab_poptrend_z %>%
-  filter(Common_name == "Brown creeper") 
+bunting <- clim_hab_poptrend_z %>%
+  filter(Common_name == "Indigo bunting") 
 
-creeper_plot <- ggplot(creeper, aes(x = deltaProp, y = abundTrend)) + geom_point() + 
+bunting_plot <- ggplot(bunting, aes(x = deltaProp, y = abundTrend)) + geom_point() + 
   geom_smooth(method = "lm", se = F) +
-  labs(x = "Change in forest cover", y = "", title = "Brown creeper")
+  labs(x = "Change in forest cover", y = "", title = "Indigo bunting")
  
-# YBCH - tmax
-
-chat <- clim_hab_poptrend_z %>%
-  filter(Common_name == "Yellow-breasted chat")
-
-chat_plot <- ggplot(chat, aes(x = tmax, y = abundTrend)) + geom_point() + 
-  geom_smooth(method = "lm", se = F) +
-  labs(x = "Trend in Tmax", y = "", title = "Yellow-breasted chat")
-
-# YTWA - tmin
+# BAWW - tmax
 
 warbler <- clim_hab_poptrend_z %>%
-  filter(Common_name == "Yellow-throated warbler")
+  filter(Common_name == "Black-and-white warbler")
 
-warbler_plot <- ggplot(warbler, aes(x = tmin, y = abundTrend)) + geom_point() +
+warbler_plot <- ggplot(warbler, aes(x = tmax, y = abundTrend)) + geom_point() + 
   geom_smooth(method = "lm", se = F) +
-  labs(x = "Trend in Tmin", y = "Abundance trend", title = "Yellow-throated warbler")
+  labs(x = "Trend in Tmax", y = "", title = "Black-and-white warbler")
 
-# HOWA - deltaED:tmin
+# MAWA - tmin
 
-hooded <- clim_hab_poptrend_z %>%
-  filter(Common_name == "Hooded warbler") 
+magnolia <- clim_hab_poptrend_z %>%
+  filter(Common_name == "Magnolia warbler")
 
-hooded$tmin_sign <- ifelse(hooded$tmin < 0, "-1.4 < Z-Tmin < 0", "0 < Z-Tmin < 2.6")
-hooded_plot <- ggplot(hooded, aes(x = deltaED, y = abundTrend)) + geom_point() + 
+magnolia_plot <- ggplot(magnolia, aes(x = tmin, y = abundTrend)) + geom_point() +
   geom_smooth(method = "lm", se = F) +
-  facet_wrap(~tmin_sign) +
+  labs(x = "Trend in Tmin", y = "Abundance trend", title = "Magnolia warbler")
+
+# SUTA - deltaED:tmax
+
+tanager <- clim_hab_poptrend_z %>%
+  filter(Common_name == "Summer tanager") 
+
+tanager$tmax_sign <- ifelse(tanager$tmax < 0, "-1.5 < Z-Tmax < 0", "0 < Z-Tmax < 1.7")
+tanager_plot <- ggplot(tanager, aes(x = deltaED, y = abundTrend)) + geom_point() + 
+  geom_smooth(method = "lm", se = F) +
+  facet_wrap(~tmax_sign) +
   theme(panel.spacing = unit(4, "lines")) +
-  labs(x = "Change in ED", y = "Abundance trend", title = "Hooded warbler")
+  labs(x = "Change in ED", y = "Abundance trend", title = "Summer tanager")
 
 ## Figure for MS
 
-indiv_spp_add <- plot_grid(worm_plot, creeper_plot, chat_plot, warbler_plot, nrow = 2, labels = c("A", "B", "C", "D"))
-indiv_spp_multi <- plot_grid(indiv_spp_add, hooded_plot, nrow = 2, rel_heights = c(0.66, 0.33),
+indiv_spp_add <- plot_grid(flicker_plot, bunting_plot, warbler_plot, magnolia_plot, nrow = 2, labels = c("A", "B", "C", "D"))
+indiv_spp_multi <- plot_grid(indiv_spp_add, tanager_plot, nrow = 2, rel_heights = c(0.66, 0.33),
                              labels = c(" ", "E", "F"))
 ggsave("figures/main_analysis_figs/indiv_spp_multipanel.pdf", indiv_spp_multi, units = "in", width = 9, height = 10)
 
