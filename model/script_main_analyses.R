@@ -11,8 +11,6 @@ library(tmap)
 library(cowplot)
 library(sf)
 library(forcats)
-library(MuMIn)
-library(nlme)
 library(grid)
 library(spdep)
 
@@ -386,9 +384,9 @@ forest_transf <- st_transform(forest_routes, crs(na_map))
 hist(clim_hab_poptrend$deltaED)
 hist(clim_hab_poptrend$deltaProp)
 
-cor(clim_hab_poptrend$ED, clim_hab_poptrend$propForest) # -0.30
+cor(clim_hab_poptrend$ED, clim_hab_poptrend$propForest) # -0.32
 cor(clim_hab_poptrend$deltaED, clim_hab_poptrend$deltaProp) # -0.22
-cor(dplyr::select(clim_hab_poptrend, tmin, tmax, deltaED, deltaProp, ED, propForest))
+cor(dplyr::select(clim_hab_poptrend, tmin, tmax, deltaED, deltaProp, ED, propForest), use = "pairwise.complete.obs")
 
 # Figure: map of routes
 
@@ -501,7 +499,7 @@ matrix <- climate_wide %>%
   rename("Tmin" = "tmin", "Tmax" = "tmax", "forestED" = "deltaED", "forestCover" = "deltaProp")
 
 corr.table <- cor(matrix)
-pdf("figures/route_eda/env_cor_matrix.pdf")
+pdf("figures/methods_figs/env_cor_matrix.pdf")
 corrplot::corrplot(corr.table, method = "circle", diag = F, tl.col = "black",
                    tl.cex = 1.5, cl.cex = 1)
 dev.off()

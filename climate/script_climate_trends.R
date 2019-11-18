@@ -42,12 +42,16 @@ daymetMean <- function(stateroute) {
   daymet_crop <- raster::crop(daymet_mean, rte)
   daymet_mask <- raster::mask(daymet_crop, rte)
   
-  local_extract <- raster::extract(daymet_mask, rte, fun = mean, na.rm = T)
+  local_extract <- raster::extract(daymet_mask, rte, fun = mean, na.rm = T, df = T)
   
-  return(local_extract)
+  return(mean(local_extract$layer))
 }
 
+# Function errors if some routes are outside the extent of DAYMET raster - use possibly function to ignore those routes
+
 possibly_daymetMean <- possibly(daymetMean, otherwise = NA)
+
+# Calculate mean annual breeding season temp at BBS routes
 
 setwd("C:/Users/gdicecco/Desktop/")
 
@@ -78,7 +82,8 @@ for(y in years) {
     na_routes_transf <- st_transform(na_routes, "+proj=lcc +datum=WGS84 +lon_0=-100 +lat_0=42.5 +x_0=0 +y_0=0 +units=km +lat_1=25 +lat_2=60 +ellps=WGS84 +towgs84=0,0,0")
     
     routeclim <- data.frame(stateroute = na_routes_transf$rteno) %>%
-      mutate(mean_temp = purrr::map(stateroute, possibly_daymetMean))
+      mutate(mean_temp = purrr::map_dbl(stateroute, possibly_daymetMean))
+    
     
     write.csv(routeclim, paste0("C:/Users/gdicecco/Desktop/daymet_out/", f, ".csv"), row.names = F)
     print(f)
@@ -139,8 +144,8 @@ route_countries <- na_routes %>%
   st_set_geometry(NULL)
 
 climate_trends <- routeDAYMET %>%
+  rename(tmax = "mean_tmax", tmin = "mean_tmin") %>%
   gather(key = "env", value = "val", c("tmax", "tmin")) %>%
-  dplyr::select(-ID) %>%
   left_join(route_countries, by = c("stateroute" = "rteno")) %>%
   group_by(country, stateroute, env, year) %>%
   summarize(breedingAvg = mean(val)) %>%
@@ -181,5 +186,5 @@ climate_trends_write <- climate_trends %>%
   dplyr::select(stateroute, env, climateTrend, trendPval)
 
 setwd("C:/Users/gdicecco/Desktop/git/NLCD_fragmentation/climate/")
-#write.csv(climate_trends_write, "bbs_routes_climate_trends.csv", row.names = F)
+# write.csv(climate_trends_write, "bbs_routes_climate_trends.csv", row.names = F)
 climate_trends <- read.csv("bbs_routes_climate_trends.csv", stringsAsFactors = F)
