@@ -1,7 +1,7 @@
 
 # source script_climate_trends
 
-daymet_1990 <- filter(routeDAYMET, year == 2000) %>% dplyr::select(year, stateroute, tmax)
+daymet_1990 <- filter(routeDAYMET, year == 2000) %>% dplyr::select(year, stateroute, mean_tmax)
 
 na_daymet <- na_routes_transf %>%
   left_join(daymet_1990, by = c("rteno" = "stateroute"))
@@ -18,7 +18,7 @@ for(rte in na_daymet$rteno) {
   daymet_df <- rasterToPoints(daymet_mask)
   local_mean <- mean(daymet_df[, 3], na.rm = T)
   
-  df <- data.frame(stateroute = rte, global_extract = test_rte$tmax, 
+  df <- data.frame(stateroute = rte, global_extract = test_rte$mean_tmax, 
                    local_extract = local_extract, local_mean = local_mean)
   
   results <- rbind(results, df)
@@ -68,7 +68,8 @@ na_daymet_local <- na_daymet %>%
   left_join(results_polygons, by = c("rteno" = "stateroute"))
 
 library(tmap)
-tm_shape(daymet_mean) + tm_raster() + tm_shape(na_daymet_local) + tm_fill(col = "local_extract_polygon")
+daymet_plot <- tm_shape(daymet_mean) + tm_raster() + tm_shape(na_daymet_local) + tm_fill(col = "local_extract_polygon")
+tmap_save(daymet_plot, "daymet_1990_tmax_plot.pdf")
 
 # Do same analysis for PRISM
 

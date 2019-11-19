@@ -13,6 +13,7 @@ library(sf)
 library(forcats)
 library(grid)
 library(spdep)
+library(ncf)
 
 ### Read in data #####
 
@@ -503,6 +504,50 @@ pdf("figures/methods_figs/env_cor_matrix.pdf")
 corrplot::corrplot(corr.table, method = "circle", diag = F, tl.col = "black",
                    tl.cex = 1.5, cl.cex = 1)
 dev.off()
+
+# Appendix figure: Moran's I
+
+route_trends_forest <- climate_wide %>%
+  left_join(forest) %>%
+  left_join(routes)
+
+# Forest fragmentation
+
+for.cor <- correlog(route_trends_forest$longitude, route_trends_forest$latitude, route_trends_forest$deltaED,
+                    increment = 250, latlon = T, na.rm = T)
+
+# Forest proportion cover
+
+cov.cor <- correlog(route_trends_forest$longitude, route_trends_forest$latitude, route_trends_forest$deltaProp,
+                    increment = 250, latlon = T, na.rm = T)
+
+# Trend in tmax
+
+tmax.cor <- correlog(route_trends_forest$longitude, route_trends_forest$latitude,route_trends_forest$tmax,
+                     increment = 250, latlon = T, na.rm = T)
+
+# Trend in tmin
+
+tmin.cor <- correlog(route_trends_forest$longitude, route_trends_forest$latitude, route_trends_forest$tmin,
+                     increment = 250, latlon = T, na.rm = T)
+
+## Combine on one plot
+
+env.cor <- data.frame(mean.of.class = for.cor$mean.of.class, 
+                      forestCover = cov.cor$correlation,
+                      forestED = for.cor$correlation,
+                      tmin = tmin.cor$correlation,
+                      tmax = tmax.cor$correlation) %>%
+  filter(mean.of.class > 0, mean.of.class < 4100)
+
+env.long <- tidyr::gather(env.cor[, 1:5], key = variable, value = correlation, 2:5)
+
+ggplot(env.long, aes(x = mean.of.class, y = correlation, col = variable)) + 
+  geom_point(size = 2) + geom_line(cex = 1) + geom_hline(yintercept = 0, lty = 2) +
+  labs(x = "Mean of distance class (km)", y = "Moran's I", col = "Trend") +
+  scale_color_viridis_d() + theme(axis.text = element_text(size = 12), axis.title = element_text(size = 12), 
+                                  legend.text = element_text(size = 12), legend.title = element_text(size = 12))
+ggsave("figures/methods_figs/moransI_allenv.pdf", units = "in")
 
 #### Species traits ####
 # Breadth of forest ED and forest cover for area and non-area sensitive species
