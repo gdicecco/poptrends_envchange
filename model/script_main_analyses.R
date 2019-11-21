@@ -357,6 +357,10 @@ forest_ca <- forest_ed_ca %>%
 forest <- bind_rows(forest_us, forest_ca)
 
 # Master data table
+env_change <- forest %>%
+  left_join(climate_wide, by = "stateroute")
+# write.csv(env_change, "model/bbs_route_env_change.csv", row.names = F)
+
 clim_hab_poptrend <- abund_trend %>%
   left_join(dplyr::select(traits.short, -Common_name)) %>%
   left_join(forest, by = "stateroute") %>%
