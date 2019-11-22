@@ -1,68 +1,68 @@
-"AOU","CommonName","SPEC","migclass","Foraging","propFor","volume"
-2890,"Northern Bobwhite","NOBO","resid","ground glean",0.29025450300787,1.61565299314395
-3160,"Mourning Dove","MODO","short","ground glean",0.323657789759238,2.76838175834495
-3870,"Yellow-billed Cuckoo","YBCU","neotrop","foliage glean",0.380810737517676,1.6968442703365
-3880,"Black-billed Cuckoo","BBCU","neotrop","foliage glean",0.425318617128854,0.700845415828726
-3930,"Hairy Woodpecker","HAWO","resid","bark glean",0.57246737150265,2.30193463607347
-3940,"Downy Woodpecker","DOWO","resid","bark glean",0.428318459550814,2.45571263472669
-4050,"Pileated Woodpecker","PIWO","resid","bark glean",0.541081661269619,1.96537790344528
-4060,"Red-headed Woodpecker","RHWO","short","bark glean",0.244721546193605,1.68533166483441
-4090,"Red-bellied Woodpecker","RBWO","resid","bark glean",0.364991158770428,1.47124494666417
-4120,"Northern Flicker","NOFL","resid","ground glean",0.399904840885447,1.68078176858413
-4280,"Ruby-throated Hummingbird","RTHU","neotrop","hover/glean",0.51926913188083,1.41820277848497
-4520,"Great Crested Flycatcher","GCFL","neotrop","hawks",0.393496542638475,1.58912602869401
-4610,"Eastern Wood-Pewee","EAWP","neotrop","hawks",0.429109070875174,1.41482177506494
-4650,"Acadian Flycatcher","ACFL","neotrop","hawks",0.51440000577325,1.0231149057282
-4770,"Blue Jay","BLJA","short","ground glean",0.400234835319606,1.77366519073773
-4860,"Common Raven","CORA","resid","ground glean",0.492948914588222,2.0225797667464
-4880,"American Crow","AMCR","short","ground glean",0.375538330774394,2.73734775445446
-4900,"Fish Crow","FICR","short","ground glean",0.340732516170088,0.756518800236218
-4930,"European Starling","EUST","short","ground glean",0.348476700773364,2.76942604553203
-4950,"Brown-headed Cowbird","BHCO","short","ground glean",0.325210677900296,2.85520486771783
-5070,"Baltimore Oriole","BAOR","neotrop","foliage glean",0.32051749078788,1.03644692499074
-5110,"Common Grackle","COGR","short","ground glean",0.34919725193954,2.00811023962257
-5290,"American Goldfinch","AMGO","short","foliage glean",0.378431116343396,2.18262859138536
-5870,"Eastern Towhee","EATO","short","ground glean",0.456272874489217,1.32654727358922
-5930,"Northern Cardinal","NOCA","resid","ground glean",0.367287288226385,1.67687367421953
-5950,"Rose-breasted Grosbeak","RBGR","neotrop","foliage glean",0.429774131811877,0.652114922410248
-5980,"Indigo Bunting","INBU","neotrop","ground glean",0.412272877190379,1.59713989762623
-6080,"Scarlet Tanager","SCTA","neotrop","hover/glean",0.562686715284775,0.820469832118523
-6100,"Summer Tanager","SUTA","neotrop","foliage glean",0.420167021833287,0.787775337462474
-6190,"Cedar Waxwing","CEDW","short","foliage glean",0.453896447208117,1.72041489793605
-6240,"Red-eyed Vireo","REVI","neotrop","hover/glean",0.465242660224983,1.99248997310495
-6280,"Yellow-throated Vireo","YTVI","neotrop","foliage glean",0.489051086627153,1.30198259940332
-6290,"Blue-headed Vireo","BHVI","neotrop","foliage glean",0.703947290030092,0.778621017179198
-6310,"White-eyed Vireo","WEVI","neotrop","foliage glean",0.42026747462212,0.954232946878305
-6360,"Black-and-white Warbler","BAWW","neotrop","bark glean",0.617737072213294,1.09483354450216
-6370,"Prothonotary Warbler","PROW","neotrop","bark glean",0.317365459003174,0.735039650923578
-6390,"Worm-eating Warbler","WEWA","neotrop","foliage glean",0.623114639120377,0.958176344697894
-6480,"Northern Parula","NOPA","neotrop","foliage glean",0.529355001257076,1.54034220084052
-6540,"Black-throated Blue Warbler","BTBW","neotrop","hover/glean",0.756033780164731,0.430684782646512
-6570,"Magnolia Warbler","MAWA","neotrop","hover/glean",0.70883151429577,0.463134990519351
-6590,"Chestnut-sided Warbler","CSWA","neotrop","foliage glean",0.618385839914518,0.504650889134344
-6630,"Yellow-throated Warbler","YTWA","neotrop","bark glean",0.550548143099991,0.702030936121724
-6670,"Black-throated Green Warbler","BTNW","neotrop","foliage glean",0.675846368162748,0.560179102374297
-6710,"Pine Warbler","PIWA","short","bark glean",0.480789505114659,1.46095061189175
-6730,"Prairie Warbler","PRAW","neotrop","foliage glean",0.55057786428818,1.07124309937206
-6740,"Ovenbird","OVEN","neotrop","ground glean",0.553551700005573,0.996005075700818
-6750,"Northern Waterthrush","NOWA","neotrop","ground glean",0.661754767261409,0.636457813982969
-6760,"Louisiana Waterthrush","LOWA","neotrop","ground glean",0.651896593252191,1.17774693371261
-6770,"Kentucky Warbler","KEWA","neotrop","ground glean",0.518107274299499,0.702639806375044
-6810,"Common Yellowthroat","COYE","neotrop","foliage glean",0.400878357339031,2.55493351559897
-6830,"Yellow-breasted Chat","YBCH","neotrop","foliage glean",0.404534027389594,2.43426400207288
-6840,"Hooded Warbler","HOWA","neotrop","foliage glean",0.581233528755966,1.11340754904171
-6860,"Canada Warbler","CAWA","neotrop","hover/glean",0.697277689590295,0.413410235411858
-6870,"American Redstart","AMRE","neotrop","hover/glean",0.59349589655673,1.23569369865913
-7040,"Gray Catbird","GRCA","neotrop","ground glean",0.399835278862129,1.95850501489462
-7180,"Carolina Wren","CARW","resid","ground glean",0.413757182184436,1.35157512456145
-7210,"House Wren","HOWR","neotrop","ground glean",0.326736522777858,2.00034526742669
-7260,"Brown Creeper","BRCR","short","bark glean",0.702664200245024,1.17085676890566
-7270,"White-breasted Nuthatch","WBNU","resid","bark glean",0.461137789331244,1.85218822134362
-7290,"Brown-headed Nuthatch","BHNU","resid","bark glean",0.448745552856007,0.488060536432172
-7310,"Tufted Titmouse","TUTI","resid","foliage glean",0.423683378546294,1.47430935170198
-7350,"Black-capped Chickadee","BCCH","resid","foliage glean",0.480997499830899,1.50466051673853
-7360,"Carolina Chickadee","CACH","resid","foliage glean",0.398011450496221,0.89486672477103
-7510,"Blue-gray Gnatcatcher","BGGN","neotrop","foliage glean",0.43584909755774,2.20548423303537
-7550,"Wood Thrush","WOTH","neotrop","ground glean",0.496180263816116,1.28005947518811
-7560,"Veery","VEER","neotrop","ground glean",0.582023437015421,0.900849276511834
-7610,"American Robin","AMRO","short","ground glean",0.380564336781197,2.57729372486401
+"AOU","CommonName","SPEC","migclass","Foraging","propFor","temp_range","Brange_Area_km2"
+2890,"Northern Bobwhite","NOBO","resid","ground glean",0.29025450300787,7.5,4555640.398
+3160,"Mourning Dove","MODO","short","ground glean",0.323657789759238,11.5,11119866.04
+3870,"Yellow-billed Cuckoo","YBCU","neotrop","foliage glean",0.380810737517676,9.355,5271675.617
+3880,"Black-billed Cuckoo","BBCU","neotrop","foliage glean",0.425318617128854,6.75,4935972.17
+3930,"Hairy Woodpecker","HAWO","resid","bark glean",0.57246737150265,11.7,13263247.05
+3940,"Downy Woodpecker","DOWO","resid","bark glean",0.428318459550814,11.8,12767509.4
+4050,"Pileated Woodpecker","PIWO","resid","bark glean",0.541081661269619,11.7,5913479.221
+4060,"Red-headed Woodpecker","RHWO","short","bark glean",0.244721546193605,8.7,5190665.704
+4090,"Red-bellied Woodpecker","RBWO","resid","bark glean",0.364991158770428,8.9,2988465.042
+4120,"Northern Flicker","NOFL","resid","ground glean",0.399904840885447,11.2,14922329.91
+4280,"Ruby-throated Hummingbird","RTHU","neotrop","hover/glean",0.51926913188083,11,4930336.576
+4520,"Great Crested Flycatcher","GCFL","neotrop","hawks",0.393496542638475,10.5,5131591.762
+4610,"Eastern Wood-Pewee","EAWP","neotrop","hawks",0.429109070875174,10.7,4075987.449
+4650,"Acadian Flycatcher","ACFL","neotrop","hawks",0.51440000577325,6.87,3005323.651
+4770,"Blue Jay","BLJA","short","ground glean",0.400234835319606,11.2,6654836.335
+4860,"Common Raven","CORA","resid","ground glean",0.492948914588222,7.765,15137567.04
+4880,"American Crow","AMCR","short","ground glean",0.375538330774394,11.7,11434695.29
+4900,"Fish Crow","FICR","short","ground glean",0.340732516170088,4.8,971342.4668
+4930,"European Starling","EUST","short","ground glean",0.348476700773364,11.4,14634616.59
+4950,"Brown-headed Cowbird","BHCO","short","ground glean",0.325210677900296,11.5,11229801.72
+5070,"Baltimore Oriole","BAOR","neotrop","foliage glean",0.32051749078788,9.5,4702121.747
+5110,"Common Grackle","COGR","short","ground glean",0.34919725193954,11.195,8200607.078
+5290,"American Goldfinch","AMGO","short","foliage glean",0.378431116343396,10.7,7510163.713
+5870,"Eastern Towhee","EATO","short","ground glean",0.456272874489217,9.7,3153320.255
+5930,"Northern Cardinal","NOCA","resid","ground glean",0.367287288226385,9.945,5835003.662
+5950,"Rose-breasted Grosbeak","RBGR","neotrop","foliage glean",0.429774131811877,6.5,3766821.246
+5980,"Indigo Bunting","INBU","neotrop","ground glean",0.412272877190379,10.3,5859725.256
+6080,"Scarlet Tanager","SCTA","neotrop","hover/glean",0.562686715284775,9.28,2601578.498
+6100,"Summer Tanager","SUTA","neotrop","foliage glean",0.420167021833287,3.6,3270936.415
+6190,"Cedar Waxwing","CEDW","short","foliage glean",0.453896447208117,10.015,7417234.178
+6240,"Red-eyed Vireo","REVI","neotrop","hover/glean",0.465242660224983,11.6,11769234.78
+6280,"Yellow-throated Vireo","YTVI","neotrop","foliage glean",0.489051086627153,9.5,3164624.551
+6290,"Blue-headed Vireo","BHVI","neotrop","foliage glean",0.703947290030092,9.5,3317326.505
+6310,"White-eyed Vireo","WEVI","neotrop","foliage glean",0.42026747462212,5.9,3035092.474
+6360,"Black-and-white Warbler","BAWW","neotrop","bark glean",0.617737072213294,10.8,5371649.072
+6370,"Prothonotary Warbler","PROW","neotrop","bark glean",0.317365459003174,4.1,2172594.992
+6390,"Worm-eating Warbler","WEWA","neotrop","foliage glean",0.623114639120377,6.9,1753886.228
+6480,"Northern Parula","NOPA","neotrop","foliage glean",0.529355001257076,11.5,3352709.963
+6540,"Black-throated Blue Warbler","BTBW","neotrop","hover/glean",0.756033780164731,4.235,1145360.437
+6570,"Magnolia Warbler","MAWA","neotrop","hover/glean",0.70883151429577,4.6,3647918.046
+6590,"Chestnut-sided Warbler","CSWA","neotrop","foliage glean",0.618385839914518,5.3,2416050.671
+6630,"Yellow-throated Warbler","YTWA","neotrop","bark glean",0.550548143099991,4.1,1929246.244
+6670,"Black-throated Green Warbler","BTNW","neotrop","foliage glean",0.675846368162748,4.8,3308313.219
+6710,"Pine Warbler","PIWA","short","bark glean",0.480789505114659,10.6,2377227.871
+6730,"Prairie Warbler","PRAW","neotrop","foliage glean",0.55057786428818,8.185,1565554.095
+6740,"Ovenbird","OVEN","neotrop","ground glean",0.553551700005573,10,5209025.23
+6750,"Northern Waterthrush","NOWA","neotrop","ground glean",0.661754767261409,5,7570213.825
+6760,"Louisiana Waterthrush","LOWA","neotrop","ground glean",0.651896593252191,8.6,2410309.708
+6770,"Kentucky Warbler","KEWA","neotrop","ground glean",0.518107274299499,4.675,1969699.202
+6810,"Common Yellowthroat","COYE","neotrop","foliage glean",0.400878357339031,11.7,11282148.95
+6830,"Yellow-breasted Chat","YBCH","neotrop","foliage glean",0.404534027389594,10.19,6148136.484
+6840,"Hooded Warbler","HOWA","neotrop","foliage glean",0.581233528755966,7.4,2007056.572
+6860,"Canada Warbler","CAWA","neotrop","hover/glean",0.697277689590295,4.165,2759370.52
+6870,"American Redstart","AMRE","neotrop","hover/glean",0.59349589655673,10.94,6658042.054
+7040,"Gray Catbird","GRCA","neotrop","ground glean",0.399835278862129,11.135,6814322.318
+7180,"Carolina Wren","CARW","resid","ground glean",0.413757182184436,8,3218028.633
+7210,"House Wren","HOWR","neotrop","ground glean",0.326736522777858,9.7,25185817.46
+7260,"Brown Creeper","BRCR","short","bark glean",0.702664200245024,5.8,6530049.909
+7270,"White-breasted Nuthatch","WBNU","resid","bark glean",0.461137789331244,10.655,8608157.338
+7290,"Brown-headed Nuthatch","BHNU","resid","bark glean",0.448745552856007,2.9,941956.4317
+7310,"Tufted Titmouse","TUTI","resid","foliage glean",0.423683378546294,8.9,2968700.561
+7350,"Black-capped Chickadee","BCCH","resid","foliage glean",0.480997499830899,7.5,8791416.628
+7360,"Carolina Chickadee","CACH","resid","foliage glean",0.398011450496221,4.94,2238037.319
+7510,"Blue-gray Gnatcatcher","BGGN","neotrop","foliage glean",0.43584909755774,9.145,6585143.843
+7550,"Wood Thrush","WOTH","neotrop","ground glean",0.496180263816116,10.5,3490882.819
+7560,"Veery","VEER","neotrop","ground glean",0.582023437015421,6,3672078.989
+7610,"American Robin","AMRO","short","ground glean",0.380564336781197,11.5,16414385.72

@@ -231,10 +231,7 @@ abund_trend_sig <- abund_trend %>%
 # Trait data
 setwd("C:/Users/gdicecco/Desktop/git/NLCD_fragmentation/")
 setwd("/Users/gracedicecco/Desktop/git/NLCD_fragmentation/")
-traits <- read.csv("traits/spp_traits.csv", stringsAsFactors = F)
-
-traits.short <- traits %>%
-  dplyr::select(Common_name, aou, nHabitats1, nHabitats2, volume)
+temp_range <- read.csv("traits/bbs_aou_temp_range.csv", stringsAsFactors = F)
 
 setwd("//BioArk/HurlbertLab/DiCecco/Data/")
 setwd("/Volumes/hurlbertlab/dicecco/data/")
@@ -362,7 +359,6 @@ env_change <- forest %>%
 # write.csv(env_change, "model/bbs_route_env_change.csv", row.names = F)
 
 clim_hab_poptrend <- abund_trend %>%
-  left_join(dplyr::select(traits.short, -Common_name)) %>%
   left_join(forest, by = "stateroute") %>%
   left_join(climate_wide, by = "stateroute") %>%
   filter(!is.na(propForest))
@@ -595,7 +591,6 @@ forest_allroutes <- forest_ed_allroutes %>%
   bind_rows(forest_ed_canada)
 
 clim_hab_pop_allroutes <- abund_trend %>%
-  left_join(dplyr::select(traits.short, -Common_name)) %>%
   left_join(forest_allroutes, by = "stateroute") %>%
   left_join(climate_wide, by = "stateroute") %>%
   filter(!is.na(propForest))
@@ -608,24 +603,19 @@ env_breadth_allroutes <- clim_hab_pop_allroutes %>%
             patchArea = mean(meanPatchArea),
             std_patch = sd(meanPatchArea))
 
-volume <- traits %>%
-  filter(aou %in% env_breadth_allroutes$aou) %>%
-  left_join(dplyr::select(env_breadth_allroutes, SPEC, aou)) %>%
-  dplyr::select(SPEC, aou, volume)
-
 spp_breadths <- env_breadth_allroutes %>%
   dplyr::select(SPEC, aou, propFor, min_for, max_for) %>%
-  left_join(dplyr::select(env_breadth, SPEC, aou, ed, std_ed)) %>%
-  left_join(dplyr::select(traits, aou, volume))
+  left_join(dplyr::select(env_breadth, SPEC, aou, ed, std_ed))
 
 # Species table for MS supplement
 
 spp_table_traits <- correlates %>%
-  dplyr::select(AOU, CommonName, migclass, Foraging) %>%
+  dplyr::select(AOU, CommonName, migclass, Foraging, Brange_Area_km2) %>%
   left_join(spp_breadths, by = c("AOU" = "aou")) %>%
+  left_join(temp_range, by = c("AOU" = "aou")) %>%
   filter(!is.na(SPEC), SPEC != "CERW") %>%
   ungroup() %>%
-  dplyr::select(AOU, CommonName, SPEC, migclass, Foraging, propFor, volume)
+  dplyr::select(AOU, CommonName, SPEC, migclass, Foraging, propFor, temp_range, Brange_Area_km2)
 
 write.csv(spp_table_traits, "traits/forest_spp_traits_MS.csv", row.names = F)
 
@@ -701,7 +691,6 @@ climate_wide_z <- climate_wide %>%
             .funs = z)
 
 clim_hab_poptrend_z <- abund_trend %>%
-  left_join(dplyr::select(traits.short, -Common_name)) %>%
   left_join(forest_z, by = "stateroute") %>%
   left_join(climate_wide_z, by = "stateroute") %>%
   filter(!is.na(propForest)) %>%
@@ -712,7 +701,7 @@ clim_hab_poptrend_z <- abund_trend %>%
 model_fits <- clim_hab_poptrend_z %>%
   group_by(aou, SPEC) %>%
   nest() %>%
-  mutate(lmFit = map(data, ~{
+  mutate(lmFit = purrr::map(data, ~{
     df <- .
 
     # get species weights matrix
@@ -752,7 +741,7 @@ model_fits <- clim_hab_poptrend_z %>%
     df <- .
     nrow(df)
   }))  %>%
-  mutate(lm_broom = map(lmFit,  ~{
+  mutate(lm_broom = purrr::map(lmFit,  ~{
     mod <- .
     sum <- summary(mod)
     df <- as.data.frame(sum$Coef)
@@ -787,7 +776,7 @@ model_fits <- model_fits %>%
 density_plot <- function(df, variable, label) {
   ggplot(filter(df, term == variable), aes(x = Estimate, fill = sig)) + 
     geom_histogram(bins = 20) + 
-    geom_vline(aes(xintercept = mean(Estimate)), lty = 2, cex = 1) + 
+    geom_vline(aes(xintercept = mean(Estimate)), lty = 2, cex = 1) +
     labs(x = label, y = "Species", fill = "") +
     scale_fill_manual(values = c("p < 0.001" = "#2166AC", 
                                  "0.001 < p < 0.01" = "#67A9CF",
@@ -848,22 +837,18 @@ grid_effects <- plot_grid(deltaED + theme(legend.position = "none"),
 plot_grid(grid_effects, legend, rel_widths = c(2, 0.4))
 ggsave("figures/main_analysis_figs/model_pvals_distributions.pdf", units = "in", height = 9, width = 10)
 
-## Traits and responses 
+#### Trait models ####
 
-forest_traits <- spp_breadths %>%
-  left_join(area_aous) %>%
-  left_join(correlates, by = c("aou" = "AOU"))
-
-spp_traits <- spp_breadths %>%
-  left_join(area_aous) %>%
-  left_join(correlates, by = c("aou" = "AOU")) %>%
+spp_traits <- spp_table_traits %>%
   left_join(model_fits) %>%
+  mutate(foraging_alph = case_when(Foraging == "foliage glean" ~ paste("a", Foraging),
+                                   TRUE ~ Foraging)) %>%
   group_by(term) %>%
   nest() %>%
   filter(!is.na(term)) %>%
   mutate(trait_mod = purrr::map(data, ~{
     df <- .
-    lm(Estimate ~  volume + propFor + migclass + Foraging, data = df)
+    lm(Estimate ~  temp_range + propFor + Brange_Area_km2 + migclass + foraging_alph, data = df)
   }),
   tidy = purrr::map(trait_mod, ~{
     mod <- .
@@ -876,6 +861,8 @@ spp_traits <- spp_breadths %>%
   dplyr::select(term, tidy, r2) %>%
   unnest()
 
+# Temperature range and breeding range size r ~ 0.5
+
 # write.csv(spp_traits, "model/spp_trait_model_output.csv", row.names = F)
 spp_traits <- read.csv("model/spp_trait_model_output.csv", stringsAsFactors = F)
 
@@ -884,9 +871,7 @@ spp_traits_pred <- spp_traits %>%
 
 ### species traits models effect plots
 
-trait_effects <- spp_breadths %>%
-  left_join(area_aous) %>%
-  left_join(correlates, by = c("aou" = "AOU")) %>%
+trait_effects <- spp_table_traits %>%
   left_join(model_fits)
 
 # propFor v deltaED
@@ -897,9 +882,9 @@ ggsave("figures/main_analysis_figs/trait_model_deltaED_propFor.pdf")
 
 # volume v tmin
 
-ggplot(filter(trait_effects, term == "tmin"), aes(x = volume, y = Estimate)) + 
+ggplot(filter(trait_effects, term == "tmin"), aes(x = temp_range, y = Estimate)) + 
   geom_text(aes(label = SPEC)) + geom_smooth(method = "lm", se = F) +
-  labs(y = "Effect of trend in Tmin", x = "Climatic niche breadth")
+  labs(y = "Effect of trend in Tmin", x = "Temperature range")
 ggsave("figures/main_analysis_figs/trait_model_tmin_volume.pdf")
 
 # Range centroid for each species - map of effect sizes for each predictor
@@ -1088,11 +1073,11 @@ tanager_plot <- ggplot(tanager, aes(x = deltaED, y = abundTrend)) + geom_point()
   geom_smooth(method = "lm", se = F) +
   facet_wrap(~tmax_sign) +
   theme(panel.spacing = unit(4, "lines")) +
-  labs(x = "Change in ED", y = "Abundance trend", title = "Summer tanager")
+  labs(x = "Change in edge density", y = "Abundance trend", title = "Summer tanager")
 
 ## Figure for MS
 
-indiv_spp_add <- plot_grid(flicker_plot, bunting_plot, warbler_plot, magnolia_plot, nrow = 2, labels = c("A", "B", "C", "D"))
+indiv_spp_add <- plot_grid(flicker_plot, bunting_plot, magnolia_plot, warbler_plot, nrow = 2, labels = c("A", "B", "C", "D"))
 indiv_spp_multi <- plot_grid(indiv_spp_add, tanager_plot, nrow = 2, rel_heights = c(0.66, 0.33),
                              labels = c(" ", "E", "F"))
 ggsave("figures/main_analysis_figs/indiv_spp_multipanel.pdf", indiv_spp_multi, units = "in", width = 9, height = 10)
