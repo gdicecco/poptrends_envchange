@@ -737,6 +737,15 @@ model_fits <- clim_hab_poptrend_z %>%
 
     spautolm(abundTrend ~ tmax*deltaED + tmin*deltaED + deltaProp, data = df, wt.birds, na.action = na.fail, family = "CAR")
   })) %>%
+  mutate(pred = purrr::map(lmFit, ~{
+    mod <- .
+    data.frame(pred.vals = mod$fit$fitted.values)
+  })) %>%
+  mutate(comb = map2(data, pred, ~bind_cols(.x, .y))) %>%
+  mutate(r2 = map_dbl(comb, ~{
+    df <- .
+    summary(lm(abundTrend ~ pred.vals, df))$r.squared
+  })) %>%
   mutate(nObs = map_dbl(data, ~{
     df <- .
     nrow(df)
@@ -748,7 +757,7 @@ model_fits <- clim_hab_poptrend_z %>%
     df$term = row.names(df)
     df
   })) %>%
-  dplyr::select(aou, SPEC, nObs, lm_broom) %>%
+  dplyr::select(aou, SPEC, nObs, lm_broom, r2) %>%
   unnest() %>%
   filter(nObs > 40) %>% # 1 spp at 38, only one below 40
   filter(term != "(Intercept)") %>%
