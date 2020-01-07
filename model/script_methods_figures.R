@@ -205,33 +205,41 @@ setwd("/Users/gracedicecco/Desktop/git/NLCD_fragmentation/")
 
 #### Figure 1 in manuscript - edge density scale
 nlcd_palette <- c("#0000FF", "#FF9900", "#E5E5CC", "#006600", "#B2B200", "#FFB3CC", "#E5CC99", "#80FFCC", "#FFFFFF")
-low <- tm_shape(EDlow) + tm_raster(palette = nlcd_palette, style = "cat", labels = as.character(newcode$legend), title = "") +
+low <- tm_shape(EDlow) + 
+  tm_raster(palette = nlcd_palette, style = "cat", labels = as.character(newcode$legend), 
+            title = "") + tm_legend(show = F) + 
   tm_scale_bar(size = 2, breaks = c(0, 5)) + 
-  tm_layout(legend.text.size = 1, title = "ED = 0.059\nForest cover = 0.965", 
+  tm_layout(legend.text.size = 1.5, title = "ED = 0.059\nFC = 0.965", 
             title.position = c("left", "bottom"),
-            title.size = 1,
+            title.size = 1.5,
             main.title = "A",
             main.title.fontface = "bold")
-tmap_save(low, "figures/methods_figs/forest_ed_low.tiff")
+# tmap_save(low, "figures/methods_figs/forest_ed_low.tiff")
 
 med <- tm_shape(EDmed) + tm_raster(palette = nlcd_palette, style = "cat") +
   tm_legend(show = F) + tm_scale_bar(size = 2, breaks = c(0, 5)) + 
-  tm_layout(legend.text.size = 1, title = "ED = 0.194\nForest cover = 0.695", 
+  tm_layout(legend.text.size = 1.5, title = "ED = 0.194\nFC = 0.695", 
             title.position = c("left", "bottom"),
-            title.size = 1,
+            title.size = 1.4,
             inner.margins = c(0, 0.13, 0, 0.13),
             main.title = "B",
             main.title.fontface = "bold")
-tmap_save(med, "figures/methods_figs/forest_ed_med.tiff")
+# tmap_save(med, "figures/methods_figs/forest_ed_med.tiff")
 
 high <- tm_shape(EDHigh) + tm_raster(palette = nlcd_palette, style = "cat") +
   tm_legend(show = F)+ tm_scale_bar(size = 2, position = c("RIGHT", "BOTTOM"), breaks = c(0, 5)) + 
-  tm_layout(legend.text.size = 1, title = "ED = 0.328\nForest cover = 0.529", 
-            title.size = 1,
+  tm_layout(legend.text.size = 1.5, title = "ED = 0.328\nFC = 0.529", 
+            title.size = 1.5,
             title.position = c("right", "bottom"),             
             main.title = "C",
             main.title.fontface = "bold")
-tmap_save(high, "figures/methods_figs/forest_ed_high.tiff")
+# tmap_save(high, "figures/methods_figs/forest_ed_high.tiff")
 
-arrange <- tmap_arrange(low, med, high, ncol = 3)
-tmap_save(arrange, "figures/methods_figs/forest_ed_multipanel.pdf", units = "in", height = 6, width = 12)
+legend <- tm_shape(EDlow) + 
+  tm_raster(palette = nlcd_palette, style = "cat", labels = as.character(newcode$legend), 
+            title = "") +
+  tm_layout(legend.only = T, legend.text.size = 2,
+            main.title = " ")
+
+arrange <- tmap_arrange(low, med, high, legend, ncol = 4)
+tmap_save(arrange, "figures/methods_figs/forest_ed_multipanel.pdf", units = "in", height = 6, width = 14)

@@ -794,7 +794,7 @@ density_plot <- function(df, variable, label) {
 }
 
 deltaED <- density_plot(model_fits, "deltaED", "Change in edge density")
-deltaProp <- density_plot(model_fits, "deltaProp", "Change in forest cover") + scale_x_continuous(breaks = c(-0.01, 0, 0.01))
+deltaProp <- density_plot(model_fits, "deltaProp", "Change in forest cover")
 tmin <- density_plot(model_fits, "tmin", "Trend in Tmin")
 tmax <- density_plot(model_fits, "tmax", "Trend in Tmax")
 tmaxED <- density_plot(model_fits, "tmax:deltaED", "Tmax:change in ED")
@@ -981,6 +981,15 @@ clim_hab_poptrend_means <- clim_hab_poptrend_z %>%
      df <- .
      nrow(df)
    }))  %>%
+   mutate(pred = purrr::map(lmFit, ~{
+     mod <- .
+     data.frame(pred.vals = mod$fit$fitted.values)
+   })) %>%
+   mutate(comb = map2(data, pred, ~bind_cols(.x, .y))) %>%
+   mutate(r2 = map_dbl(comb, ~{
+     df <- .
+     summary(lm(abundTrend ~ pred.vals, df))$r.squared
+   })) %>%
    mutate(lm_broom = map(lmFit,  ~{
      mod <- .
      sum <- summary(mod)
@@ -988,7 +997,7 @@ clim_hab_poptrend_means <- clim_hab_poptrend_z %>%
      df$term = row.names(df)
      df
    })) %>%
-   dplyr::select(aou, SPEC, nObs, lm_broom) %>%
+   dplyr::select(aou, SPEC, nObs, lm_broom, r2) %>%
    unnest() %>%
    rename(std.error = `Std. Error`, z.value = `z value`, p.value = `Pr(>|z|)`)
 
@@ -1077,7 +1086,7 @@ magnolia_plot <- ggplot(magnolia, aes(x = tmin, y = abundTrend)) + geom_point() 
 tanager <- clim_hab_poptrend_z %>%
   filter(Common_name == "Summer tanager") 
 
-tanager$tmax_sign <- ifelse(tanager$tmax < 0, "-1.5 < Z-Tmax < 0", "0 < Z-Tmax < 1.7")
+tanager$tmax_sign <- ifelse(tanager$tmax < 0, "Weakest warming trends", "Strongest warming trends")
 tanager_plot <- ggplot(tanager, aes(x = deltaED, y = abundTrend)) + geom_point() + 
   geom_smooth(method = "lm", se = F) +
   facet_wrap(~tmax_sign) +
