@@ -617,7 +617,7 @@ spp_table_traits <- correlates %>%
   ungroup() %>%
   dplyr::select(AOU, CommonName, SPEC, migclass, Foraging, propFor, temp_range, Brange_Area_km2)
 
-write.csv(spp_table_traits, "traits/forest_spp_traits_MS.csv", row.names = F)
+# write.csv(spp_table_traits, "traits/forest_spp_traits_MS.csv", row.names = F)
 
 # Species traits plots
 ed_breadth <- ggplot(env_breadth, aes(x = reorder(SPEC, ed), y = ed, color = SPEC)) +
@@ -857,7 +857,7 @@ spp_traits <- spp_table_traits %>%
   filter(!is.na(term)) %>%
   mutate(trait_mod = purrr::map(data, ~{
     df <- .
-    lm(Estimate ~  temp_range + propFor + Brange_Area_km2 + migclass + foraging_alph, data = df)
+    lm(Estimate ~  temp_range + propFor + log10(Brange_Area_km2) + migclass + foraging_alph, data = df)
   }),
   tidy = purrr::map(trait_mod, ~{
     mod <- .
