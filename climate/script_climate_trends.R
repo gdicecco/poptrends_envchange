@@ -126,15 +126,6 @@ setwd("C:/Users/gdicecco/Desktop/git/NLCD_fragmentation/climate/")
 
 routeDAYMET <- read.csv("bbs_routes_breeding_season_climate.csv", stringsAsFactors = F)
 
-# Confirm DAYMET means match PRISM
-routePRISM <- read.csv("bbs_routes_breeding_season_climate_prism.csv", stringsAsFactors = F)
-
-compare_climate <- routeDAYMET %>%
-  left_join(routePRISM, by = c("stateroute", "year"))
-
-cor(compare_climate$mean_tmax, compare_climate$tmax, use = "pairwise.complete.obs")
-cor(compare_climate$mean_tmin, compare_climate$tmin, use = "pairwise.complete.obs")
-
 # Calculate climate trend at each route
 library(broom)
 library(purrr)
@@ -185,6 +176,5 @@ climate_trends <- routeDAYMET %>%
 climate_trends_write <- climate_trends %>%
   dplyr::select(stateroute, env, climateTrend, trendPval)
 
-setwd("C:/Users/gdicecco/Desktop/git/NLCD_fragmentation/climate/")
-# write.csv(climate_trends_write, "bbs_routes_climate_trends.csv", row.names = F)
-climate_trends <- read.csv("bbs_routes_climate_trends.csv", stringsAsFactors = F)
+# write.csv(climate_trends_write, "climate/bbs_routes_climate_trends.csv", row.names = F)
+climate_trends <- read.csv("climate/bbs_routes_climate_trends.csv", stringsAsFactors = F)
