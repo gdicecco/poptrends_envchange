@@ -1,4 +1,4 @@
-# poptrends_envchange
+# Interaction of climate change and forest fragmentation effects on population trends in forest breeding birds
 
 This project explores the environmental context dependence of bird breeding population trends in the United States and Canada using the North American Breeding Bird Survey.
 
