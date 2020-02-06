@@ -2,6 +2,7 @@
 
 library(tidyverse)
 library(sf)
+library(spdep)
 library(tmap)
 
 abund_trend <- read.csv("model/BBS_abundance_trends.csv", stringsAsFactors = F)
