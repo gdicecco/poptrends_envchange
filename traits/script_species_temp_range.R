@@ -8,13 +8,11 @@ counts <- read.csv("\\\\Bioark.bio.unc.edu\\hurlbertlab\\Databases\\BBS\\2017\\b
 species <- read.csv("\\\\Bioark.bio.unc.edu\\hurlbertlab\\Databases\\BBS\\2017\\bbs_species_20170712.csv")
 weather <- read.csv("\\\\Bioark.bio.unc.edu\\hurlbertlab\\Databases\\BBS\\2017\\bbs_weather_20170712.csv")
 
-bcrs <- c(9, 12, 13, 14, 18, 19, 23, 27, 29) # BCRs of interest
-
 routes$stateroute <- routes$statenum*1000 + routes$route
 weather$stateroute <-weather$statenum*1000 + weather$route
 RT1 <- subset(weather, runtype == 1, select = c("stateroute", "year"))
 RT1.routes <- merge(RT1, routes[ , c("statenum", "stateroute", "latitude", "longitude","bcr")], by = "stateroute", all.x = TRUE)
-routes.short <- subset(RT1.routes, bcr %in% bcrs, select = c("statenum","stateroute", "year", "latitude", "longitude", "bcr"))
+routes.short <- subset(RT1.routes, select = c("statenum","stateroute", "year", "latitude", "longitude", "bcr"))
 counts$stateroute <- counts$statenum*1000 + counts$route
 
 landbirds <- species %>%
