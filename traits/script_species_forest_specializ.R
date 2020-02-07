@@ -17,23 +17,31 @@ clim_hab_poptrend <- abund_trend %>%
 
 ## Read in forest cover data for BBS routes
 
-setwd("\\\\BioArk\\hurlbertlab\\DiCecco\\data\\")
-frags <- read.csv("fragmentation_indices_nlcd_simplified.csv", stringsAsFactors = F)
-frags_ca <- read.csv("fragmentation_indices_canada.csv", stringsAsFactors = F) %>%
+frags <- read.csv("\\\\BioArk\\hurlbertlab\\DiCecco\\data\\fragmentation_indices_nlcd_simplified.csv", stringsAsFactors = F)
+frags_ca <- read.csv("\\\\BioArk\\hurlbertlab\\DiCecco\\data\\fragmentation_indices_canada.csv", stringsAsFactors = F) %>%
   group_by(year, stateroute) %>% 
   mutate(n_zones = as.factor(n_distinct(file))) %>%
   filter(n_zones == 1)
 
+# Landcover legend US
+newcode <- data.frame(code = seq(1,9), 
+                      legend = c("Open water", "Urban", "Barren", "Forest", "Shrubland", 
+                                 "Agricultural", "Grasslands", "Wetlands", "Perennial ice, snow"))
+
+# Landcover legend Canada
+canada_code <- read.csv("landcover-finescale/scripts_canada_landcover/canada_landcover_classification.csv", stringsAsFactors = F)
+colnames(canada_code)[1:2] <- c("legend", "code")
+
 ## Read in species trait data from Hurlbert & White 2007
 
-setwd("//BioArk/HurlbertLab/DiCecco/Data/")
-correlates <- read.csv("Master_RO_Correlates_20110610.csv", stringsAsFactors = F)
+correlates <- read.csv("//BioArk/HurlbertLab/DiCecco/Data/Master_RO_Correlates_20110610.csv", stringsAsFactors = F)
 
 #### Species traits ####
 # Breadth of forest ED and forest cover for area and non-area sensitive species
 
 env_breadth <- clim_hab_poptrend %>%
-  dplyr::group_by(Area_sensitivity, SPEC, aou) %>%
+  left_join(fourletter_codes) %>%
+  dplyr::group_by(SPEC, aou) %>%
   summarize(ed = mean(ED),
             std_ed = sd(ED),
             propFor = mean(propForest),
@@ -71,11 +79,12 @@ forest_allroutes <- forest_ed_allroutes %>%
 
 clim_hab_pop_allroutes <- abund_trend %>%
   left_join(forest_allroutes, by = "stateroute") %>%
-  left_join(climate_wide, by = "stateroute") %>%
+  left_join(dplyr::select(env_change, stateroute, year, tmax, tmin), by = "stateroute") %>%
   filter(!is.na(propForest))
 
 env_breadth_allroutes <- clim_hab_pop_allroutes %>%
-  dplyr::group_by(Area_sensitivity, SPEC, aou) %>%
+  left_join(fourletter_codes) %>%
+  dplyr::group_by(SPEC, aou) %>%
   summarize(propFor = mean(propForest),
             min_for = quantile(propForest, c(0.05))[[1]],
             max_for = quantile(propForest, c(0.95))[[1]],
@@ -87,6 +96,8 @@ spp_breadths <- env_breadth_allroutes %>%
   left_join(dplyr::select(env_breadth, SPEC, aou, ed, std_ed))
 
 # Species table for MS supplement
+
+temp_range <- read.csv("traits/bbs_aou_temp_range.csv", stringsAsFactors = F)
 
 spp_table_traits <- correlates %>%
   dplyr::select(AOU, CommonName, migclass, Foraging, Brange_Area_km2) %>%

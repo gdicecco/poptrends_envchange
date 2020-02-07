@@ -25,10 +25,10 @@ landbirds <- species %>%
 # Observations with RT=1, in BCRs of interest, 1990-present, diurnal land birds
 counts.subs <- counts %>%
   filter(stateroute %in% routes.short$stateroute) %>%
+  filter(rpid == 101) %>%
   filter(year >= 1990) %>%
   filter(aou %in% landbirds$aou)
 
-# Number of species: 367
 length(unique(counts.subs$aou))
 
 require(raster)
@@ -57,7 +57,7 @@ bird_temps <- birds.subs %>%
   mutate(temp_range = purrr::map_dbl(data, ~{
     df <- .
     climate <- raster::extract(climatelayers_ss_cropped, dplyr::select(df, longitude, latitude))
-    quants <- quantile(climate, c(0.05, 0.95))
+    quants <- quantile(climate, c(0.05, 0.95), na.rm = T)
     print(quants)
     (quants[[2]] - quants[[1]])/10
     })) %>%
