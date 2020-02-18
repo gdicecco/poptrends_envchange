@@ -22,7 +22,7 @@ landbirds <- species %>%
   filter(aou < 4160 | aou > 4210) %>%
   filter(aou != 7010)
 
-# Observations with RT=1, in BCRs of interest, 1990-present, diurnal land birds
+# Observations with RT=1, 1990-present, diurnal land birds
 counts.subs <- counts %>%
   filter(stateroute %in% routes.short$stateroute) %>%
   filter(rpid == 101) %>%
