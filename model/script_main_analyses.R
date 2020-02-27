@@ -16,6 +16,8 @@ library(spdep)
 
 ##### Analysis #####
 
+theme_set(theme_classic())
+
 ## Make master data table
 
 abund_trend <- read.csv("model/BBS_abundance_trends.csv", stringsAsFactors = F)
@@ -245,12 +247,12 @@ ggplot(filter(trait_effects, term == "deltaED"), aes(x = propFor, y = Estimate))
   labs(y = "Effect of change in forest edge density", x = "Mean proportion forest cover")
 ggsave("figures/main_analysis_figs/trait_model_deltaED_propFor.pdf")
 
-# volume v tmin
+# propFor v tmin
 
-ggplot(filter(trait_effects, term == "tmin"), aes(x = temp_range, y = Estimate)) + 
+ggplot(filter(trait_effects, term == "tmin"), aes(x = propFor, y = Estimate)) + 
   geom_text(aes(label = SPEC)) + geom_smooth(method = "lm", se = F) +
-  labs(y = "Effect of trend in Tmin", x = "Temperature range")
-ggsave("figures/main_analysis_figs/trait_model_tmin_volume.pdf")
+  labs(y = "Effect of trend in Tmin", x = "Mean proportion forest cover") +theme_classic(base_size = 15)
+ggsave("figures/main_analysis_figs/trait_model_tmin_propFor.pdf")
 
 #### Range position models ####
 
