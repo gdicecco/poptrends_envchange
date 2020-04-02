@@ -248,6 +248,13 @@ newcode <- data.frame(code = seq(1,9),
 canada_code <- read.csv("landcover-finescale/scripts_canada_landcover/canada_landcover_classification.csv", stringsAsFactors = F)
 colnames(canada_code)[1:2] <- c("legend", "code")
 
+# North America map
+
+na_map <- read_sf("landcover-finescale/ne_50m_admin_1_states_provinces_lakes.shp") %>%
+  filter(iso_a2 == "CA" | iso_a2 == "US") %>%
+  filter(name != "Hawaii" & name != "Alaska") %>%
+  st_crop(c(xmin = -141, ymin = 24.5, xmax = -53, ymax = 60))
+
 # Forest fragmentation deltas for US
 # long to wide
 
@@ -353,7 +360,7 @@ forest_transf <- st_transform(forest_routes, crs(na_map))
 hist(clim_hab_poptrend$deltaED)
 hist(clim_hab_poptrend$deltaProp)
 
-cor(clim_hab_poptrend$ED, clim_hab_poptrend$propForest) # -0.32
+cor(clim_hab_poptrend$ED, clim_hab_poptrend$propForest) # -0.3
 cor(clim_hab_poptrend$deltaED, clim_hab_poptrend$deltaProp) # -0.22
 cor(dplyr::select(clim_hab_poptrend, tmin, tmax, deltaED, deltaProp, ED, propForest), use = "pairwise.complete.obs")
 
@@ -392,7 +399,6 @@ bbs_routes_tmax <- tm_shape(na_map) + tm_fill(col = "gray63") + tm_borders(col =
 
 bbs_routes <- tmap_arrange(bbs_routes_forcov, bbs_routes_fored, bbs_routes_tmin, bbs_routes_tmax, nrow = 2)
 
-
 # Histogram legends for each variable
 
 # Add color scale
@@ -401,6 +407,19 @@ dED_quant <- quantile(bbs_routes_forest$deltaED)
 dProp_quant <- quantile(bbs_routes_forest$deltaProp)
 tmin_quant <- quantile(bbs_routes_forest$tmin, na.rm = T)
 tmax_quant <- quantile(bbs_routes_forest$tmax, na.rm = T)
+
+hist_breaks <- function(quantiles, bins) {
+  breaks <- seq(min(quantiles), max(quantiles), length.out = bins)
+  
+  breaks_total <- c(breaks, quantiles) %>% sort()
+  
+  return(unique(breaks_total))
+}
+
+dED_breaks <- hist_breaks(dED_quant, 30)
+dProp_breaks <- hist_breaks(dProp_quant, 30)
+tmin_breaks <- hist_breaks(tmin_quant, 30)
+tmax_breaks <- hist_breaks(tmax_quant, 30)
 
 quantile_group <- function(quantiles, value) {
   case_when(
@@ -416,41 +435,49 @@ bbs_routes_forest_plots <- bbs_routes_forest %>%
          tmin_color = quantile_group(tmin_quant, tmin),
          tmax_color = quantile_group(tmax_quant, tmax))
 
-ED_hist <- ggplot(bbs_routes_forest_plots, aes(x = deltaED, fill = as.factor(dED_color))) + geom_histogram(bins = 50) +
+ED_hist <- ggplot(bbs_routes_forest_plots, aes(x = deltaED, fill = as.factor(dED_color))) + 
+  geom_histogram(breaks = dED_breaks) +
+  geom_vline(aes(xintercept = 0), lty = 2) +
   labs(title = "Change in edge density") +
-  scale_y_continuous(breaks = c(0, 75, 150)) + scale_x_continuous(breaks = c(-0.01, 0, 0.007)) +
+  scale_y_continuous(breaks = c(0, 100, 200, 300)) + scale_x_continuous(breaks = c(-0.01, 0, 0.007)) +
   scale_fill_manual(values = color_scale$dED_hex) +
   theme(text = element_text(size = 12), axis.text = element_text(size = 12),
         axis.title.x = element_blank(), axis.title.y = element_blank(), legend.position = "none")
 
-for_hist <- ggplot(bbs_routes_forest_plots, aes(x = deltaProp, fill = as.factor(dProp_color))) + geom_histogram(bins = 30) +
+for_hist <- ggplot(bbs_routes_forest_plots, aes(x = deltaProp, fill = as.factor(dProp_color))) + 
+  geom_histogram(breaks = dProp_breaks) +
   labs(title = "Change in forest cover") +
+  geom_vline(aes(xintercept = 0), lty = 2) +
   scale_y_continuous(breaks = c(0, 100, 200)) +
   scale_fill_manual(values = color_scale$dProp_hex) +
   theme(text = element_text(size = 12), axis.text = element_text(size = 12),
         axis.title.x = element_blank(), axis.title.y = element_blank(), legend.position = "none")
 
-tmin_hist <- ggplot(bbs_routes_forest_plots, aes(x = tmin, fill = as.factor(tmin_color))) + geom_histogram(bins = 30) +
+tmin_hist <- ggplot(bbs_routes_forest_plots, aes(x = tmin, fill = as.factor(tmin_color))) + 
+  geom_histogram(breaks = tmin_breaks) +
+  geom_vline(aes(xintercept = 0), lty = 2) +
   labs(title = "Trend in Tmin") +
   scale_y_continuous(breaks = c(0, 100, 200)) +
   scale_fill_manual(values = color_scale$temp_hex) +
   theme(text = element_text(size = 12), axis.text = element_text(size = 10),
         axis.title.x = element_blank(), axis.title.y = element_blank(), legend.position = "none")
 
-tmax_hist <- ggplot(bbs_routes_forest_plots, aes(x = tmax, fill = as.factor(tmax_color))) + geom_histogram(bins = 30) +
+tmax_hist <- ggplot(bbs_routes_forest_plots, aes(x = tmax, fill = as.factor(tmax_color))) + 
+  geom_histogram(breaks = tmax_breaks) +
+  geom_vline(aes(xintercept = 0), lty = 2) +
   labs(title = "Trend in Tmax") +
-  scale_y_continuous(breaks = c(0, 100, 200)) +
+  scale_y_continuous(breaks = c(0, 100, 200, 300)) +
   scale_fill_manual(values = color_scale$temp_hex) +
   theme(text = element_text(size = 12), axis.text = element_text(size = 10),
         axis.title.x = element_blank(), axis.title.y = element_blank(), legend.position = "none")
 
 ## Insets
 
-vp_for <- viewport(0.1, 0.59, width = 0.175, height = 0.15)
-vp_ed <- viewport(0.6, 0.59, width = 0.175, height = 0.15)
+vp_for <- viewport(0.1, 0.59, width = 0.175, height = 0.13)
+vp_ed <- viewport(0.6, 0.59, width = 0.175, height = 0.13)
 
-vp_tmin <- viewport(0.1, 0.09, width = 0.175, height = 0.15)
-vp_tmax <- viewport(0.6, 0.09, width = 0.175, height = 0.15)
+vp_tmin <- viewport(0.1, 0.09, width = 0.175, height = 0.13)
+vp_tmax <- viewport(0.6, 0.09, width = 0.175, height = 0.13)
 
 pdf("figures/methods_figs/bbs_routes.pdf", height = 10, width = 12)
 print(bbs_routes)

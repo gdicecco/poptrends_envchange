@@ -28,6 +28,8 @@ fourletter_codes <- read.csv("traits/four_letter_codes_aou.csv", stringsAsFactor
 
 spp_table_traits <- read.csv("traits/forest_spp_traits_MS.csv", stringsAsFactors = F)
 
+routes <- read.csv("model/bbs_routes_20170712.csv", stringsAsFactors = F)
+
 clim_hab_poptrend <- abund_trend %>%
   left_join(env_change, by = "stateroute") %>%
   filter(!is.na(propForest))
@@ -142,8 +144,8 @@ model_fits <- model_fits %>%
 
 density_plot <- function(df, variable, label) {
   ggplot(filter(df, term == variable), aes(x = Estimate, fill = sig)) + 
-    geom_histogram(bins = 20) + 
-    geom_vline(aes(xintercept = mean(Estimate)), lty = 2, cex = 1) +
+    geom_histogram(bins = 20, boundary = 0) + 
+    geom_vline(aes(xintercept = 0), lty = 2, cex = 1) +
     labs(x = label, y = "Species", fill = "") +
     scale_fill_manual(values = c("p < 0.001" = "#2166AC", 
                                  "0.001 < p < 0.01" = "#67A9CF",
@@ -160,9 +162,9 @@ tminED <- density_plot(model_fits, "deltaED:tmin", "Tmin:change in ED")
 
 legend <- get_legend(deltaED)
 
-grid_effects <- plot_grid(deltaED + theme(legend.position = "none"), 
+grid_effects <- plot_grid(deltaED + theme(legend.position = "none") + scale_y_continuous(breaks = c(0, 5, 10)), 
                           deltaProp + theme(legend.position = "none") + ylab(" "), 
-          tmin + theme(legend.position = "none"), 
+          tmin + theme(legend.position = "none") + scale_y_continuous(breaks = c(0, 5, 10, 15)), 
           tmax + theme(legend.position = "none") + ylab(" "), 
           tmaxED + theme(legend.position = "none") + scale_x_continuous(breaks = c(-0.01, 0, 0.01)), 
           tminED + theme(legend.position = "none") + ylab(" "),
@@ -171,7 +173,150 @@ grid_effects <- plot_grid(deltaED + theme(legend.position = "none"),
 plot_grid(grid_effects, legend, rel_widths = c(2, 0.4))
 ggsave("figures/main_analysis_figs/model_effects_distributions.pdf", units = "in", height = 9, width = 10)
 
-## Supplemental figure: p value ranges for each variable
+## Supplemental analysis: Spatial CAR models by species with proportion forest cover interactions
+
+model_fits_forcov <- clim_hab_poptrend_z %>%
+  group_by(aou, SPEC) %>%
+  nest() %>%
+  mutate(lmFit = purrr::map(data, ~{
+    df <- .
+    
+    # get species weights matrix
+    
+    # Coordinates of BBS routes
+    
+    coords_bbs <- df %>%
+      ungroup() %>%
+      dplyr::select(stateroute) %>%
+      distinct() %>%
+      left_join(routes) %>%
+      dplyr::select(stateroute, longitude, latitude)
+    
+    coords_mat <- as.matrix(coords_bbs[, -1])
+    
+    # Calculate nearest neighbors and make spatial neighborhood
+    k0 <- knearneigh(coords_mat, longlat=T, k=1)
+    k1 <- knn2nb(k0)
+    
+    # Find maximum neighbor distance and use this distance to define neighborhoods
+    max.d <- max(unlist(nbdists(k1, coords_mat, longlat=T)))
+    nb0.birds <- dnearneigh(coords_mat, 0, max.d, longlat=T)
+    plot(nb0.birds, coords_mat)
+    
+    # Using a distance threshold of 100km
+    nb1.birds <- dnearneigh(coords_mat,1,100,longlat=T)
+    plot(nb1.birds, coords_mat)
+    
+    # Create spatial weights based on linear distance decay
+    glist.birds <- nbdists(nb0.birds, coords_mat, longlat=T)
+    glist.birds <- lapply(glist.birds, function(x) 1-(x/ceiling(max.d))) # Round up max.d so that all point get weights
+    wt.birds <- nb2listw(nb0.birds, style='B', glist=glist.birds)
+    
+    spautolm(abundTrend ~ tmax*deltaProp + tmin*deltaProp + deltaED, data = df, wt.birds, na.action = na.fail, family = "CAR")
+  })) %>%
+  mutate(pred = purrr::map(lmFit, ~{
+    mod <- .
+    data.frame(pred.vals = mod$fit$fitted.values)
+  })) %>%
+  mutate(comb = map2(data, pred, ~bind_cols(.x, .y))) %>%
+  mutate(r2 = map_dbl(comb, ~{
+    df <- .
+    summary(lm(abundTrend ~ pred.vals, df))$r.squared
+  })) %>%
+  mutate(nObs = map_dbl(data, ~{
+    df <- .
+    nrow(df)
+  }))  %>%
+  mutate(lm_broom = purrr::map(lmFit,  ~{
+    mod <- .
+    sum <- summary(mod)
+    df <- as.data.frame(sum$Coef)
+    df$term = row.names(df)
+    df
+  })) %>%
+  dplyr::select(aou, SPEC, nObs, lm_broom, r2) %>%
+  unnest() %>%
+  filter(nObs > 40) %>% # 1 spp at 38, only one below 40
+  filter(term != "(Intercept)") %>%
+  rename(std.error = `Std. Error`, z.value = `z value`, p.value = `Pr(>|z|)`) %>%
+  mutate(sig = case_when(p.value < 0.05 ~ "p < 0.05",
+                         TRUE ~ "p > 0.05"))
+
+# write.csv(model_fits_forcov, "model/individual_species_model_forest_cover_tables.csv", row.names = F)
+
+model_fits_forcov <- read.csv("model/individual_species_model_forest_cover_tables.csv", stringsAsFactors = F)
+
+## Supplemental figure: species models with forest cover interaction
+
+model_fits_forcov <- model_fits_forcov %>%
+  mutate(sig = case_when(p.value < 0.05 & p.value >= 0.01 ~ "0.01 < p < 0.05",
+                         p.value < 0.01 & p.value >= 0.001 ~ "0.001 < p < 0.01",
+                         p.value < 0.001 ~ "p < 0.001",
+                         TRUE ~ "p > 0.05")) %>%
+  mutate(sig = fct_relevel(sig, c("p < 0.001", "0.001 < p < 0.01", "0.01 < p < 0.05", "p > 0.05"))) %>%
+  mutate(dir = ifelse(Estimate < 0, "Negative effect", "Positive effect"))
+
+density_plot <- function(df, variable, label) {
+  ggplot(filter(df, term == variable), aes(x = Estimate, fill = sig)) + 
+    geom_histogram(bins = 20, boundary = 0) + 
+    geom_vline(aes(xintercept = 0), lty = 2, cex = 1) +
+    labs(x = label, y = "Species", fill = "") +
+    scale_fill_manual(values = c("p < 0.001" = "#2166AC", 
+                                 "0.001 < p < 0.01" = "#67A9CF",
+                                 "0.01 < p < 0.05" = "#D1E5F0",
+                                 "p > 0.05" = "gray"))
+}
+
+deltaED <- density_plot(model_fits_forcov, "deltaED", "Change in edge density")
+deltaProp <- density_plot(model_fits_forcov, "deltaProp", "Change in forest cover")
+tmin <- density_plot(model_fits_forcov, "tmin", "Trend in Tmin")
+tmax <- density_plot(model_fits_forcov, "tmax", "Trend in Tmax")
+tmaxED <- density_plot(model_fits_forcov, "tmax:deltaProp", "Tmax:change in Forest Cover")
+tminED <- density_plot(model_fits_forcov, "deltaProp:tmin", "Tmin:change in Forest Cover")
+
+legend <- get_legend(deltaED)
+
+grid_effects <- plot_grid(deltaED + theme(legend.position = "none") + scale_y_continuous(breaks = c(0, 5, 10)), 
+                          deltaProp + theme(legend.position = "none") + ylab(" "), 
+                          tmin + theme(legend.position = "none") + scale_y_continuous(breaks = c(0, 5, 10, 15)), 
+                          tmax + theme(legend.position = "none") + ylab(" "), 
+                          tmaxED + theme(legend.position = "none") + scale_x_continuous(breaks = c(-0.01, 0, 0.01)), 
+                          tminED + theme(legend.position = "none") + ylab(" "),
+                          nrow = 3,
+                          labels = c("A", "B", "C", "D", "E", "F"))
+plot_grid(grid_effects, legend, rel_widths = c(2, 0.4))
+ggsave("figures/main_analysis_figs/model_effects_distributions_forest_cover.pdf", units = "in", height = 9, width = 10)
+
+## Supplemental figure: species sample size with effect estimates
+
+samplesize_plot <- function(df, variable, label) {
+  ggplot(filter(df, term == variable), aes(x = nObs, y = Estimate)) + 
+    geom_point(cex = 2) +
+    geom_errorbar(aes(ymin = Estimate - 1.96*std.error, ymax = Estimate + 1.96*std.error)) +
+    labs(x = "Sample size", y = label)
+}
+
+deltaED <- samplesize_plot(model_fits, "deltaED", "Change in edge density")
+deltaProp <- samplesize_plot(model_fits, "deltaProp", "Change in forest cover")
+tmin <- samplesize_plot(model_fits, "tmin", "Trend in Tmin")
+tmax <- samplesize_plot(model_fits, "tmax", "Trend in Tmax")
+tmaxED <- samplesize_plot(model_fits, "tmax:deltaED", "Tmax:change in ED")
+tminED <- samplesize_plot(model_fits, "deltaED:tmin", "Tmin:change in ED")
+
+plot_grid(deltaED, 
+                          deltaProp, 
+                          tmin, 
+                          tmax, 
+                          tmaxED, 
+                          tminED,
+                          nrow = 3,
+                          labels = c("A", "B", "C", "D", "E", "F"))
+ggsave("figures/main_analysis_figs/model_effects_samplesizes.pdf", units = "in", height = 9, width = 10)
+
+# Note in methods that 75% of species have more than 200 observations
+length(sample_sizes$nObs[sample_sizes$nObs > 200])/length(sample_sizes$nObs)
+
+## Supplemental figure: p value ranges for each variable (edge density model)
 
 pval_plot <- function(df, variable, label) {
   ggplot(filter(df, term == variable), aes(x = p.value, fill = dir)) + 
