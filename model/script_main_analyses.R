@@ -287,6 +287,17 @@ grid_effects <- plot_grid(deltaED + theme(legend.position = "none") + scale_y_co
 plot_grid(grid_effects, legend, rel_widths = c(2, 0.4))
 ggsave("figures/main_analysis_figs/model_effects_distributions_forest_cover.pdf", units = "in", height = 9, width = 10)
 
+## Supplemental figure: relationship between estimates of forest cover and estimates of forest edge density
+
+forest_effects <- model_fits %>%
+  dplyr::select(SPEC, Estimate, term) %>%
+  pivot_wider(names_from = term, values_from = Estimate)
+
+ggplot(forest_effects, aes(x = deltaED, y = deltaProp)) + geom_point() +
+  geom_vline(xintercept = 0) + geom_hline(yintercept = 0) +
+  labs(x = "Effect of change in edge density", y = "Effect of change in forest cover")
+ggsave("figures/main_analysis_figs/deltaED_vs_deltaProp_effect.pdf")
+
 ## Supplemental figure: species sample size with effect estimates
 
 samplesize_plot <- function(df, variable, label) {
