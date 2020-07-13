@@ -13,6 +13,7 @@ library(sf)
 library(forcats)
 library(grid)
 library(spdep)
+library(spatialreg)
 
 ##### Analysis #####
 
@@ -23,6 +24,9 @@ theme_set(theme_classic())
 abund_trend <- read.csv("model/BBS_abundance_trends.csv", stringsAsFactors = F)
 
 env_change <- read.csv("model/bbs_route_env_change.csv", stringsAsFactors = F)
+
+routes <- read.csv("model/bbs_routes_20170712.csv", stringsAsFactors = F)
+routes$stateroute <- routes$statenum*1000 + routes$route
 
 fourletter_codes <- read.csv("traits/four_letter_codes_aou.csv", stringsAsFactors = F)
 
@@ -59,6 +63,10 @@ clim_hab_poptrend_z <- abund_trend %>%
 model_fits <- clim_hab_poptrend_z %>%
   group_by(aou, SPEC) %>%
   nest() %>%
+  mutate(nObs = map_dbl(data, ~{
+    df <- .
+    nrow(df)
+  })) %>%
   mutate(lmFit = purrr::map(data, ~{
     df <- .
 
@@ -94,20 +102,52 @@ model_fits <- clim_hab_poptrend_z %>%
     wt.birds <- nb2listw(nb0.birds, style='B', glist=glist.birds)
 
     spautolm(abundTrend ~ tmax*deltaED + tmin*deltaED + deltaProp, data = df, wt.birds, na.action = na.fail, family = "CAR")
+  }),
+  lmFit_int_only = purrr::map(data, ~{
+    df <- .
+    
+    # get species weights matrix
+    
+    # Coordinates of BBS routes
+    
+    coords_bbs <- df %>%
+      ungroup() %>%
+      dplyr::select(stateroute) %>%
+      distinct() %>%
+      left_join(routes) %>%
+      dplyr::select(stateroute, longitude, latitude)
+    
+    coords_mat <- as.matrix(coords_bbs[, -1])
+    
+    # Calculate nearest neighbors and make spatial neighborhood
+    k0 <- knearneigh(coords_mat, longlat=T, k=1)
+    k1 <- knn2nb(k0)
+    
+    # Find maximum neighbor distance and use this distance to define neighborhoods
+    max.d <- max(unlist(nbdists(k1, coords_mat, longlat=T)))
+    nb0.birds <- dnearneigh(coords_mat, 0, max.d, longlat=T)
+    plot(nb0.birds, coords_mat)
+    
+    # Using a distance threshold of 100km
+    nb1.birds <- dnearneigh(coords_mat,1,100,longlat=T)
+    plot(nb1.birds, coords_mat)
+    
+    # Create spatial weights based on linear distance decay
+    glist.birds <- nbdists(nb0.birds, coords_mat, longlat=T)
+    glist.birds <- lapply(glist.birds, function(x) 1-(x/ceiling(max.d))) # Round up max.d so that all point get weights
+    wt.birds <- nb2listw(nb0.birds, style='B', glist=glist.birds)
+    
+    spautolm(abundTrend ~ 1, data = df, wt.birds, na.action = na.fail, family = "CAR")
   })) %>%
-  mutate(pred = purrr::map(lmFit, ~{
+  mutate(LL = purrr::map_dbl(lmFit, ~{
     mod <- .
-    data.frame(pred.vals = mod$fit$fitted.values)
-  })) %>%
-  mutate(comb = map2(data, pred, ~bind_cols(.x, .y))) %>%
-  mutate(r2 = map_dbl(comb, ~{
-    df <- .
-    summary(lm(abundTrend ~ pred.vals, df))$r.squared
-  })) %>%
-  mutate(nObs = map_dbl(data, ~{
-    df <- .
-    nrow(df)
-  }))  %>%
+    mod$LL
+  }),
+  LL_int = purrr::map_dbl(lmFit_int_only, ~{
+    mod <- .
+    mod$LL
+  }),
+  r2 = 1 - exp(-2/(nObs*(LL - LL_int)))) %>%
   mutate(lm_broom = purrr::map(lmFit,  ~{
     mod <- .
     sum <- summary(mod)
@@ -126,7 +166,7 @@ model_fits <- clim_hab_poptrend_z %>%
 range(model_fits$nObs)
 # 67 species
 
-# write.csv(model_fits, "model/individual_species_model_tables.csv", row.names = F)
+write.csv(model_fits, "model/individual_species_model_tables.csv", row.names = F)
 
 model_fits <- read.csv("model/individual_species_model_tables.csv", stringsAsFactors = F)
 
