@@ -156,9 +156,16 @@ model_fits <- clim_hab_poptrend_z %>%
     df <- as.data.frame(sum$Coef)
     df$term = row.names(df)
     df
+  }),
+  deltaAIC = purrr::map2_dbl(lmFit, lmFit_int_only, ~{
+    mod1 <- .x
+    mod2 <- .y
+    
+    AIC(mod2) - AIC(mod1)
+    
   })) %>%
-  dplyr::select(aou, SPEC, nObs, lm_broom, r2) %>%
-  unnest() %>%
+  dplyr::select(aou, SPEC, nObs, lm_broom, r2, deltaAIC) %>%
+  unnest(cols = c(lm_broom)) %>%
   filter(nObs > 40) %>% # 1 spp at 38, only one below 40
   filter(term != "(Intercept)") %>%
   rename(std.error = `Std. Error`, z.value = `z value`, p.value = `Pr(>|z|)`) %>%
