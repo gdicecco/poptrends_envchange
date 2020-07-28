@@ -13,7 +13,6 @@ library(sf)
 library(forcats)
 library(grid)
 library(spdep)
-library(spatialreg)
 
 ##### Analysis #####
 
@@ -25,14 +24,12 @@ abund_trend <- read.csv("model/BBS_abundance_trends.csv", stringsAsFactors = F)
 
 env_change <- read.csv("model/bbs_route_env_change.csv", stringsAsFactors = F)
 
-routes <- read.csv("model/bbs_routes_20170712.csv", stringsAsFactors = F)
-routes$stateroute <- routes$statenum*1000 + routes$route
-
 fourletter_codes <- read.csv("traits/four_letter_codes_aou.csv", stringsAsFactors = F)
 
 spp_table_traits <- read.csv("traits/forest_spp_traits_MS.csv", stringsAsFactors = F)
 
 routes <- read.csv("model/bbs_routes_20170712.csv", stringsAsFactors = F)
+routes$stateroute <- routes$statenum*1000 + routes$route
 
 clim_hab_poptrend <- abund_trend %>%
   left_join(env_change, by = "stateroute") %>%
@@ -65,10 +62,6 @@ clim_hab_poptrend_z <- abund_trend %>%
 model_fits <- clim_hab_poptrend_z %>%
   group_by(aou, SPEC) %>%
   nest() %>%
-  mutate(nObs = map_dbl(data, ~{
-    df <- .
-    nrow(df)
-  })) %>%
   mutate(lmFit = purrr::map(data, ~{
     df <- .
 
@@ -104,68 +97,29 @@ model_fits <- clim_hab_poptrend_z %>%
     wt.birds <- nb2listw(nb0.birds, style='B', glist=glist.birds)
 
     spautolm(abundTrend ~ tmax*deltaED + tmin*deltaED + deltaProp, data = df, wt.birds, na.action = na.fail, family = "CAR")
-  }),
-  lmFit_int_only = purrr::map(data, ~{
-    df <- .
-    
-    # get species weights matrix
-    
-    # Coordinates of BBS routes
-    
-    coords_bbs <- df %>%
-      ungroup() %>%
-      dplyr::select(stateroute) %>%
-      distinct() %>%
-      left_join(routes) %>%
-      dplyr::select(stateroute, longitude, latitude)
-    
-    coords_mat <- as.matrix(coords_bbs[, -1])
-    
-    # Calculate nearest neighbors and make spatial neighborhood
-    k0 <- knearneigh(coords_mat, longlat=T, k=1)
-    k1 <- knn2nb(k0)
-    
-    # Find maximum neighbor distance and use this distance to define neighborhoods
-    max.d <- max(unlist(nbdists(k1, coords_mat, longlat=T)))
-    nb0.birds <- dnearneigh(coords_mat, 0, max.d, longlat=T)
-    plot(nb0.birds, coords_mat)
-    
-    # Using a distance threshold of 100km
-    nb1.birds <- dnearneigh(coords_mat,1,100,longlat=T)
-    plot(nb1.birds, coords_mat)
-    
-    # Create spatial weights based on linear distance decay
-    glist.birds <- nbdists(nb0.birds, coords_mat, longlat=T)
-    glist.birds <- lapply(glist.birds, function(x) 1-(x/ceiling(max.d))) # Round up max.d so that all point get weights
-    wt.birds <- nb2listw(nb0.birds, style='B', glist=glist.birds)
-    
-    spautolm(abundTrend ~ 1, data = df, wt.birds, na.action = na.fail, family = "CAR")
   })) %>%
-  mutate(LL = purrr::map_dbl(lmFit, ~{
+  mutate(pred = purrr::map(lmFit, ~{
     mod <- .
-    mod$LL
-  }),
-  LL_int = purrr::map_dbl(lmFit_int_only, ~{
-    mod <- .
-    mod$LL
-  }),
-  r2 = 1 - exp(-2/(nObs*(LL - LL_int)))) %>%
+    data.frame(pred.vals = mod$fit$fitted.values)
+  })) %>%
+  mutate(comb = map2(data, pred, ~bind_cols(.x, .y))) %>%
+  mutate(r2 = map_dbl(comb, ~{
+    df <- .
+    summary(lm(abundTrend ~ pred.vals, df))$r.squared
+  })) %>%
+  mutate(nObs = map_dbl(data, ~{
+    df <- .
+    nrow(df)
+  }))  %>%
   mutate(lm_broom = purrr::map(lmFit,  ~{
     mod <- .
     sum <- summary(mod)
     df <- as.data.frame(sum$Coef)
     df$term = row.names(df)
     df
-  }),
-  deltaAIC = purrr::map2_dbl(lmFit, lmFit_int_only, ~{
-    mod1 <- .x
-    mod2 <- .y
-    
-    AIC(mod2) - AIC(mod1)
-    
   })) %>%
-  dplyr::select(aou, SPEC, nObs, lm_broom, r2, deltaAIC) %>%
-  unnest(cols = c(lm_broom)) %>%
+  dplyr::select(aou, SPEC, nObs, lm_broom, r2) %>%
+  unnest() %>%
   filter(nObs > 40) %>% # 1 spp at 38, only one below 40
   filter(term != "(Intercept)") %>%
   rename(std.error = `Std. Error`, z.value = `z value`, p.value = `Pr(>|z|)`) %>%
@@ -225,10 +179,6 @@ ggsave("figures/main_analysis_figs/model_effects_distributions.pdf", units = "in
 model_fits_forcov <- clim_hab_poptrend_z %>%
   group_by(aou, SPEC) %>%
   nest() %>%
-  mutate(nObs = map_dbl(data, ~{
-    df <- .
-    nrow(df)
-  }))  %>%
   mutate(lmFit = purrr::map(data, ~{
     df <- .
     
@@ -264,59 +214,20 @@ model_fits_forcov <- clim_hab_poptrend_z %>%
     wt.birds <- nb2listw(nb0.birds, style='B', glist=glist.birds)
     
     spautolm(abundTrend ~ tmax*deltaProp + tmin*deltaProp + deltaED, data = df, wt.birds, na.action = na.fail, family = "CAR")
-  }), 
-  lmFit_int_only = purrr::map(data, ~{
+  })) %>%
+  mutate(pred = purrr::map(lmFit, ~{
+    mod <- .
+    data.frame(pred.vals = mod$fit$fitted.values)
+  })) %>%
+  mutate(comb = map2(data, pred, ~bind_cols(.x, .y))) %>%
+  mutate(r2 = map_dbl(comb, ~{
     df <- .
-    
-    # get species weights matrix
-    
-    # Coordinates of BBS routes
-    
-    coords_bbs <- df %>%
-      ungroup() %>%
-      dplyr::select(stateroute) %>%
-      distinct() %>%
-      left_join(routes) %>%
-      dplyr::select(stateroute, longitude, latitude)
-    
-    coords_mat <- as.matrix(coords_bbs[, -1])
-    
-    # Calculate nearest neighbors and make spatial neighborhood
-    k0 <- knearneigh(coords_mat, longlat=T, k=1)
-    k1 <- knn2nb(k0)
-    
-    # Find maximum neighbor distance and use this distance to define neighborhoods
-    max.d <- max(unlist(nbdists(k1, coords_mat, longlat=T)))
-    nb0.birds <- dnearneigh(coords_mat, 0, max.d, longlat=T)
-    plot(nb0.birds, coords_mat)
-    
-    # Using a distance threshold of 100km
-    nb1.birds <- dnearneigh(coords_mat,1,100,longlat=T)
-    plot(nb1.birds, coords_mat)
-    
-    # Create spatial weights based on linear distance decay
-    glist.birds <- nbdists(nb0.birds, coords_mat, longlat=T)
-    glist.birds <- lapply(glist.birds, function(x) 1-(x/ceiling(max.d))) # Round up max.d so that all point get weights
-    wt.birds <- nb2listw(nb0.birds, style='B', glist=glist.birds)
-    
-    spautolm(abundTrend ~ 1, data = df, wt.birds, na.action = na.fail, family = "CAR")
+    summary(lm(abundTrend ~ pred.vals, df))$r.squared
   })) %>%
-  mutate(LL = purrr::map_dbl(lmFit, ~{
-    mod <- .
-    mod$LL
-  }),
-  LL_int = purrr::map_dbl(lmFit_int_only, ~{
-    mod <- .
-    mod$LL
-  }),
-  r2 = 1 - exp(-2/(nObs*(LL - LL_int)))) %>%
-  mutate(lm_broom = purrr::map(lmFit,  ~{
-    mod <- .
-    sum <- summary(mod)
-    df <- as.data.frame(sum$Coef)
-    df$term = row.names(df)
-    df
-  })) %>%
+  mutate(nObs = map_dbl(data, ~{
+    df <- .
+    nrow(df)
+  }))  %>%
   mutate(lm_broom = purrr::map(lmFit,  ~{
     mod <- .
     sum <- summary(mod)
@@ -516,13 +427,9 @@ clim_hab_poptrend_means <- clim_hab_poptrend_z %>%
 
 ## Individual models of Tmin and Tmax with interactions with breeding season mean Tmin and Tmax over study period
 
-model_fits_position <- clim_hab_poptrend_means %>%
+ model_fits_position <- clim_hab_poptrend_means %>%
    group_by(aou, SPEC) %>%
    nest() %>%
-   mutate(nObs = map_dbl(data, ~{
-     df <- .
-     nrow(df)
-   })) %>%
    mutate(lmFit = map(data, ~{
      df <- .
 
@@ -558,59 +465,20 @@ model_fits_position <- clim_hab_poptrend_means %>%
      wt.birds <- nb2listw(nb0.birds, style='B', glist=glist.birds)
 
      spautolm(abundTrend ~ tmax*mean_tmax + tmin*mean_tmin, data = df, wt.birds, na.action = na.fail, family = "CAR")
-   }), 
-   lmFit_int_only = purrr::map(data, ~{
-     df <- .
-     
-     # get species weights matrix
-     
-     # Coordinates of BBS routes
-     
-     coords_bbs <- df %>%
-       ungroup() %>%
-       dplyr::select(stateroute) %>%
-       distinct() %>%
-       left_join(routes) %>%
-       dplyr::select(stateroute, longitude, latitude)
-     
-     coords_mat <- as.matrix(coords_bbs[, -1])
-     
-     # Calculate nearest neighbors and make spatial neighborhood
-     k0 <- knearneigh(coords_mat, longlat=T, k=1)
-     k1 <- knn2nb(k0)
-     
-     # Find maximum neighbor distance and use this distance to define neighborhoods
-     max.d <- max(unlist(nbdists(k1, coords_mat, longlat=T)))
-     nb0.birds <- dnearneigh(coords_mat, 0, max.d, longlat=T)
-     plot(nb0.birds, coords_mat)
-     
-     # Using a distance threshold of 100km
-     nb1.birds <- dnearneigh(coords_mat,1,100,longlat=T)
-     plot(nb1.birds, coords_mat)
-     
-     # Create spatial weights based on linear distance decay
-     glist.birds <- nbdists(nb0.birds, coords_mat, longlat=T)
-     glist.birds <- lapply(glist.birds, function(x) 1-(x/ceiling(max.d))) # Round up max.d so that all point get weights
-     wt.birds <- nb2listw(nb0.birds, style='B', glist=glist.birds)
-     
-     spautolm(abundTrend ~ 1, data = df, wt.birds, na.action = na.fail, family = "CAR")
    })) %>%
-     mutate(LL = purrr::map_dbl(lmFit, ~{
-       mod <- .
-       mod$LL
-     }),
-     LL_int = purrr::map_dbl(lmFit_int_only, ~{
-       mod <- .
-       mod$LL
-     }),
-     r2 = 1 - exp(-2/(nObs*(LL - LL_int)))) %>%
-     mutate(lm_broom = purrr::map(lmFit,  ~{
-       mod <- .
-       sum <- summary(mod)
-       df <- as.data.frame(sum$Coef)
-       df$term = row.names(df)
-       df
-     })) %>%
+   mutate(nObs = map_dbl(data, ~{
+     df <- .
+     nrow(df)
+   }))  %>%
+   mutate(pred = purrr::map(lmFit, ~{
+     mod <- .
+     data.frame(pred.vals = mod$fit$fitted.values)
+   })) %>%
+   mutate(comb = map2(data, pred, ~bind_cols(.x, .y))) %>%
+   mutate(r2 = map_dbl(comb, ~{
+     df <- .
+     summary(lm(abundTrend ~ pred.vals, df))$r.squared
+   })) %>%
    mutate(lm_broom = map(lmFit,  ~{
      mod <- .
      sum <- summary(mod)
