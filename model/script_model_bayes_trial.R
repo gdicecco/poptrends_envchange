@@ -2,6 +2,7 @@
 
 library(tidyverse)
 library(rstan)
+library(StanHeaders)
 # library(brms)
 
 options(mc.cores = parallel::detectCores())
