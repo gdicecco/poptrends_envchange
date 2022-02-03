@@ -18,10 +18,10 @@ library(spdep)
 
 # Bird population data
 ## BBS 2017 Version
-routes <- read.csv("\\\\BioArk\\HurlbertLab\\Databases\\BBS\\2017\\bbs_routes_20170712.csv")
-counts <- read.csv("\\\\BioArk\\hurlbertlab\\Databases\\BBS\\2017\\bbs_counts_20170712.csv")
-species <- read.csv("\\\\BioArk\\hurlbertlab\\Databases\\BBS\\2017\\bbs_species_20170712.csv")
-weather <- read.csv("\\\\BioArk\\hurlbertlab\\Databases\\BBS\\2017\\bbs_weather_20170712.csv")
+routes <- read.csv("/Volumes/HurlbertLab/Databases/BBS/2017/bbs_routes_20170712.csv")
+counts <- read.csv("/Volumes/HurlbertLab/Databases/BBS/2017/bbs_counts_20170712.csv")
+species <- read.csv("/Volumes/HurlbertLab/Databases/BBS/2017/bbs_species_20170712.csv")
+weather <- read.csv("/Volumes/HurlbertLab/Databases/BBS/2017/bbs_weather_20170712.csv")
 
 routes$stateroute <- routes$statenum*1000 + routes$route
 weather$stateroute <-weather$statenum*1000 + weather$route
@@ -34,7 +34,7 @@ spp_codes <- read.csv("traits/four_letter_codes_birdspp.csv", stringsAsFactors =
 spp_codes$common_name_lower <- tolower(spp_codes$COMMONNAME)
 
 # subset routes that are between 38000 and 42000 m, no Alaska
-setwd("\\\\Bioark.bio.unc.edu/hurlbertlab/")
+setwd("/Volumes/HurlbertLab/")
 
 ca_routes <- read_sf("DiCecco/nlcd_frag_proj_shapefiles/bbs_canada_route_areas.shp") %>%
   dplyr::select(rteno, RTENAME, STATUS, geometry)
@@ -73,7 +73,7 @@ routes.short <- RT1.routes %>%
 # 1834 routes
 
 # Subset species: forest breeding birds
-
+setwd("/Users/gracedicecco/git/poptrend_envchange/")
 area_sensitive <- read.csv("traits/area-sensitivity-forest-birds-Bouliner1998.csv", stringsAsFactors = F)
 area_sensitive <- area_sensitive[-12, -c(4)]
 
@@ -125,6 +125,10 @@ obs_years <- weather %>%
   })) %>%
   unnest() %>%
   dplyr::select(stateroute, year, first_yr)
+
+bbs_subset_mod <- counts.subs %>%
+  left_join(obs_years, by = c('stateroute', 'year'))
+write.csv(bbs_subset_mod, "model/BBS_counts_model.csv", row.names = F)
 
 # abundance trends read in
 # 1990-2010 for Canada, 1992-2016 for US
