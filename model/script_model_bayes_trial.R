@@ -6,6 +6,8 @@ library(brms)
 
 options(mc.cores = 4)
 
+setwd("/proj/hurlbertlab/gdicecco/poptrends_envchange")
+
 ## Data to use
 bbs_env <- read_csv("model/bbs_route_env_change.csv")
 
