@@ -7,7 +7,7 @@
 #SBATCH --mem-per-cpu=10G
 
 # Load modules
-module load r/4.0.1
+module load r/4.1.0
 module load gcc/6.3.0
 
 # Run rscript
