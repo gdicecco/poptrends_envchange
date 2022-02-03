@@ -4,7 +4,7 @@ library(tidyverse)
 library(rstan)
 # library(brms)
 
-options(mc.cores = 4)
+options(mc.cores = parallel::detectCores())
 
 setwd("/proj/hurlbertlab/gdicecco/poptrends_envchange")
 
