@@ -2,7 +2,7 @@
 
 library(tidyverse)
 library(rstan)
-library(brms)
+# library(brms)
 
 options(mc.cores = 4)
 
