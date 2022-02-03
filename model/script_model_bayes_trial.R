@@ -91,7 +91,6 @@ abund_fit <- stan(file='model/bbs_abund_mod_env.stan',
                   data = abund_data,
                   iter =(n_sam+n_warmup), 
                   warmup=n_warmup,
-                  cores = 4,
                 chains = n_chain,
               control = list(adapt_delta = 0.96, max_treedepth = 12, stepsize = 0.004))
 
