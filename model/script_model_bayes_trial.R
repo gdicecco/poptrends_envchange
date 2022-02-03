@@ -92,4 +92,7 @@ abund_fit <- stan(file='model/bbs_abund_mod_env.stan',
                   cores = 4,
                 chains = n_chain,
               control = list(adapt_delta = 0.96, max_treedepth = 12, stepsize = 0.004))
+
+saveRDS(abund_fit, "model/abund_bayes_fit.rds")
+
  
