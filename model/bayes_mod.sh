@@ -8,6 +8,7 @@
 
 # Load modules
 module load r/4.0.1
+module load gcc/6.3.0
 
 # Run rscript
 Rscript script_model_bayes_trial.R
